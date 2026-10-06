@@ -25,7 +25,7 @@ from ce_db.models.videos import Video, VideoVersion
 from ce_db.projections import rebuild_projections
 from ce_db.repository import OrgContext
 
-__all__ = ["PASSED_APPROVAL", "insert_derived_version", "passed_approval"]
+__all__ = ["PASSED_APPROVAL", "insert_derived_version", "next_version_number", "passed_approval"]
 
 PASSED_APPROVAL = frozenset(
     {
@@ -36,6 +36,21 @@ PASSED_APPROVAL = frozenset(
         VersionState.NEEDS_REVIEW.value,
     }
 )
+
+
+async def next_version_number(session: AsyncSession, org_id: UUID, video_id: UUID) -> int:
+    """MAX(number) + 1 under the video row's lock: planning, replans and edit applies of one video run
+    in different jobs, and without the lock two of them computed the same number and one failed on
+    `uq_video_versions_video_id_number` (audit A4). The lock is held until the caller commits."""
+    await session.execute(sa.select(Video.id).where(Video.org_id == org_id, Video.id == video_id).with_for_update())
+    current = (
+        await session.execute(
+            sa.select(sa.func.coalesce(sa.func.max(VideoVersion.number), 0)).where(
+                VideoVersion.org_id == org_id, VideoVersion.video_id == video_id
+            )
+        )
+    ).scalar_one()
+    return int(current) + 1
 
 
 async def passed_approval(session: AsyncSession, org_id: UUID, version: VideoVersion) -> bool:
@@ -97,13 +112,7 @@ async def insert_derived_version(
     spec = VideoSpec.model_validate(data)
     if approved is None:
         approved = await passed_approval(session, org_id, source)
-    number = (
-        await session.execute(
-            sa.select(sa.func.coalesce(sa.func.max(VideoVersion.number), 0)).where(
-                VideoVersion.org_id == org_id, VideoVersion.video_id == target_video
-            )
-        )
-    ).scalar_one() + 1
+    number = await next_version_number(session, org_id, target_video)
     dumped = spec.model_dump(mode="json")
     version = VideoVersion(
         id=new_version_id,

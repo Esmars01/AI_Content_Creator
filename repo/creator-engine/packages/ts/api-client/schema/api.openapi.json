@@ -4566,6 +4566,7 @@
               "format": "uuid",
               "type": "string"
             },
+            "maxItems": 50,
             "title": "Sources",
             "type": "array"
           },

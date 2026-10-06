@@ -80,6 +80,7 @@ class ApiHarness:
         self._worker_task: Any = None
         self._exec: Any = None
         services.workflows.before_start = self._ensure_worker
+        services.workflows.track = True  # tests wait for every workflow they started (drain)
 
     async def _ensure_worker(self) -> None:
         if self._worker is not None:

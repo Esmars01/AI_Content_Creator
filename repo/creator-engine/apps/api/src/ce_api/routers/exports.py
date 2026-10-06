@@ -556,6 +556,13 @@ async def create_export(
         session, principal, request, ttl_s=services.settings.idempotency_ttl_s, now=services.clock()
     )
     if replay is not None:
+        if replay.status == 201 and isinstance(replay.body, dict) and replay.body.get("id"):
+            # The stored answer's presigned URLs expire after presign_ttl_s, the idempotency record only
+            # after a day: a retry gets fresh downloads of the same export, never dead links (audit A7).
+            row = await get_scoped(session, Export, principal.ctx, UUID(str(replay.body["id"])), "export")
+            return JSONResponse(
+                (await _with_downloads(services, session, principal, row)).model_dump(mode="json"), status_code=201
+            )
         return JSONResponse(replay.body, status_code=replay.status)
     render = await get_scoped(session, Render, principal.ctx, render_id, "render")
     version = await get_scoped(session, VideoVersion, principal.ctx, render.version_id, "version")

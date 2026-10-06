@@ -140,6 +140,12 @@ async def test_render_requests_need_a_ready_version_and_known_presets(
         f"/v1/versions/{ready['version_id']}/renders", json={"preset_ids": ["youtube_1920x1080_30"]}
     )
     assert ok.status_code == 202
+    # Regression (audit A3): a second request while the first render job is queued would race it on
+    # the version's render rows (duplicate rows break that preset for good)
+    second = await owner.client.post(
+        f"/v1/versions/{ready['version_id']}/renders", json={"preset_ids": ["youtube_1920x1080_30"]}
+    )
+    assert second.status_code == 409
     await harness.services.drain()
     (workflow, arg, workflow_id) = started[0]
     assert workflow == "RenderWorkflow" and arg["preset_ids"] == ["youtube_1920x1080_30"]

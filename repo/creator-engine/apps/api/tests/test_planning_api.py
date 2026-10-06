@@ -130,6 +130,11 @@ async def test_create_video_validates_and_starts_the_plan_workflow(harness: ApiH
     sources = await editor.client.post(path, json={"input": "x", "sources": [str(uuid.uuid4())]}, headers=key())
     # Phase 12: persistent sources are accepted when they are ingested sources of this project
     assert sources.status_code == 422 and sources.json()["issues"][0]["code"] == "unknown_source"
+    # Regression (audit A6): more sources than the Director's PlanRequest takes was a 500
+    many = await editor.client.post(
+        path, json={"input": "x", "sources": [str(uuid.uuid4()) for _ in range(51)]}, headers=key()
+    )
+    assert many.status_code == 422, many.text
     cast = await editor.client.post(
         path, json={"input": "x", "cast": [{"creator_id": str(uuid.uuid4())}]}, headers=key()
     )

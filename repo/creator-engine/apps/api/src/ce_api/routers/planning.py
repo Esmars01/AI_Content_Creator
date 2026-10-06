@@ -31,7 +31,7 @@ from ce_director.models import CastRequest, PlanRequest
 from ce_storage.content import ContentStore
 from fastapi import APIRouter, BackgroundTasks, Request
 from fastapi.responses import JSONResponse
-from pydantic import Field
+from pydantic import Field, ValidationError
 
 from ce_api.common import audit, begin_idempotent, finish_idempotent
 from ce_api.deps import DbSession, Reader, ServicesDep, Writer
@@ -87,7 +87,9 @@ class CreateVideo(Body):
     language: str | None = None
     quality_tier: Literal["draft", "final"] = "draft"
     style: StyleOptions = Field(default_factory=StyleOptions)
-    sources: list[UUID] = Field(default_factory=list, description="persistent research sources (Phase 12)")
+    sources: list[UUID] = Field(
+        default_factory=list, max_length=50, description="persistent research sources (Phase 12)"
+    )
     sources_policy: Literal["open", "closed_book"] | None = None
     budget_usd: float | None = Field(default=None, ge=0)
     advanced: AdvancedOptions = Field(default_factory=AdvancedOptions)
@@ -370,7 +372,12 @@ async def create_video(
         return JSONResponse(replay.body, status_code=replay.status)
     await get_scoped(session, Project, principal.ctx, project_id, "project")
     await _check_sources(session, principal.org_id, project_id, body.sources)
-    plan_request = body.to_request()
+    try:
+        plan_request = body.to_request()
+    except ValidationError as exc:
+        # The Director's PlanRequest is stricter than this body in places: answer 422, never a 500.
+        issues = [Issue("invalid", e["msg"], path="/" + "/".join(str(p) for p in e["loc"])) for e in exc.errors()]
+        raise InvalidInputError("the request does not form a valid plan request", issues=issues) from exc
     _check_request(services, plan_request)
     for member in body.cast:
         await get_scoped(session, Creator, principal.ctx, member.creator_id, "creator")

@@ -125,7 +125,9 @@ VERSION_STATE_TRANSITIONS: dict[VersionState, frozenset[VersionState]] = {
     VersionState.PLANNED: frozenset({VersionState.PREVIZ_RUNNING, VersionState.FAILED, VersionState.CANCELLED}),
     VersionState.PREVIZ_RUNNING: frozenset({VersionState.PREVIZ_READY, VersionState.FAILED, VersionState.CANCELLED}),
     VersionState.PREVIZ_READY: frozenset({VersionState.APPROVED, VersionState.PREVIZ_RUNNING, VersionState.CANCELLED}),
-    VersionState.APPROVED: frozenset({VersionState.GENERATING, VersionState.CANCELLED}),
+    # `failed` from `approved`: the generation workflow could not even start (Temporal down); the
+    # version then resumes like any failed one instead of staying `approved` forever.
+    VersionState.APPROVED: frozenset({VersionState.GENERATING, VersionState.FAILED, VersionState.CANCELLED}),
     VersionState.GENERATING: frozenset(
         {
             VersionState.READY,

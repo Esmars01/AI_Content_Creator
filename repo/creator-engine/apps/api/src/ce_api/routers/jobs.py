@@ -18,9 +18,9 @@ from pydantic import Field
 
 from ce_api.common import Page, page
 from ce_api.deps import DbSession, Reader, ServicesDep, Writer
-from ce_api.jobs import create_job, start_job
+from ce_api.jobs import create_job, job_in_flight, start_job
 from ce_api.schemas import Body, Out, examples
-from ce_api.versioning import get_scoped
+from ce_api.versioning import get_scoped, lock_scoped
 
 router = APIRouter(tags=["jobs"])
 
@@ -246,9 +246,12 @@ async def request_renders(
     services: ServicesDep,
     background: BackgroundTasks,
 ) -> RenderAccepted:
-    version = await get_scoped(session, VideoVersion, principal.ctx, version_id, "version")
+    version = await lock_scoped(session, VideoVersion, principal.ctx, version_id, "version")
     if version.state != VersionState.READY.value:
         raise ConflictError("extra renders need a ready version (§9 RenderWorkflow)")
+    # two render workflows of one version race on its render rows (select-then-insert per preset)
+    if await job_in_flight(session, principal.org_id, JobKind.RENDER, version.id):
+        raise ConflictError("a render job for this version is still running")
     unknown = [p for p in body.preset_ids if services.effective.bundle.render_preset(p) is None]
     if unknown:
         raise InvalidInputError(

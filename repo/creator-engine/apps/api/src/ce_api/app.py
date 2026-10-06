@@ -143,7 +143,7 @@ def create_app(services: Services | None = None, *, config_root: Path | str = "c
         # one server span per request, continuing the caller's W3C trace context when it sends one
         with (
             _tracer.start_as_current_span(
-                f"{request.method} {request.url.path}",
+                request.method,  # renamed to the route template below; a raw path can carry a token
                 context=extract_context(request.headers),
                 kind=SpanKind.SERVER,
                 attributes={"http.request.method": request.method, "ce.request_id": request_id},
@@ -165,7 +165,9 @@ def create_app(services: Services | None = None, *, config_root: Path | str = "c
             _log.info(
                 "request",
                 method=request.method,
-                path=request.url.path,
+                route=route,
+                # the raw path helps to debug, except where it carries a secret (invitation tokens)
+                path=route if "{token}" in route else request.url.path,
                 status=response.status_code,
                 duration_ms=round(elapsed * 1000, 1),
                 org_id=str(principal.org_id) if principal else None,
