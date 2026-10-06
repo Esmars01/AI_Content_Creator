@@ -84,3 +84,10 @@ Verified on 2026-10-06:
 - `git bundle verify`: "The bundle records a complete history".
 - Reconstruction: `git clone creator-engine-phase14.bundle` into an empty directory — `HEAD` is `64816c4`, its tree is identical to the checkpoint's, the `phase-12` tag's tree is identical to `755bdcb`'s, `git fsck --full` is clean, and the embedded `bundles/creator-engine-phase12.bundle` still verifies.
 - Fresh clone of the checkpoint from GitHub (`git clone -b claude/phase12-14-work`, commit `64816c4`), following only the README: `make bootstrap`, `make infra-up`, `make dev-native` and `make demo` all exit 0 (the demo's 18 steps in 179 s); `make lint`, `make typecheck` (762 source files), `make verify-spec`, `make verify-config` and `make test-web` (82 tests) exit 0; `CE_REQUIRE_INFRA=1 uv run pytest`: **1868 passed, 14 skipped, 0 failed** in 27 min 18 s. The 14 skips need the CPU-engine assets, which cannot be downloaded here (Hugging Face is unreachable).
+
+## Post-audit corrections (2026-10, after Phase 14)
+
+- **D4/D5** — `make dev-native` left `make dev` containers on the same queues and ports (and reported them ready), and never rebuilt the web app.
+- The checkpoint verification text of commit `3f2d1e4` (the "Checkpoint" section above, present only in this workspace copy) is restored into the history by the audit commits.
+
+The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-14`).

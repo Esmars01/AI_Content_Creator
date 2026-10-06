@@ -67,3 +67,10 @@ Changed: `apps/web/package.json`, `apps/api` (planning router: create options an
 4. Impact with cascade, `no_visible_effect` and the coverage delta; exact dirty sets for behavior-only edits (voice locked and unlocked), every World DNA change of §19.5, accent, camera, wardrobe and pacing changes; a re-route auto-proposing removal of stale `compiler_approximation` elements.
 5. The Studio UI: NL edit panel with proposal cards, Advanced performance and intent editors, takes gallery, versions tree and compare.
 6. DoD: the dirty-set, environment-lock and restore tests, the edit acceptance fixtures for every §2 edit example, and an e2e covering "make him more skeptical" and a compare.
+
+## Post-audit corrections (2026-10, after Phase 14)
+
+- **S3–S6** — the player depended on SSE alone to learn renders were ready, a closed EventSource was never recreated, every node completion refetched every query of the version, and presigned playback URLs were never refreshed.
+- The layout was desktop-only (fixed sidebar and grids); failed requests rendered as empty states; error alerts were not announced (`role=status`).
+
+The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-5`).

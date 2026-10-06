@@ -73,3 +73,10 @@ Also checked by hand against the running api container: login, `/v1/me`, a presi
 ## Next steps
 
 Phase 2 — execution backbone in mock mode: `ce_contracts` and the plugin loader (then the storage providers become plugins), mock plugins producing real media, `ce_worker`, the scheduler with leasing and the mock GPU provider, the build graph with cache keys and pinning, policy and router, Temporal workflows (including `AssetValidationWorkflow` and `DeletionWorkflow` replacing the in-process jobs), FFmpeg rendering with mock provenance, and `make e2e-mock`. Invariants I5, I11, I14.
+
+## Post-audit corrections (2026-10, after Phase 14)
+
+- **S1** — the SSE endpoint's 15 s Valkey block ran on a client with a 5 s socket timeout: every quiet stream died after 5 s. **S2** — a fresh stream did not send its cursor, so a reconnect skipped events. **S10** — a malformed `Last-Event-ID` caused a reconnect loop. **A9** — streams now end after `sse_max_stream_s` and re-authenticate.
+- **A8** — invitation tokens appeared in request logs (raw path). **A13** — removing a member did not revoke their API keys.
+
+The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-1`).

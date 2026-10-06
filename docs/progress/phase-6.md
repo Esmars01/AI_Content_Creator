@@ -94,3 +94,9 @@ Changed: `ce_core` (CBS continuity state/position), `ce_build` (graph, dirty, ki
 7. DoD: render golden tests (−14 ± 1 LUFS, true peak ≤ −1 dBTP, captions, aspect variants, Arabic captions, C2PA valid with an untrusted dev root), the exact-script loop with CPU TTS, analyzer tests on fixture clips.
 
 Licensing and downloads are checked against the license policy (non-commercial weights never default); nothing paid is provisioned.
+
+## Post-audit corrections (2026-10, after Phase 14)
+
+- **A2** — applying an edit twice while its job ran created two derived versions and two builds. **A4** — derived version numbers (MAX+1 without a lock).
+
+The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-6`).

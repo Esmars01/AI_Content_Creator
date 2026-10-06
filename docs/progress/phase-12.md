@@ -61,3 +61,9 @@ Verified on 2026-10-05:
 - `git bundle verify`: "The bundle records a complete history".
 - Reconstruction: `git clone creator-engine-phase12.bundle` into an empty directory — `HEAD` is `755bdcb`, the tree is identical to the checkpoint's, `git fsck --full` is clean; after `uv sync --all-packages --frozen` and `pnpm install --frozen-lockfile`, `tests/phase0` and `tests/invariants` pass (511 tests).
 - The whole suite on the checkpoint commit in a clean clone (Compose infrastructure up, mock engines, CPU-engine assets not fetched): **1850 passed, 14 skipped, 0 failed** in 27 min 17 s; `make lint`, `make typecheck` (748 source files) and the web unit tests (80) pass.
+
+## Post-audit corrections (2026-10, after Phase 14)
+
+- **A7** — a retried export returned expired presigned URLs. **A6** — the API's `sources` field did not carry `PlanRequest`'s limit of 50.
+
+The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-12`).

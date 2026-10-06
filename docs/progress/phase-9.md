@@ -68,3 +68,9 @@ ADR 0054 (the scheduler is the fleet authority); D103 (provider rows, credential
 ## Final Phase 9 state and what Phase 10 inherits
 
 The fleet can create, enroll, use, bill and stop hosts on any provider plugin; Phase 10's studio workflows (identity packs, plates, voice design, Creator Test) dispatch their model calls to the same scheduler and therefore run on fleet hosts once real engines are routable.
+
+## Post-audit corrections (2026-10, after Phase 14)
+
+- **W5** — fleet-provisioned workers advertised 0 GB VRAM and could never lease GPU work. **W9** — the instances of fleet workers the reaper failed were never terminated (cost leak).
+
+The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-9`).

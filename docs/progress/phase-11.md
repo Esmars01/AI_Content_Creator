@@ -68,3 +68,9 @@ ADR 0056; D116 (per-shot ladder and budget split), D117 (cheaper fix proposed), 
 ## Final Phase 11 state and what Phase 12 inherits
 
 Builds gate themselves, retry only what failed within budgets and end with their best attempt and visible flags; every finished video gets a consistency report; critiques turn into edit proposals; engines are promoted on blind-rated benchmarks. Phase 12's memory loop can read the consistency reports, accepted critique proposals and selected-take signatures as write paths (§18.4).
+
+## Post-audit corrections (2026-10, after Phase 14)
+
+- **C3** — after an infrastructure failure inside the QC ladder the accepted node's row stayed `failed`. **S7** — the QC report, critiques and consistency were never refreshed after `ready`. The critique panel invalidated a query key nothing used.
+
+The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-11`).
