@@ -1,0 +1,27 @@
+# local_docker (§25, Phase 9): starts worker containers of the family images (ADR 0052) on this host
+# through the Docker Engine API (unix socket), with the NVIDIA device request when `gpus: true`. Workers
+# dial out to the scheduler; the model cache is a bind-mounted host directory. Tested against a real
+# Docker daemon with GPUs off (no GPU here); the GPU device request is untested (rule 5).
+id: gpu.local_docker
+name: Local Docker host
+version: 0.1.0
+kind: provider
+provider: { kind: gpu, key: local_docker }
+entrypoint: ce_plugin_gpu_local_docker.provider:create
+runtime: { family: cpu_inproc, python: "3.12", requires_gpu: false, supports_cpu: true }
+allowed_envs: [dev, test, prod]
+status: production
+validation: untested_on_gpu
+defaults:
+  docker_socket: /var/run/docker.sock
+  gpus: true
+  network: ""
+  model_cache_host_dir: ""
+  image_template: "creator-engine/worker-{family}:{variant}"
+  images: {}
+  command: []
+  labels: {}
+  regions: [local]
+  # One entry per GPU class this host offers; `count` GPUs, an hourly price for cost reporting (0 for an
+  # owned host, or its amortized cost) and the installed driver version for the fleet's driver filter.
+  classes: {}

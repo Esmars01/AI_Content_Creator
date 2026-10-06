@@ -1,0 +1,58 @@
+# GPU pools (§25). Paid providers stay disabled until the owner supplies keys and approves
+# spending (§41); the mock pool runs simulated workers on CPU.
+# VRAM per GPU class: the router's VRAM filter (§23) and the scheduler's placement use it.
+classes:
+  cpu: {vram_gb: 0}
+  mock_gpu: {vram_gb: 96}
+  rtx_pro_6000_96gb: {vram_gb: 96}
+  rtx_4090_24gb: {vram_gb: 24}
+  rtx_5090_32gb: {vram_gb: 32}
+pools:
+  - id: mock
+    gpu_classes: [mock_gpu]
+    providers: [mock]
+    families: [image, wan, tts, asr, audio, lipsync, vision, post, vllm, cpu_model]
+    min: 0
+    max: 2
+    idle_timeout_s: 120
+    target_latency_s: 60
+    spot_ok: true
+    regions: [local]
+    enabled: true
+    autoscale: false   # compose starts `worker-cpu` (profile mock-gpu); the mock provider only simulates instances
+  - id: cpu_local
+    # Real CPU engines (Phase 7, `CPU_REAL_ENGINES`): Kokoro [dev only] and faster-whisper on the
+    # statically started `worker-cpu`, which advertises them only when their assets are present.
+    gpu_classes: [cpu]
+    providers: [local]
+    families: [cpu_model]
+    min: 0
+    max: 1
+    idle_timeout_s: 300
+    target_latency_s: 120
+    spot_ok: false
+    regions: [local]
+    enabled: true
+    autoscale: false
+  - id: large_vram
+    gpu_classes: [rtx_pro_6000_96gb]
+    providers: [runpod_pod, runpod_serverless]
+    families: [wan, vllm]
+    min: 0
+    max: 2
+    idle_timeout_s: 300
+    target_latency_s: 300
+    spot_ok: false
+    regions: [eu]
+    enabled: false
+  - id: consumer
+    gpu_classes: [rtx_4090_24gb, rtx_5090_32gb]
+    providers: [runpod_pod, runpod_serverless]
+    families: [image, tts, asr, audio, post, lipsync, vision]
+    min: 0
+    max: 4
+    idle_timeout_s: 300
+    target_latency_s: 180
+    spot_ok: true
+    regions: [eu]
+    enabled: false

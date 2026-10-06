@@ -1,0 +1,17 @@
+# Video mode template (§13). Effective maturity in the UI is capped by route validation (§10.4).
+id: meme
+label: Meme
+maturity: beta
+roadmap: MVP
+description: "Fast, punchy meme format with exaggerated reactions."
+allowed_shot_types: [talking_head, insert, title_card]
+default_camera_profiles: [phone_front_selfie]
+default_world_kinds: [bedroom, home_office]
+duration_s: {min: 5, max: 30, default: 12}
+aspects: ["9:16", "16:9", "1:1", "4:5"]
+edit_grammar: {max_shot_s: 3, cutaway_every_s: 0, punch_in_on_emphasis: true, beat_snap: true}
+acting_density: high
+editorial_methods: [editorial_punch, caption_emphasis, sfx_cue]
+strategy_packs: [contrarian_take]
+requires: []
+prompt_fragment: null

@@ -1,0 +1,47 @@
+{
+  "cbs_content_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+  "editorial": [],
+  "prosody": [
+    {
+      "character_key": "char_smoke",
+      "delivery": null,
+      "descriptions": {},
+      "emotion": null,
+      "emotion_intensity": null,
+      "emphasis_words": [
+        3
+      ],
+      "energy": 0.5,
+      "nonverbal": [],
+      "pauses": [
+        {
+          "after_word": 8,
+          "ms": 400
+        }
+      ],
+      "pitch_variation": 0.5,
+      "rate": 0.9,
+      "segment_key": "seg_smoke",
+      "strategy": "slow_measured"
+    }
+  ],
+  "realizations": [
+    {
+      "detail": "",
+      "dimension": "prosody_pause",
+      "item_ref": "/scenes[scn_smoke]/script/segments[seg_1]/annotations[pause_1]",
+      "level": "HONORED",
+      "method": "inserted_silence"
+    },
+    {
+      "detail": "",
+      "dimension": "prosody_rate",
+      "item_ref": "/scenes[scn_smoke]/acting/states[st_1]/prosody/rate",
+      "level": "APPROXIMATED",
+      "method": "native_parametric"
+    }
+  ],
+  "route_digest": null,
+  "target_key": "seg_smoke",
+  "visual": []
+}

@@ -1,0 +1,90 @@
+AI Creator Engine — final handoff package
+=========================================
+
+Authoritative final checkpoint: 64816c42ee3f590bf21423cef3202b70ae358604 (Phase 14), branch claude/phase12-14-work
+Phase 12 checkpoint: 755bdcb5af05470fc99da650aef0b44d95a7222e. Phase 13 was intentionally skipped.
+All files were extracted from committed Git objects (not from a working tree).
+
+Reconstruct locally:
+  git clone bundles/creator-engine-phase14.bundle creator-engine
+  cd creator-engine && git log -1        # 64816c4
+  git tag                                # phase-8 … phase-12, phase-14
+  then follow README.md (make bootstrap; make dev, or make infra-up && make dev-native; make demo).
+  Verify this package first: sha256sum -c SHA256SUMS.txt
+
+File:    bundles/creator-engine-phase12.bundle
+Size:    12123126 bytes
+Purpose: Git bundle of the Phase 12 checkpoint: HEAD, main and tag phase-12 at 755bdcb, plus tags phase-8, phase-9, phase-10, phase-11, phase-11-implementation. Complete history (no prerequisites).
+Phase:   Phase 12
+Commit:  755bdcb5af05470fc99da650aef0b44d95a7222e (file committed in c5575de)
+SHA256:  d5c3025069ff92b10d7915bc252420c1f13c7dcbb0551d6f3d9232471cbad9cb
+
+File:    bundles/creator-engine-phase14.bundle
+Size:    24390104 bytes
+Purpose: Git bundle of the FINAL checkpoint: HEAD, main and tag phase-14 at 64816c4, tag phase-12 at 755bdcb, plus tags phase-8 … phase-11, phase-11-implementation. Complete history (58 commits). Reconstruct the final system from this file.
+Phase:   Phase 14 (final)
+Commit:  64816c42ee3f590bf21423cef3202b70ae358604 (file committed in 3f2d1e4, the commit after the checkpoint)
+SHA256:  6962d6f4fb5e1dee538c80141679f9bccb2493e1e4deab53dd6dfc3eede274f0
+
+File:    docs/progress/phase-12.md
+Size:    10335 bytes
+Purpose: Phase 12 progress report: DoD evidence, what was built, test results, untested items, checkpoint verification.
+Phase:   Phase 12
+Commit:  as committed at 64816c4 (identical in 755bdcb's successor c5575de)
+SHA256:  6d809d1659e5f632a0c087c030611b904ec299c6f0f49a687566832a5fc49860
+
+File:    docs/progress/phase-14.md
+Size:    12400 bytes
+Purpose: Phase 14 progress report: DoD evidence, findings and fixes, untested items, and the checkpoint/bundle/fresh-clone verification record.
+Phase:   Phase 14
+Commit:  as committed at 3f2d1e4 = the 64816c4 version plus the appended 'Checkpoint' verification (the only difference)
+SHA256:  5a21e6d15b7ddf720c1a08006a4319f84b10bae7a74f179a8ef0e3760a692e6b
+
+File:    docs/MASTER_BUILD_PROMPT_v2_private.md
+Size:    308706 bytes
+Purpose: The authoritative master build specification.
+Phase:   All phases
+Commit:  as committed at 64816c4
+SHA256:  fdb136bf3ae74cb64e5903605c1b5bfcadc959e1114d7efbfc62e27e1b6d132b
+
+File:    docs/MASTER_BUILD_PROMPT_v2_CHANGELOG_private.md
+Size:    30601 bytes
+Purpose: Master build changelog: v1→v2 changes, the archived Phase 8–11 handoff (verbatim), Phase 12, Phase 13 (intentionally skipped), Phase 14 and the final checkpoint state.
+Phase:   All phases
+Commit:  as committed at 64816c4
+SHA256:  6798b594cd67916afb2c80994eecec22c8b9675b3b428d753b2497e05a8012ab
+
+File:    README.md
+Size:    13071 bytes
+Purpose: Repository README: phase status, validated vs not validated, quick start (Compose or native mode), documentation index.
+Phase:   Final
+Commit:  as committed at 64816c4
+SHA256:  27baf45eb7cca8873d0d3ecde25e96364ae264434a1bb8bac83832f7baa61659
+
+File:    docs/SETUP.md
+Size:    12079 bytes
+Purpose: Prerequisites and step-by-step setup of the development stack.
+Phase:   Final
+Commit:  as committed at 64816c4
+SHA256:  aea2806814cd79ee41ea7f45db496e6fbc78d81c1a21eac4643763a191ad8c81
+
+File:    docs/DEPLOYMENT.md
+Size:    7422 bytes
+Purpose: Topologies (Compose, native mode, split GPU workers), production requirements, checklist.
+Phase:   Final
+Commit:  as committed at 64816c4
+SHA256:  fffe3170ccecbda085a134ef0f5b2cfdf773083e28ecb0ddf0e1e12487d5e95c
+
+File:    docs/DEMO.md
+Size:    4628 bytes
+Purpose: The reproducible mock-mode demo (make demo) with a measured run.
+Phase:   Final
+Commit:  as committed at 64816c4
+SHA256:  3592242b69c3d39abe57dd04467a05f92517b5a5745f86147cd1f15a377d11e3
+
+Notes:
+- The Phase 14 bundle file cannot be inside the commit it captures, so it was committed in 3f2d1e4, which changes only that file and appends the verification record to phase-14.md.
+- The bundled history has two root commits (f3c7938 'Initial AI Creator Engine archive', 01a50d0 the original spec commit), joined earlier by 'Reconstruct project from creator-engine-phase8.bundle'. Pre-existing, unchanged.
+- Known pre-existing typo, left unchanged: the archived Phase 8–11 section of the changelog cites the Phase 11 implementation commit as cd23664c3990d49f37079f07c88ebdec1906f37 (39 hex digits, one missing); the real commit is cd236641c3990d49f37079f07c88ebdec1906f37 (tag phase-11-implementation in both bundles).
+- The tree contains .env.example only (dev-only placeholders; provider keys empty). No .env, keys, credentials, .venv, node_modules, .data or caches are included.
+- MANIFEST.txt is covered by SHA256SUMS.txt; SHA256SUMS.txt cannot list itself.

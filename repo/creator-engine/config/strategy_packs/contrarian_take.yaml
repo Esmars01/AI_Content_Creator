@@ -1,0 +1,7 @@
+# Strategy pack (§13 stage 4). Configurable, never hard-coded.
+id: contrarian_take
+label: "Contrarian take"
+structure: [hook, context, turn, explanation, cta]
+signature_format: false
+hook_count: 4
+guidance: "Challenge a popular opinion and defend the counter-position."

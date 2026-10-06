@@ -1,0 +1,42 @@
+[
+ {
+  "adapter_id": "prosody_features",
+  "measured": {
+   "analyzer": "audio.prosody",
+   "confidence": 1.0,
+   "f1": 0.9091,
+   "fixture_set": "speech-v1",
+   "fn": 2,
+   "fp": 0,
+   "method": "synthetic_speech:kokoro_cpu+faster_whisper_cpu",
+   "n": 30,
+   "precision": 1.0,
+   "recall": 0.8333,
+   "reliability": "high",
+   "tn": 18,
+   "tp": 10
+  },
+  "proxy": "speech_rate_slow",
+  "revision": "1"
+ },
+ {
+  "adapter_id": "prosody_features",
+  "measured": {
+   "analyzer": "audio.prosody",
+   "confidence": 0.9231,
+   "f1": 0.96,
+   "fixture_set": "speech-v1",
+   "fn": 0,
+   "fp": 1,
+   "method": "synthetic_speech:kokoro_cpu+faster_whisper_cpu",
+   "n": 30,
+   "precision": 0.9231,
+   "recall": 1.0,
+   "reliability": "high",
+   "tn": 17,
+   "tp": 12
+  },
+  "proxy": "speech_rate_fast",
+  "revision": "1"
+ }
+]

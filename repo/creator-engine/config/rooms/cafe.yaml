@@ -1,0 +1,7 @@
+# Room acoustics (§19.7, §22). The impulse response is synthetic (scripts/gen_synthetic_assets.py).
+id: cafe
+label: Cafe
+rt60_s: 0.8
+impulse_response: impulse_responses/cafe.wav
+default_ambient: cafe_murmur
+wet_mix: 0.2

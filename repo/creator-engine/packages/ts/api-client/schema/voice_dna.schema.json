@@ -1,0 +1,176 @@
+{
+  "$defs": {
+    "DefaultProsody": {
+      "additionalProperties": false,
+      "properties": {
+        "accent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Accent"
+        },
+        "energy": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Energy",
+          "type": "number"
+        },
+        "expressivity": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Expressivity",
+          "type": "number"
+        },
+        "pitch_semitones": {
+          "default": 0.0,
+          "maximum": 12,
+          "minimum": -12,
+          "title": "Pitch Semitones",
+          "type": "number"
+        },
+        "speed": {
+          "default": 1.0,
+          "maximum": 2.0,
+          "minimum": 0.5,
+          "title": "Speed",
+          "type": "number"
+        }
+      },
+      "title": "DefaultProsody",
+      "type": "object"
+    },
+    "LexiconEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "phonemes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Phonemes"
+        },
+        "respelling": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Respelling"
+        },
+        "term": {
+          "minLength": 1,
+          "title": "Term",
+          "type": "string"
+        }
+      },
+      "required": [
+        "term"
+      ],
+      "title": "LexiconEntry",
+      "type": "object"
+    },
+    "VoiceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "format": "uuid",
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "language": {
+          "title": "Language",
+          "type": "string"
+        },
+        "transcript": {
+          "minLength": 1,
+          "title": "Transcript",
+          "type": "string"
+        }
+      },
+      "required": [
+        "language",
+        "asset_id",
+        "transcript"
+      ],
+      "title": "VoiceReference",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "The content of a `VoiceVersion` (§21). Engine conditioning is a `voice_conditioning` artifact, not here.",
+  "properties": {
+    "consent_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Consent Id"
+    },
+    "default_prosody": {
+      "$ref": "#/$defs/DefaultProsody"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "kind": {
+      "default": "designed",
+      "enum": [
+        "designed",
+        "cloned",
+        "preset"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "lexicon": {
+      "items": {
+        "$ref": "#/$defs/LexiconEntry"
+      },
+      "title": "Lexicon",
+      "type": "array"
+    },
+    "references": {
+      "items": {
+        "$ref": "#/$defs/VoiceReference"
+      },
+      "title": "References",
+      "type": "array"
+    },
+    "wpm": {
+      "additionalProperties": {
+        "exclusiveMinimum": 0,
+        "type": "number"
+      },
+      "description": "measured words per minute",
+      "title": "Wpm",
+      "type": "object"
+    }
+  },
+  "title": "VoiceDNA",
+  "type": "object"
+}

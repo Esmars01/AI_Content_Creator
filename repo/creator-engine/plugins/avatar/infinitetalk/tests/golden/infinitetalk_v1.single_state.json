@@ -1,0 +1,41 @@
+{
+  "engine": {
+    "audio_guide_scale": null,
+    "encoded": [
+      {
+        "control": "text_global",
+        "dimension": "emotion_visual",
+        "item_ref": "/scenes[scn_a]/acting/states[st_1]/emotion",
+        "label": "confident",
+        "method": "text_prompt_global",
+        "text": "self-assured and at ease, steady eye contact, relaxed authority"
+      },
+      {
+        "control": "text_global",
+        "dimension": "posture",
+        "item_ref": "/scenes[scn_a]/acting/states[st_1]/strategies/posture",
+        "label": "seated_lean_in",
+        "method": "text_prompt_global",
+        "text": "sitting and leaning toward the camera"
+      },
+      {
+        "control": "text_global",
+        "dimension": "camera_awareness",
+        "item_ref": "/scenes[scn_a]/acting/states[st_1]/strategies/camera_awareness",
+        "label": "direct_address",
+        "method": "text_prompt_global",
+        "text": "talks directly to the viewer through the camera"
+      }
+    ],
+    "prompt": "A person is talking. shot on a phone front camera. Very self-assured and at ease, steady eye contact, relaxed authority; sitting and leaning toward the camera; talks directly to the viewer through the camera.",
+    "syntax": "infinitetalk_global_prompt",
+    "unsupported": [
+      {
+        "dimension": "gaze",
+        "item_ref": "/scenes[scn_a]/acting/states[st_1]/strategies/gaze",
+        "reason": "unsupported"
+      }
+    ]
+  },
+  "translator": "infinitetalk_v1"
+}

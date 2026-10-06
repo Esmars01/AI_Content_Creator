@@ -1,0 +1,84 @@
+# SeedVR2-3B (§39.7: upscale and restoration). One-step diffusion video restoration (CFG 1.0, one
+# sampling step, shipped text embeddings) at the target area, in overlapping 33-frame chunks with
+# crossfaded seams [RV: seam visibility, VRAM at 1080×1920].
+id: seedvr2_3b
+name: SeedVR2-3B (video restoration and upscaling)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_video_seedvr2.adapter:SeedVR2Adapter
+test_backend: ce_plugin_video_seedvr2.testing:fake_backend
+capabilities:
+  - id: video.upscale
+    features: [2x, 4x]
+runtime:
+  {
+    family: post,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 24,
+    recommended_vram_gb: 48,
+    supports_cpu: false,
+  }
+models:
+  - key: seedvr2-3b
+    size_gb: 13.57 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: ByteDance-Seed/SeedVR2-3B
+    source: { type: huggingface, repo: ByteDance-Seed/SeedVR2-3B, revision: 37255ff8cccfb01071b87f635a5948ca8d53117c }
+    files: [seedvr2_ema_3b.pth, ema_vae.pth, pos_emb.pt, neg_emb.pt]
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/ByteDance-Seed/SeedVR2-3B/blob/37255ff8cccfb01071b87f635a5948ca8d53117c/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license apache-2.0 at the pinned revision",
+      }
+    dependencies:
+      - ref: "github:ByteDance-Seed/SeedVR@e4de8c24441a67e1b7df56abea10645059bb1185"
+        role: code
+        source:
+          {
+            type: git,
+            repo: "https://github.com/ByteDance-Seed/SeedVR",
+            revision: e4de8c24441a67e1b7df56abea10645059bb1185,
+          }
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/ByteDance-Seed/SeedVR/blob/e4de8c24441a67e1b7df56abea10645059bb1185/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: 5967a0c153e731109b76c5d83b5e0fae2382b6aaf7b898d08ff03702eea59430,
+            evidence: license_file,
+          }
+      - ref: "github:NVIDIA/apex@575968bc1f9127ccd61003a681472a83af4ff1a1 (fused norms the DiT config names)"
+        role: runtime
+        source:
+          { type: git, repo: "https://github.com/NVIDIA/apex", revision: 575968bc1f9127ccd61003a681472a83af4ff1a1 }
+        license:
+          {
+            name: BSD-3-Clause,
+            url: "https://github.com/NVIDIA/apex/blob/575968bc1f9127ccd61003a681472a83af4ff1a1/LICENSE",
+            commercial_use: true,
+            conditions:
+              [{ attribution_text: "NVIDIA Apex, Copyright (c) NVIDIA Corporation, BSD-3-Clause (worker images)" }],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: 8827cfdf3a6027c142be77f7cacb90c1a4951bd2d948c819784ce7a9938690af,
+            evidence: license_file,
+          }
+defaults:
+  chunk_frames: 33
+  chunk_overlap: 4
+  code_dir: /opt/upstream/SeedVR
+  reference_gpu: rtx_pro_6000_96gb
+pricing: { seconds_per_unit: 6.0, load_seconds: 60.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. Upstream inference restores a whole clip in one pass; the chunked join is ours [RV]."

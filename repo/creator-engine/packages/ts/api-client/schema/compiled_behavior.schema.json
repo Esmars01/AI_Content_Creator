@@ -1,0 +1,534 @@
+{
+  "$defs": {
+    "CoverageCounts": {
+      "additionalProperties": false,
+      "properties": {
+        "approximated": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Approximated",
+          "type": "integer"
+        },
+        "honored": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Honored",
+          "type": "integer"
+        },
+        "unsupported": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Unsupported",
+          "type": "integer"
+        }
+      },
+      "title": "CoverageCounts",
+      "type": "object"
+    },
+    "CoverageLevel": {
+      "description": "Predicted execution of a requested behavior item (§10.3, §15.7).",
+      "enum": [
+        "HONORED",
+        "APPROXIMATED",
+        "UNSUPPORTED"
+      ],
+      "title": "CoverageLevel",
+      "type": "string"
+    },
+    "EditorialAction": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "detail": {
+          "default": "",
+          "title": "Detail",
+          "type": "string"
+        },
+        "item_ref": {
+          "title": "Item Ref",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "cutaway",
+            "punch_in",
+            "punch_out",
+            "hold",
+            "shot_split",
+            "caption_emphasis",
+            "music_cue",
+            "sfx_cue"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "item_ref"
+      ],
+      "title": "EditorialAction",
+      "type": "object"
+    },
+    "Knobs": {
+      "additionalProperties": false,
+      "description": "Abstract knob values; manifests map them to engine parameters after calibration (§15.7).",
+      "properties": {
+        "expressivity": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Expressivity"
+        },
+        "head_motion": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Head Motion"
+        },
+        "motion_energy": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Motion Energy"
+        }
+      },
+      "title": "Knobs",
+      "type": "object"
+    },
+    "PlanPause": {
+      "additionalProperties": false,
+      "properties": {
+        "after_word": {
+          "minimum": 0,
+          "title": "After Word",
+          "type": "integer"
+        },
+        "ms": {
+          "exclusiveMinimum": 0,
+          "title": "Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "after_word",
+        "ms"
+      ],
+      "title": "PlanPause",
+      "type": "object"
+    },
+    "ProsodyPlan": {
+      "additionalProperties": false,
+      "description": "Abstract, engine-ready prosody for one segment (the voice translator renders it).",
+      "properties": {
+        "character_key": {
+          "title": "Character Key",
+          "type": "string"
+        },
+        "delivery": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Delivery"
+        },
+        "emotion": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Emotion"
+        },
+        "emotion_intensity": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Emotion Intensity"
+        },
+        "emphasis_words": {
+          "items": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "title": "Emphasis Words",
+          "type": "array"
+        },
+        "energy": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Energy",
+          "type": "number"
+        },
+        "nonverbal": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Nonverbal",
+          "type": "array"
+        },
+        "pauses": {
+          "items": {
+            "$ref": "#/$defs/PlanPause"
+          },
+          "title": "Pauses",
+          "type": "array"
+        },
+        "pitch_variation": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Pitch Variation",
+          "type": "number"
+        },
+        "rate": {
+          "exclusiveMaximum": 3.0,
+          "exclusiveMinimum": 0.3,
+          "title": "Rate",
+          "type": "number"
+        },
+        "segment_key": {
+          "title": "Segment Key",
+          "type": "string"
+        },
+        "strategy": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Strategy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "character_key",
+        "segment_key",
+        "strategy",
+        "rate",
+        "energy",
+        "pitch_variation"
+      ],
+      "title": "ProsodyPlan",
+      "type": "object"
+    },
+    "Realization": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "default": "",
+          "title": "Detail",
+          "type": "string"
+        },
+        "dimension": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Dimension",
+          "type": "string"
+        },
+        "item_ref": {
+          "title": "Item Ref",
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/CoverageLevel"
+        },
+        "method": {
+          "$ref": "#/$defs/RealizationMethod"
+        }
+      },
+      "required": [
+        "item_ref",
+        "dimension",
+        "level",
+        "method"
+      ],
+      "title": "Realization",
+      "type": "object"
+    },
+    "RealizationMethod": {
+      "description": "Behavior compiler realization methods (§15.7).",
+      "enum": [
+        "native_parametric",
+        "native_segment",
+        "text_prompt_segment",
+        "text_prompt_global",
+        "shot_split",
+        "prosody_transfer",
+        "audio_nonverbal",
+        "editorial_cutaway",
+        "editorial_punch",
+        "caption_emphasis",
+        "music_cue",
+        "sfx_cue",
+        "keyframe_conditioning",
+        "pose_guided",
+        "post_expression",
+        "omit"
+      ],
+      "title": "RealizationMethod",
+      "type": "string"
+    },
+    "VisualPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "character_key": {
+          "title": "Character Key",
+          "type": "string"
+        },
+        "chunk": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Chunk"
+        },
+        "shot_key": {
+          "title": "Shot Key",
+          "type": "string"
+        },
+        "sub_spans": {
+          "items": {
+            "$ref": "#/$defs/VisualSubSpan"
+          },
+          "title": "Sub Spans",
+          "type": "array"
+        }
+      },
+      "required": [
+        "shot_key",
+        "character_key"
+      ],
+      "title": "VisualPlan",
+      "type": "object"
+    },
+    "VisualSubSpan": {
+      "additionalProperties": false,
+      "properties": {
+        "descriptors": {
+          "description": "vocabulary descriptors from descriptions.yaml",
+          "items": {
+            "type": "string"
+          },
+          "title": "Descriptors",
+          "type": "array"
+        },
+        "item_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Item Refs",
+          "type": "array"
+        },
+        "knobs": {
+          "$ref": "#/$defs/Knobs"
+        },
+        "span": {
+          "$ref": "#/$defs/WordSpan"
+        }
+      },
+      "required": [
+        "span"
+      ],
+      "title": "VisualSubSpan",
+      "type": "object"
+    },
+    "WordRef": {
+      "additionalProperties": false,
+      "description": "One word of a segment (index into the canonical tokenizer's output).",
+      "properties": {
+        "segment_key": {
+          "title": "Segment Key",
+          "type": "string"
+        },
+        "word": {
+          "minimum": 0,
+          "title": "Word",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "segment_key",
+        "word"
+      ],
+      "title": "WordRef",
+      "type": "object"
+    },
+    "WordSpan": {
+      "additionalProperties": false,
+      "description": "An inclusive word range. It may cross segments of the same scene, in order.",
+      "properties": {
+        "end": {
+          "$ref": "#/$defs/WordRef"
+        },
+        "kind": {
+          "const": "words",
+          "default": "words",
+          "title": "Kind",
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/WordRef"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "WordSpan",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "cbs_content_digest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Cbs Content Digest",
+      "type": "string"
+    },
+    "editorial_actions": {
+      "items": {
+        "$ref": "#/$defs/EditorialAction"
+      },
+      "title": "Editorial Actions",
+      "type": "array"
+    },
+    "node_kind": {
+      "enum": [
+        "behavior.compile_voice",
+        "behavior.compile_visual",
+        "plan_time"
+      ],
+      "title": "Node Kind",
+      "type": "string"
+    },
+    "pass": {
+      "enum": [
+        "plan_time",
+        "build_time"
+      ],
+      "title": "Pass",
+      "type": "string"
+    },
+    "predicted_coverage": {
+      "$ref": "#/$defs/CoverageCounts"
+    },
+    "prosody_plans": {
+      "items": {
+        "$ref": "#/$defs/ProsodyPlan"
+      },
+      "title": "Prosody Plans",
+      "type": "array"
+    },
+    "realizations": {
+      "items": {
+        "$ref": "#/$defs/Realization"
+      },
+      "title": "Realizations",
+      "type": "array"
+    },
+    "route_digest": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Route Digest"
+    },
+    "target_key": {
+      "description": "segment key, shot key (+chunk) or scene key the plan is for",
+      "minLength": 1,
+      "title": "Target Key",
+      "type": "string"
+    },
+    "visual_plans": {
+      "items": {
+        "$ref": "#/$defs/VisualPlan"
+      },
+      "title": "Visual Plans",
+      "type": "array"
+    }
+  },
+  "required": [
+    "node_kind",
+    "pass",
+    "cbs_content_digest",
+    "target_key"
+  ],
+  "title": "CompiledBehavior",
+  "type": "object"
+}

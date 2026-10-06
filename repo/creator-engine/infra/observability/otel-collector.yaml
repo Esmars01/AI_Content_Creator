@@ -1,0 +1,58 @@
+# OpenTelemetry Collector (Phase 14): traces from the services (OTLP; set
+# OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318) go to Tempo; the services' JSON log
+# lines on stdout are read from Docker's json-file logs and sent to Loki over OTLP.
+receivers:
+  otlp:
+    protocols:
+      grpc: {endpoint: 0.0.0.0:4317}
+      http: {endpoint: 0.0.0.0:4318}
+  file_log/docker:
+    include: [/var/lib/docker/containers/*/*-json.log]
+    start_at: end
+    include_file_path: true
+    operators:
+      - type: json_parser            # Docker's envelope: {"log": "...", "stream": "...", "time": "..."}
+        timestamp: {parse_from: attributes.time, layout_type: gotime, layout: "2006-01-02T15:04:05.999999999Z07:00"}
+      - type: move
+        from: attributes.log
+        to: body
+      - type: json_parser            # our structlog lines are JSON too; other lines stay plain text
+        parse_from: body
+        if: 'body matches "^\\{"'
+        on_error: send_quiet
+      - type: regex_parser
+        parse_from: attributes["log.file.path"]
+        regex: '^/var/lib/docker/containers/(?P<container_id>[0-9a-f]{12})'
+
+processors:
+  memory_limiter: {check_interval: 2s, limit_mib: 256}
+  batch: {}
+  # Logs never carry secrets (ce_obs.redact runs in-process); drop request bodies just in case.
+  attributes/drop:
+    actions:
+      - {key: body_raw, action: delete}
+
+exporters:
+  otlp_http/tempo:
+    endpoint: http://tempo:4318
+  otlp_http/loki:
+    endpoint: http://loki:3100/otlp
+
+extensions:
+  health_check: {endpoint: 0.0.0.0:13133}
+
+service:
+  extensions: [health_check]
+  telemetry:
+    metrics:
+      readers:
+        - pull: {exporter: {prometheus: {host: 0.0.0.0, port: 8888}}}
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp_http/tempo]
+    logs:
+      receivers: [otlp, file_log/docker]
+      processors: [memory_limiter, attributes/drop, batch]
+      exporters: [otlp_http/loki]

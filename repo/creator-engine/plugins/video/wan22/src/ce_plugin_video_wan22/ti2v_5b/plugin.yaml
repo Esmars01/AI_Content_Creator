@@ -1,0 +1,76 @@
+# Wan 2.2 TI2V-5B (§39.7: B-roll draft/fallback) through diffusers. One 5B model for text- and
+# image-to-video at 704×1280 (the README's 720p for this task), 24 fps, 50 steps.
+id: wan22_ti2v_5b
+name: Wan 2.2 TI2V-5B (diffusers)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_video_wan22.adapters:Wan22TI2V5B
+test_backend: ce_plugin_video_wan22.testing:fake_backend
+capabilities:
+  - id: video.t2v
+    features: [t2v]
+    languages: { mode: text, validated: [en, zh], unvalidated: [de, es, fr, it, ru, tr, ar] }
+    resolutions: ["720p"]
+    max_duration_s: 10
+    fps: 24
+  - id: video.i2v
+    features: [i2v]
+    languages: { mode: text, validated: [en, zh], unvalidated: [de, es, fr, it, ru, tr, ar] }
+    resolutions: ["720p"]
+    max_duration_s: 10
+    fps: 24
+runtime:
+  {
+    family: wan,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 24,
+    recommended_vram_gb: 48,
+    supports_cpu: false,
+  }
+models:
+  - key: wan2.2-ti2v-5b
+    size_gb: 31.85 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: Wan-AI/Wan2.2-TI2V-5B-Diffusers
+    source:
+      { type: huggingface, repo: Wan-AI/Wan2.2-TI2V-5B-Diffusers, revision: b8fff7315c768468a5333511427288870b2e9635 }
+    files: [model_index.json, "scheduler/*", "text_encoder/*", "tokenizer/*", "transformer/*", "vae/*"]
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B-Diffusers/blob/b8fff7315c768468a5333511427288870b2e9635/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license apache-2.0 at the pinned revision",
+      }
+    dependencies:
+      - ref: "pypi:diffusers==0.40.0"
+        role: code
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/huggingface/diffusers/blob/v0.40.0/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "PyPI metadata (Apache 2.0 License) of the pinned release",
+          }
+defaults:
+  fps: 24
+  max_frames: 241 # 10 s; the README's default clip is 121 frames [RV]
+  sizes: { "720": [704, 1280] }
+  steps: 50
+  guidance_scale: 5.0
+  shift: 5.0
+  cpu_offload: true # fits the 24 GB class
+  negative: ""
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 40.0, load_seconds: 120.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. The draft/fallback B-roll engine (5B: faster, lower fidelity than A14B)."

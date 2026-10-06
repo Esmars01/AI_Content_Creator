@@ -1,0 +1,9 @@
+# Microphone profile (§22 realism post: mic EQ curve).
+id: usb_condenser
+label: USB condenser microphone
+eq:
+  - {type: highpass, freq_hz: 80}
+  - {type: peak, freq_hz: 5000, gain_db: 1.5, q: 1.0}
+noise_floor_db: -62
+distance_m: 0.4
+compression: {threshold_db: -20, ratio: 2.0}

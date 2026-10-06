@@ -1,0 +1,6134 @@
+{
+  "$defs": {
+    "AcousticsOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "ambient_additions": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "title": "Ambient Additions",
+          "type": "array"
+        }
+      },
+      "title": "AcousticsOverride",
+      "type": "object"
+    },
+    "ActingChanges": {
+      "additionalProperties": false,
+      "properties": {
+        "attention_target": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attention Target"
+        },
+        "audience_goal": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Audience Goal"
+        },
+        "confidence_delta": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Confidence Delta"
+        },
+        "emotion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EmotionChange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "internal_state": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Internal State"
+        },
+        "performance_intent": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Performance Intent"
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Priority"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "social_goal": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Social Goal"
+        },
+        "strategies": {
+          "additionalProperties": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "propertyNames": {
+            "enum": [
+              "prosody",
+              "gaze",
+              "gesture",
+              "posture",
+              "reaction",
+              "camera_awareness"
+            ]
+          },
+          "title": "Strategies",
+          "type": "object"
+        },
+        "transition_in": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransitionChange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "ActingChanges",
+      "type": "object"
+    },
+    "ActingPlan": {
+      "additionalProperties": false,
+      "properties": {
+        "events": {
+          "items": {
+            "$ref": "#/$defs/BehaviorEvent"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "situation": {
+          "$ref": "#/$defs/Situation"
+        },
+        "states": {
+          "items": {
+            "$ref": "#/$defs/ActingState"
+          },
+          "title": "States",
+          "type": "array"
+        }
+      },
+      "required": [
+        "situation"
+      ],
+      "title": "ActingPlan",
+      "type": "object"
+    },
+    "ActingState": {
+      "additionalProperties": false,
+      "description": "One span of a character's emotional trajectory. `carry: true` inherits the previous state's values.",
+      "properties": {
+        "attention_target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "camera | off_camera_person | notes | self | el_…",
+          "title": "Attention Target"
+        },
+        "audience_goal": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Audience Goal"
+        },
+        "carry": {
+          "default": false,
+          "title": "Carry",
+          "type": "boolean"
+        },
+        "character_key": {
+          "title": "Character Key",
+          "type": "string"
+        },
+        "confidence_delta": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "title": "Confidence Delta",
+          "type": "number"
+        },
+        "emotion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EmotionSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "internal_state": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InternalState"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "out_of_character": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OutOfCharacter"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "performance_intent": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Performance Intent"
+        },
+        "priority": {
+          "$ref": "#/$defs/Priority",
+          "default": "should"
+        },
+        "social_goal": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Social Goal"
+        },
+        "source": {
+          "$ref": "#/$defs/ElementSource"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "$ref": "#/$defs/DurationSpan"
+            }
+          ],
+          "title": "Span"
+        },
+        "strategies": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Strategies"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "transition_in": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransitionIn"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "key",
+        "character_key",
+        "source",
+        "span"
+      ],
+      "title": "ActingState",
+      "type": "object"
+    },
+    "AddAnnotation": {
+      "additionalProperties": false,
+      "properties": {
+        "annotation": {
+          "$ref": "#/$defs/NewAnnotation"
+        },
+        "op": {
+          "const": "add_annotation",
+          "default": "add_annotation",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EditScope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "segment_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "default: the span's segment",
+          "title": "Segment Key"
+        }
+      },
+      "required": [
+        "annotation"
+      ],
+      "title": "AddAnnotation",
+      "type": "object"
+    },
+    "AddBehaviorEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event": {
+          "$ref": "#/$defs/NewEvent"
+        },
+        "op": {
+          "const": "add_behavior_event",
+          "default": "add_behavior_event",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/EditScope"
+        }
+      },
+      "required": [
+        "event"
+      ],
+      "title": "AddBehaviorEvent",
+      "type": "object"
+    },
+    "AddScene": {
+      "additionalProperties": false,
+      "properties": {
+        "after_scene_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "none = first",
+          "title": "After Scene Key"
+        },
+        "op": {
+          "const": "add_scene",
+          "default": "add_scene",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scene": {
+          "$ref": "#/$defs/Scene"
+        },
+        "segments": {
+          "description": "new segments the scene speaks",
+          "items": {
+            "$ref": "#/$defs/Segment"
+          },
+          "title": "Segments",
+          "type": "array"
+        }
+      },
+      "required": [
+        "scene"
+      ],
+      "title": "AddScene",
+      "type": "object"
+    },
+    "AddShot": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "add_shot",
+          "default": "add_shot",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scene_key": {
+          "title": "Scene Key",
+          "type": "string"
+        },
+        "shot": {
+          "$ref": "#/$defs/Shot"
+        }
+      },
+      "required": [
+        "scene_key",
+        "shot"
+      ],
+      "title": "AddShot",
+      "type": "object"
+    },
+    "AddedElement": {
+      "additionalProperties": false,
+      "description": "A scene-local element (key prefixed `el_x_`); it never enters World DNA.",
+      "properties": {
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 64,
+          "pattern": "^el_x_[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Key",
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "position": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "minimum": 0.0,
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        }
+      },
+      "required": [
+        "key",
+        "kind",
+        "label",
+        "position"
+      ],
+      "title": "AddedElement",
+      "type": "object"
+    },
+    "Annotation": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "pause_ms": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "explicit pause length; otherwise from the tag",
+          "title": "Pause Ms"
+        },
+        "respelling": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "pronunciation respelling (type pronunciation)",
+          "title": "Respelling"
+        },
+        "source": {
+          "$ref": "#/$defs/ElementSource",
+          "default": "director"
+        },
+        "span": {
+          "$ref": "#/$defs/WordSpan"
+        },
+        "tag": {
+          "description": "a token of annotation_tag.<type>",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Tag",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/AnnotationType"
+        }
+      },
+      "required": [
+        "key",
+        "type",
+        "tag",
+        "span"
+      ],
+      "title": "Annotation",
+      "type": "object"
+    },
+    "AnnotationChanges": {
+      "additionalProperties": false,
+      "properties": {
+        "pause_ms": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pause Ms"
+        },
+        "respelling": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Respelling"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tag": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tag"
+        }
+      },
+      "title": "AnnotationChanges",
+      "type": "object"
+    },
+    "AnnotationType": {
+      "description": "Script annotation types (§11).",
+      "enum": [
+        "pause",
+        "emphasis",
+        "nonverbal_audio",
+        "delivery",
+        "pronunciation",
+        "inserted_disfluency"
+      ],
+      "title": "AnnotationType",
+      "type": "string"
+    },
+    "AssetContinuityRef": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "format": "uuid",
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "asset",
+          "default": "asset",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id"
+      ],
+      "title": "AssetContinuityRef",
+      "type": "object"
+    },
+    "BehaviorEvent": {
+      "additionalProperties": false,
+      "description": "A discrete behavior at a word (`at`) or over a span. The type's vocabulary entry gives its dimension.",
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "character_key": {
+          "title": "Character Key",
+          "type": "string"
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Direction"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Ms"
+        },
+        "intensity": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intensity"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "priority": {
+          "$ref": "#/$defs/Priority",
+          "default": "should"
+        },
+        "purpose": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Purpose"
+        },
+        "source": {
+          "$ref": "#/$defs/ElementSource",
+          "default": "director"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "a world element key or attention target",
+          "title": "Target"
+        },
+        "trigger_ref": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trigger Ref"
+        },
+        "type": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "character_key",
+        "type"
+      ],
+      "title": "BehaviorEvent",
+      "type": "object"
+    },
+    "BrollSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_text_in_frame": {
+          "default": false,
+          "title": "Allow Text In Frame",
+          "type": "boolean"
+        },
+        "asset_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Asset Id"
+        },
+        "prompt": {
+          "default": "",
+          "title": "Prompt",
+          "type": "string"
+        },
+        "source": {
+          "default": "generate",
+          "enum": [
+            "generate",
+            "asset",
+            "library"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "world_bound": {
+          "default": false,
+          "title": "World Bound",
+          "type": "boolean"
+        }
+      },
+      "title": "BrollSpec",
+      "type": "object"
+    },
+    "CameraMove": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/WordRef"
+        },
+        "derived_from": {
+          "items": {
+            "$ref": "#/$defs/DerivedFrom"
+          },
+          "title": "Derived From",
+          "type": "array"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 3.0,
+              "exclusiveMinimum": 0.5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scale"
+        },
+        "transition": {
+          "default": "cut",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Transition",
+          "type": "string"
+        },
+        "type": {
+          "description": "camera.move_type",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "type",
+        "at"
+      ],
+      "title": "CameraMove",
+      "type": "object"
+    },
+    "CameraSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "angle": {
+          "default": "eye_level",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Angle",
+          "type": "string"
+        },
+        "framing": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Framing",
+          "type": "string"
+        },
+        "moves": {
+          "items": {
+            "$ref": "#/$defs/CameraMove"
+          },
+          "title": "Moves",
+          "type": "array"
+        },
+        "profile_id": {
+          "description": "config/camera_profiles id",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Profile Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "profile_id",
+        "framing"
+      ],
+      "title": "CameraSpec",
+      "type": "object"
+    },
+    "CaptionChanges": {
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enabled"
+        },
+        "highlight": {
+          "anyOf": [
+            {
+              "enum": [
+                "active_word",
+                "phrase",
+                "none"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Highlight"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Language"
+        },
+        "max_words_per_line": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Words Per Line"
+        },
+        "placement": {
+          "anyOf": [
+            {
+              "enum": [
+                "platform_safe_zone",
+                "bottom",
+                "center",
+                "top"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Placement"
+        },
+        "style_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Style Id"
+        },
+        "translations": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/CaptionTranslation"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Translations"
+        }
+      },
+      "title": "CaptionChanges",
+      "type": "object"
+    },
+    "CaptionTranslation": {
+      "additionalProperties": false,
+      "properties": {
+        "language": {
+          "title": "Language",
+          "type": "string"
+        }
+      },
+      "required": [
+        "language"
+      ],
+      "title": "CaptionTranslation",
+      "type": "object"
+    },
+    "CastRole": {
+      "enum": [
+        "host",
+        "guest",
+        "narrator"
+      ],
+      "title": "CastRole",
+      "type": "string"
+    },
+    "DerivedFrom": {
+      "additionalProperties": false,
+      "description": "Why a decision was made (§11 traceability). `compiler_approximation` entries carry the planned route's digest.",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/DerivedFromKind"
+        },
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        },
+        "route_digest": {
+          "anyOf": [
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Route Digest"
+        }
+      },
+      "required": [
+        "kind",
+        "ref"
+      ],
+      "title": "DerivedFrom",
+      "type": "object"
+    },
+    "DerivedFromKind": {
+      "description": "Traceability kinds (§11 `derived_from`).",
+      "enum": [
+        "intent",
+        "acting",
+        "dna",
+        "memory",
+        "policy",
+        "compiler_approximation",
+        "user"
+      ],
+      "title": "DerivedFromKind",
+      "type": "string"
+    },
+    "DurationSpan": {
+      "additionalProperties": false,
+      "description": "A span of fixed length after a shot point or a segment edge (title cards, silent holds).",
+      "properties": {
+        "after": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ShotRef"
+            },
+            {
+              "$ref": "#/$defs/SegmentRef"
+            }
+          ],
+          "title": "After"
+        },
+        "duration_ms": {
+          "exclusiveMinimum": 0,
+          "title": "Duration Ms",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "duration",
+          "default": "duration",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "after",
+        "duration_ms"
+      ],
+      "title": "DurationSpan",
+      "type": "object"
+    },
+    "EditScope": {
+      "additionalProperties": false,
+      "description": "What an operation applies to. Empty lists mean \"none\"; `None` means \"not restricted\".",
+      "properties": {
+        "character_keys": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Character Keys"
+        },
+        "ref": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^@[a-z0-9_]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "a reference slot resolved before validation",
+          "title": "Ref"
+        },
+        "scene_keys": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scene Keys"
+        },
+        "shot_keys": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shot Keys"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "a time range resolved to word anchors"
+        },
+        "state_keys": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "State Keys"
+        }
+      },
+      "title": "EditScope",
+      "type": "object"
+    },
+    "EditScript": {
+      "additionalProperties": false,
+      "description": "Replaces a segment's text; anchors are rebased (refused while wording is locked).",
+      "properties": {
+        "op": {
+          "const": "edit_script",
+          "default": "edit_script",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "segment_key": {
+          "title": "Segment Key",
+          "type": "string"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "segment_key",
+        "text"
+      ],
+      "title": "EditScript",
+      "type": "object"
+    },
+    "Effect": {
+      "additionalProperties": false,
+      "description": "A deterministic effect plugin applied over a span (`fx_` key; transitions, titles, lower thirds…).",
+      "properties": {
+        "derived_from": {
+          "items": {
+            "$ref": "#/$defs/DerivedFrom"
+          },
+          "title": "Derived From",
+          "type": "array"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        },
+        "span": {
+          "discriminator": {
+            "mapping": {
+              "duration": "#/$defs/DurationSpan",
+              "scene": "#/$defs/SceneSpan",
+              "words": "#/$defs/WordSpan"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "$ref": "#/$defs/DurationSpan"
+            },
+            {
+              "$ref": "#/$defs/SceneSpan"
+            }
+          ],
+          "title": "Span"
+        },
+        "type": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "type",
+        "span"
+      ],
+      "title": "Effect",
+      "type": "object"
+    },
+    "ElementSource": {
+      "description": "Who wrote a state, event, annotation or derived element (§15.3).",
+      "enum": [
+        "director",
+        "user_tag",
+        "user_edit",
+        "intent_policy",
+        "compiler_approximation"
+      ],
+      "title": "ElementSource",
+      "type": "string"
+    },
+    "EmotionChange": {
+      "additionalProperties": false,
+      "properties": {
+        "displayed": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EmotionValueChange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "felt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EmotionValueChange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "masking": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Masking"
+        }
+      },
+      "title": "EmotionChange",
+      "type": "object"
+    },
+    "EmotionSpec": {
+      "additionalProperties": false,
+      "description": "`masking: true` = felt differs from displayed (\"pretending to stay calm while surprised\").",
+      "properties": {
+        "displayed": {
+          "$ref": "#/$defs/EmotionValue"
+        },
+        "felt": {
+          "$ref": "#/$defs/EmotionValue"
+        },
+        "masking": {
+          "default": false,
+          "title": "Masking",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "felt",
+        "displayed"
+      ],
+      "title": "EmotionSpec",
+      "type": "object"
+    },
+    "EmotionValue": {
+      "additionalProperties": false,
+      "properties": {
+        "intensity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Intensity",
+          "type": "number"
+        },
+        "label": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "intensity"
+      ],
+      "title": "EmotionValue",
+      "type": "object"
+    },
+    "EmotionValueChange": {
+      "additionalProperties": false,
+      "properties": {
+        "intensity": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intensity"
+        },
+        "intensity_delta": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "relative change, clamped to 0..1",
+          "title": "Intensity Delta"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        }
+      },
+      "title": "EmotionValueChange",
+      "type": "object"
+    },
+    "EventChanges": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Direction"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Ms"
+        },
+        "intensity": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intensity"
+        },
+        "intensity_delta": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": -1.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intensity Delta"
+        },
+        "priority": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Priority"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "purpose": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Purpose"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "target": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        }
+      },
+      "title": "EventChanges",
+      "type": "object"
+    },
+    "InternalState": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "InternalState",
+      "type": "object"
+    },
+    "Keyframe": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Asset Id"
+        },
+        "strategy": {
+          "default": "composite",
+          "enum": [
+            "composite",
+            "asset"
+          ],
+          "title": "Strategy",
+          "type": "string"
+        }
+      },
+      "title": "Keyframe",
+      "type": "object"
+    },
+    "LightingOverride": {
+      "additionalProperties": false,
+      "description": "Lighting deltas. They must stay within the world tolerance unless `deviation_declared` (previz flags it).",
+      "properties": {
+        "color_temp_k_delta": {
+          "default": 0.0,
+          "title": "Color Temp K Delta",
+          "type": "number"
+        },
+        "deviation_declared": {
+          "default": false,
+          "title": "Deviation Declared",
+          "type": "boolean"
+        },
+        "key_azimuth_deg_delta": {
+          "default": 0.0,
+          "title": "Key Azimuth Deg Delta",
+          "type": "number"
+        },
+        "luminance_delta": {
+          "default": 0.0,
+          "title": "Luminance Delta",
+          "type": "number"
+        }
+      },
+      "title": "LightingOverride",
+      "type": "object"
+    },
+    "Lock": {
+      "additionalProperties": false,
+      "properties": {
+        "group": {
+          "description": "a lock group from config/vocab/edit_vocabulary.yaml",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Group",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/LockScope"
+        },
+        "set_by": {
+          "default": "user",
+          "enum": [
+            "user",
+            "system"
+          ],
+          "title": "Set By",
+          "type": "string"
+        }
+      },
+      "required": [
+        "group"
+      ],
+      "title": "Lock",
+      "type": "object"
+    },
+    "LockRemoval": {
+      "additionalProperties": false,
+      "properties": {
+        "group": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Group",
+          "type": "string"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LockScope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "none removes every lock of the group"
+        }
+      },
+      "required": [
+        "group"
+      ],
+      "title": "LockRemoval",
+      "type": "object"
+    },
+    "LockScope": {
+      "additionalProperties": false,
+      "properties": {
+        "character_keys": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Character Keys"
+        },
+        "scene_keys": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scene Keys"
+        },
+        "shot_keys": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shot Keys"
+        }
+      },
+      "title": "LockScope",
+      "type": "object"
+    },
+    "MemoryFeedback": {
+      "additionalProperties": false,
+      "description": "Proposes a Creator Memory item (a side effect outside the spec, confirmed separately, §18.4).",
+      "properties": {
+        "character_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Character Key"
+        },
+        "kind": {
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "op": {
+          "const": "memory_feedback",
+          "default": "memory_feedback",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "text": {
+          "default": "",
+          "maxLength": 500,
+          "title": "Text",
+          "type": "string"
+        },
+        "value": {
+          "additionalProperties": true,
+          "title": "Value",
+          "type": "object"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "MemoryFeedback",
+      "type": "object"
+    },
+    "MoveScene": {
+      "additionalProperties": false,
+      "properties": {
+        "after_scene_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "After Scene Key"
+        },
+        "op": {
+          "const": "move_scene",
+          "default": "move_scene",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scene_key": {
+          "title": "Scene Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scene_key"
+      ],
+      "title": "MoveScene",
+      "type": "object"
+    },
+    "MovedElement": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "position": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "minimum": 0.0,
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        }
+      },
+      "required": [
+        "key",
+        "position"
+      ],
+      "title": "MovedElement",
+      "type": "object"
+    },
+    "MusicCue": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Asset Id"
+        },
+        "bpm": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bpm"
+        },
+        "derived_from": {
+          "items": {
+            "$ref": "#/$defs/DerivedFrom"
+          },
+          "title": "Derived From",
+          "type": "array"
+        },
+        "duck_db": {
+          "default": -18.0,
+          "maximum": 0,
+          "title": "Duck Db",
+          "type": "number"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "mode": {
+          "default": "generate",
+          "enum": [
+            "generate",
+            "library",
+            "asset"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "mood": {
+          "default": "",
+          "title": "Mood",
+          "type": "string"
+        },
+        "span": {
+          "discriminator": {
+            "mapping": {
+              "duration": "#/$defs/DurationSpan",
+              "scene": "#/$defs/SceneSpan",
+              "words": "#/$defs/WordSpan"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "$ref": "#/$defs/DurationSpan"
+            },
+            {
+              "$ref": "#/$defs/SceneSpan"
+            }
+          ],
+          "title": "Span"
+        }
+      },
+      "required": [
+        "key",
+        "span"
+      ],
+      "title": "MusicCue",
+      "type": "object"
+    },
+    "MusicCueChanges": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Asset Id"
+        },
+        "bpm": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Bpm"
+        },
+        "duck_db": {
+          "anyOf": [
+            {
+              "maximum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duck Db"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "enum": [
+                "generate",
+                "library",
+                "asset"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mode"
+        },
+        "mood": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mood"
+        }
+      },
+      "title": "MusicCueChanges",
+      "type": "object"
+    },
+    "NewAnnotation": {
+      "additionalProperties": false,
+      "properties": {
+        "at_ref": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^@[a-z0-9_]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At Ref"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key"
+        },
+        "pause_ms": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pause Ms"
+        },
+        "respelling": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Respelling"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tag": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Tag",
+          "type": "string"
+        },
+        "type": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "tag"
+      ],
+      "title": "NewAnnotation",
+      "type": "object"
+    },
+    "NewEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "at_ref": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^@[a-z0-9_]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "a named anchor such as @emphasis or @span_start",
+          "title": "At Ref"
+        },
+        "character_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "default: the scope's character",
+          "title": "Character Key"
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Direction"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Ms"
+        },
+        "intensity": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intensity"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "assigned when missing",
+          "title": "Key"
+        },
+        "priority": {
+          "$ref": "#/$defs/Priority",
+          "default": "should"
+        },
+        "purpose": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Purpose"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "target": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "type": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "NewEvent",
+      "type": "object"
+    },
+    "NewMove": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "default: the shot's first word"
+        },
+        "at_ref": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "pattern": "^@[a-z0-9_]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "At Ref"
+        },
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 3.0,
+              "exclusiveMinimum": 0.5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scale"
+        },
+        "transition": {
+          "default": "cut",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Transition",
+          "type": "string"
+        },
+        "type": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "NewMove",
+      "type": "object"
+    },
+    "OutOfCharacter": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed": {
+          "title": "Allowed",
+          "type": "boolean"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "allowed",
+        "reason"
+      ],
+      "title": "OutOfCharacter",
+      "type": "object"
+    },
+    "OutputPreset": {
+      "additionalProperties": false,
+      "properties": {
+        "aspect": {
+          "pattern": "^(9:16|16:9|1:1|4:5)$",
+          "title": "Aspect",
+          "type": "string"
+        },
+        "preset_id": {
+          "description": "a render preset id from config/platforms",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Preset Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "preset_id",
+        "aspect"
+      ],
+      "title": "OutputPreset",
+      "type": "object"
+    },
+    "Pacing": {
+      "additionalProperties": false,
+      "properties": {
+        "cut_cadence": {
+          "anyOf": [
+            {
+              "enum": [
+                "slow",
+                "medium",
+                "fast"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cut Cadence"
+        },
+        "target_wpm_delta": {
+          "default": 0.0,
+          "description": "relative change of the WPM target",
+          "maximum": 0.5,
+          "minimum": -0.5,
+          "title": "Target Wpm Delta",
+          "type": "number"
+        }
+      },
+      "title": "Pacing",
+      "type": "object"
+    },
+    "PlateContinuityRef": {
+      "additionalProperties": false,
+      "properties": {
+        "camera_position_key": {
+          "title": "Camera Position Key",
+          "type": "string"
+        },
+        "kind": {
+          "const": "world_plate",
+          "default": "world_plate",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "camera_position_key"
+      ],
+      "title": "PlateContinuityRef",
+      "type": "object"
+    },
+    "Priority": {
+      "enum": [
+        "must",
+        "should",
+        "nice"
+      ],
+      "title": "Priority",
+      "type": "string"
+    },
+    "ProductRef": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "product_version_id": {
+          "format": "uuid",
+          "title": "Product Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "product_version_id"
+      ],
+      "title": "ProductRef",
+      "type": "object"
+    },
+    "QualityTier": {
+      "enum": [
+        "draft",
+        "final"
+      ],
+      "title": "QualityTier",
+      "type": "string"
+    },
+    "QuoteSource": {
+      "additionalProperties": false,
+      "description": "A real customer quote: needs consent (§32).",
+      "properties": {
+        "asset_id": {
+          "format": "uuid",
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "consent_id": {
+          "format": "uuid",
+          "title": "Consent Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "consent_id",
+        "asset_id"
+      ],
+      "title": "QuoteSource",
+      "type": "object"
+    },
+    "ReactionSource": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "format": "uuid",
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "layout": {
+          "default": "pip",
+          "enum": [
+            "pip",
+            "split"
+          ],
+          "title": "Layout",
+          "type": "string"
+        },
+        "range_s": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Range S",
+          "type": "array"
+        }
+      },
+      "required": [
+        "asset_id",
+        "range_s"
+      ],
+      "title": "ReactionSource",
+      "type": "object"
+    },
+    "Reframe": {
+      "additionalProperties": false,
+      "properties": {
+        "regenerate_if_crop_loss_above": {
+          "default": 0.25,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Regenerate If Crop Loss Above",
+          "type": "number"
+        },
+        "strategy": {
+          "default": "subject_aware",
+          "enum": [
+            "subject_aware",
+            "center",
+            "none"
+          ],
+          "title": "Strategy",
+          "type": "string"
+        }
+      },
+      "title": "Reframe",
+      "type": "object"
+    },
+    "RefreshMemory": {
+      "additionalProperties": false,
+      "properties": {
+        "character_keys": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Character Keys"
+        },
+        "op": {
+          "const": "refresh_memory",
+          "default": "refresh_memory",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "snapshot_ids": {
+          "additionalProperties": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "description": "new snapshots pinned at proposal time",
+          "title": "Snapshot Ids",
+          "type": "object"
+        }
+      },
+      "title": "RefreshMemory",
+      "type": "object"
+    },
+    "Regenerate": {
+      "additionalProperties": false,
+      "description": "Seed override and/or a component re-run (§12.7): `seed_policy: new` writes\n`generation.seed_overrides` for the component's nodes in scope.",
+      "properties": {
+        "components": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Components",
+          "type": "array"
+        },
+        "op": {
+          "const": "regenerate",
+          "default": "regenerate",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/EditScope"
+        },
+        "seed_policy": {
+          "default": "new",
+          "enum": [
+            "same",
+            "new"
+          ],
+          "title": "Seed Policy",
+          "type": "string"
+        },
+        "strategy": {
+          "default": "full",
+          "enum": [
+            "full",
+            "lipsync_patch"
+          ],
+          "title": "Strategy",
+          "type": "string"
+        },
+        "takes": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Takes"
+        }
+      },
+      "required": [
+        "components"
+      ],
+      "title": "Regenerate",
+      "type": "object"
+    },
+    "RemoveAnnotation": {
+      "additionalProperties": false,
+      "properties": {
+        "annotation_key": {
+          "title": "Annotation Key",
+          "type": "string"
+        },
+        "op": {
+          "const": "remove_annotation",
+          "default": "remove_annotation",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "segment_key": {
+          "title": "Segment Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "segment_key",
+        "annotation_key"
+      ],
+      "title": "RemoveAnnotation",
+      "type": "object"
+    },
+    "RemoveBehaviorEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_key": {
+          "title": "Event Key",
+          "type": "string"
+        },
+        "op": {
+          "const": "remove_behavior_event",
+          "default": "remove_behavior_event",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scene_key": {
+          "title": "Scene Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scene_key",
+        "event_key"
+      ],
+      "title": "RemoveBehaviorEvent",
+      "type": "object"
+    },
+    "RemoveScene": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "remove_scene",
+          "default": "remove_scene",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scene_key": {
+          "title": "Scene Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scene_key"
+      ],
+      "title": "RemoveScene",
+      "type": "object"
+    },
+    "RemoveShot": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "remove_shot",
+          "default": "remove_shot",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scene_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scene Key"
+        },
+        "shot_key": {
+          "title": "Shot Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shot_key"
+      ],
+      "title": "RemoveShot",
+      "type": "object"
+    },
+    "ReplaceBroll": {
+      "additionalProperties": false,
+      "properties": {
+        "broll": {
+          "$ref": "#/$defs/BrollSpec"
+        },
+        "op": {
+          "const": "replace_broll",
+          "default": "replace_broll",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scene_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scene Key"
+        },
+        "shot_key": {
+          "title": "Shot Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shot_key",
+        "broll"
+      ],
+      "title": "ReplaceBroll",
+      "type": "object"
+    },
+    "Reroute": {
+      "additionalProperties": false,
+      "description": "Explicitly re-routes nodes (§12.4); `adapter_id` also pins the engine (`engine_hints`).",
+      "properties": {
+        "adapter_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Adapter Id"
+        },
+        "node_keys": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Node Keys",
+          "type": "array"
+        },
+        "op": {
+          "const": "reroute",
+          "default": "reroute",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "node_keys"
+      ],
+      "title": "Reroute",
+      "type": "object"
+    },
+    "Scene": {
+      "additionalProperties": false,
+      "properties": {
+        "acting": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ActingPlan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cast": {
+          "items": {
+            "$ref": "#/$defs/SceneCast"
+          },
+          "title": "Cast",
+          "type": "array"
+        },
+        "intent": {
+          "$ref": "#/$defs/SceneIntent"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "order": {
+          "exclusiveMinimum": 0,
+          "title": "Order",
+          "type": "integer"
+        },
+        "pacing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Pacing"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "purpose": {
+          "description": "intent.scene_purpose",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Purpose",
+          "type": "string"
+        },
+        "segment_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Segment Keys",
+          "type": "array"
+        },
+        "shots": {
+          "items": {
+            "$ref": "#/$defs/Shot"
+          },
+          "title": "Shots",
+          "type": "array"
+        },
+        "world": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorldBinding"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "key",
+        "purpose",
+        "order"
+      ],
+      "title": "Scene",
+      "type": "object"
+    },
+    "SceneCast": {
+      "additionalProperties": false,
+      "properties": {
+        "character_key": {
+          "title": "Character Key",
+          "type": "string"
+        },
+        "default_posture": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default Posture"
+        },
+        "placement": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Placement"
+        },
+        "wardrobe_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wardrobe Version Id"
+        }
+      },
+      "required": [
+        "character_key"
+      ],
+      "title": "SceneCast",
+      "type": "object"
+    },
+    "SceneIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "attention_goal": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attention Goal"
+        },
+        "audience_effect": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Audience Effect"
+        },
+        "curiosity_level": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Curiosity Level"
+        },
+        "emotional_goal": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Emotional Goal"
+        },
+        "information_goal": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Information Goal"
+        },
+        "narrative_goal": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Narrative Goal"
+        },
+        "notes": {
+          "default": "",
+          "description": "free text; never drives control (I13)",
+          "title": "Notes",
+          "type": "string"
+        },
+        "performance_strategy": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Performance Strategy"
+        },
+        "persuasion_goal": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Persuasion Goal"
+        },
+        "reveal_strategy": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reveal Strategy"
+        },
+        "tension_level": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tension Level"
+        }
+      },
+      "title": "SceneIntent",
+      "type": "object"
+    },
+    "SceneSpan": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "scene",
+          "default": "scene",
+          "title": "Kind",
+          "type": "string"
+        },
+        "scene_key": {
+          "title": "Scene Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scene_key"
+      ],
+      "title": "SceneSpan",
+      "type": "object"
+    },
+    "ScreenSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "format": "uuid",
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "speed_segments": {
+          "items": {
+            "$ref": "#/$defs/SpeedSegment"
+          },
+          "title": "Speed Segments",
+          "type": "array"
+        },
+        "webcam_bubble": {
+          "$ref": "#/$defs/WebcamBubble"
+        },
+        "zooms": {
+          "items": {
+            "$ref": "#/$defs/Zoom"
+          },
+          "title": "Zooms",
+          "type": "array"
+        }
+      },
+      "required": [
+        "asset_id"
+      ],
+      "title": "ScreenSpec",
+      "type": "object"
+    },
+    "Segment": {
+      "additionalProperties": false,
+      "properties": {
+        "annotations": {
+          "items": {
+            "$ref": "#/$defs/Annotation"
+          },
+          "title": "Annotations",
+          "type": "array"
+        },
+        "claim_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Claim Keys",
+          "type": "array"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "language": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "null = meta.language",
+          "title": "Language"
+        },
+        "quote_source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QuoteSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "speaker_key": {
+          "title": "Speaker Key",
+          "type": "string"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "speaker_key",
+        "text"
+      ],
+      "title": "Segment",
+      "type": "object"
+    },
+    "SegmentRef": {
+      "additionalProperties": false,
+      "properties": {
+        "edge": {
+          "enum": [
+            "start",
+            "end"
+          ],
+          "title": "Edge",
+          "type": "string"
+        },
+        "segment_key": {
+          "title": "Segment Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "segment_key",
+        "edge"
+      ],
+      "title": "SegmentRef",
+      "type": "object"
+    },
+    "SelectTake": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "select_take",
+          "default": "select_take",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "shot_key": {
+          "title": "Shot Key",
+          "type": "string"
+        },
+        "take_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "none returns the choice to QC ranking",
+          "title": "Take Key"
+        }
+      },
+      "required": [
+        "shot_key",
+        "take_key"
+      ],
+      "title": "SelectTake",
+      "type": "object"
+    },
+    "SetActing": {
+      "additionalProperties": false,
+      "description": "The acting states in scope (split at the span's edges when it cuts a state).",
+      "properties": {
+        "changes": {
+          "$ref": "#/$defs/ActingChanges"
+        },
+        "op": {
+          "const": "set_acting",
+          "default": "set_acting",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/EditScope"
+        },
+        "situation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SituationChange"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "SetActing",
+      "type": "object"
+    },
+    "SetAnnotation": {
+      "additionalProperties": false,
+      "properties": {
+        "annotation_key": {
+          "title": "Annotation Key",
+          "type": "string"
+        },
+        "changes": {
+          "$ref": "#/$defs/AnnotationChanges"
+        },
+        "op": {
+          "const": "set_annotation",
+          "default": "set_annotation",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "segment_key": {
+          "title": "Segment Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "segment_key",
+        "annotation_key",
+        "changes"
+      ],
+      "title": "SetAnnotation",
+      "type": "object"
+    },
+    "SetBehaviorEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "changes": {
+          "$ref": "#/$defs/EventChanges"
+        },
+        "event_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Event Key"
+        },
+        "event_type": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "every event of this type in scope",
+          "title": "Event Type"
+        },
+        "op": {
+          "const": "set_behavior_event",
+          "default": "set_behavior_event",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scene_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scene Key"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EditScope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "events of a type in scope (with `event_type`)"
+        }
+      },
+      "required": [
+        "changes"
+      ],
+      "title": "SetBehaviorEvent",
+      "type": "object"
+    },
+    "SetBrand": {
+      "additionalProperties": false,
+      "properties": {
+        "brand_kit_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Brand Kit Id"
+        },
+        "clear_brand_kit": {
+          "default": false,
+          "title": "Clear Brand Kit",
+          "type": "boolean"
+        },
+        "logo_overlay": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Logo Overlay"
+        },
+        "op": {
+          "const": "set_brand",
+          "default": "set_brand",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "title": "SetBrand",
+      "type": "object"
+    },
+    "SetCamera": {
+      "additionalProperties": false,
+      "properties": {
+        "add_moves": {
+          "items": {
+            "$ref": "#/$defs/NewMove"
+          },
+          "title": "Add Moves",
+          "type": "array"
+        },
+        "angle": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Angle"
+        },
+        "camera_position_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Camera Position Key"
+        },
+        "framing": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Framing"
+        },
+        "op": {
+          "const": "set_camera",
+          "default": "set_camera",
+          "title": "Op",
+          "type": "string"
+        },
+        "profile_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Profile Id"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "remove_move_types": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "title": "Remove Move Types",
+          "type": "array"
+        },
+        "remove_moves": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Remove Moves",
+          "type": "array"
+        },
+        "scope": {
+          "$ref": "#/$defs/EditScope",
+          "description": "shots; default every talking shot"
+        }
+      },
+      "title": "SetCamera",
+      "type": "object"
+    },
+    "SetCaptions": {
+      "additionalProperties": false,
+      "properties": {
+        "changes": {
+          "$ref": "#/$defs/CaptionChanges"
+        },
+        "op": {
+          "const": "set_captions",
+          "default": "set_captions",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "changes"
+      ],
+      "title": "SetCaptions",
+      "type": "object"
+    },
+    "SetCast": {
+      "additionalProperties": false,
+      "properties": {
+        "appearance_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Appearance Version Id"
+        },
+        "character_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "default: the only cast member",
+          "title": "Character Key"
+        },
+        "clear_appearance": {
+          "default": false,
+          "title": "Clear Appearance",
+          "type": "boolean"
+        },
+        "clear_voice": {
+          "default": false,
+          "title": "Clear Voice",
+          "type": "boolean"
+        },
+        "clear_voice_prosody": {
+          "default": false,
+          "title": "Clear Voice Prosody",
+          "type": "boolean"
+        },
+        "op": {
+          "const": "set_cast",
+          "default": "set_cast",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CastRole"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "voice_prosody": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VoiceProsody"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "voice_query": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "resolved to an approved voice",
+          "title": "Voice Query"
+        },
+        "voice_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Voice Version Id"
+        }
+      },
+      "title": "SetCast",
+      "type": "object"
+    },
+    "SetEffects": {
+      "additionalProperties": false,
+      "properties": {
+        "add": {
+          "items": {
+            "$ref": "#/$defs/Effect"
+          },
+          "title": "Add",
+          "type": "array"
+        },
+        "op": {
+          "const": "set_effects",
+          "default": "set_effects",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "remove": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Remove",
+          "type": "array"
+        }
+      },
+      "title": "SetEffects",
+      "type": "object"
+    },
+    "SetIntent": {
+      "additionalProperties": false,
+      "description": "Video intent (no scope) or scene intent fields; triggers an intent-policy replan (§14).",
+      "properties": {
+        "fields": {
+          "minProperties": 1,
+          "patternProperties": {
+            "^[a-z0-9]+(?:_[a-z0-9]+)*$": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "items": {
+                    "maxLength": 64,
+                    "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "title": "Fields",
+          "type": "object"
+        },
+        "op": {
+          "const": "set_intent",
+          "default": "set_intent",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EditScope"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "scenes; none = the video intent"
+        }
+      },
+      "required": [
+        "fields"
+      ],
+      "title": "SetIntent",
+      "type": "object"
+    },
+    "SetLock": {
+      "additionalProperties": false,
+      "properties": {
+        "add": {
+          "items": {
+            "$ref": "#/$defs/Lock"
+          },
+          "title": "Add",
+          "type": "array"
+        },
+        "op": {
+          "const": "set_lock",
+          "default": "set_lock",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "remove": {
+          "items": {
+            "$ref": "#/$defs/LockRemoval"
+          },
+          "title": "Remove",
+          "type": "array"
+        }
+      },
+      "title": "SetLock",
+      "type": "object"
+    },
+    "SetMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "add_template_ids": {
+          "description": "spec templates applied (Phase 12)",
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "title": "Add Template Ids",
+          "type": "array"
+        },
+        "op": {
+          "const": "set_meta",
+          "default": "set_meta",
+          "title": "Op",
+          "type": "string"
+        },
+        "platform_targets": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 64,
+                "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Platform Targets"
+        },
+        "primary_aspect": {
+          "anyOf": [
+            {
+              "pattern": "^(9:16|16:9|1:1|4:5)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Primary Aspect"
+        },
+        "quality_tier": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/QualityTier"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "target_duration_s": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Duration S"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        }
+      },
+      "title": "SetMeta",
+      "type": "object"
+    },
+    "SetMusic": {
+      "additionalProperties": false,
+      "properties": {
+        "add": {
+          "items": {
+            "$ref": "#/$defs/MusicCue"
+          },
+          "title": "Add",
+          "type": "array"
+        },
+        "op": {
+          "const": "set_music",
+          "default": "set_music",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "remove": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Remove",
+          "type": "array"
+        },
+        "update": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MusicCueChanges"
+          },
+          "title": "Update",
+          "type": "object"
+        }
+      },
+      "title": "SetMusic",
+      "type": "object"
+    },
+    "SetPacing": {
+      "additionalProperties": false,
+      "properties": {
+        "clear_cut_cadence": {
+          "default": false,
+          "title": "Clear Cut Cadence",
+          "type": "boolean"
+        },
+        "cut_cadence": {
+          "anyOf": [
+            {
+              "enum": [
+                "slow",
+                "medium",
+                "fast"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cut Cadence"
+        },
+        "op": {
+          "const": "set_pacing",
+          "default": "set_pacing",
+          "title": "Op",
+          "type": "string"
+        },
+        "pause_scale": {
+          "anyOf": [
+            {
+              "maximum": 4.0,
+              "minimum": 0.25,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "scales every pause in scope",
+          "title": "Pause Scale"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/EditScope"
+        },
+        "target_wpm_delta": {
+          "anyOf": [
+            {
+              "maximum": 0.5,
+              "minimum": -0.5,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Wpm Delta"
+        }
+      },
+      "title": "SetPacing",
+      "type": "object"
+    },
+    "SetProduct": {
+      "additionalProperties": false,
+      "properties": {
+        "add": {
+          "items": {
+            "$ref": "#/$defs/ProductRef"
+          },
+          "title": "Add",
+          "type": "array"
+        },
+        "op": {
+          "const": "set_product",
+          "default": "set_product",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "remove": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Remove",
+          "type": "array"
+        }
+      },
+      "title": "SetProduct",
+      "type": "object"
+    },
+    "SetProvenanceLabel": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "set_provenance_label",
+          "default": "set_provenance_label",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "visible_label": {
+          "enum": [
+            "auto",
+            "on",
+            "off"
+          ],
+          "title": "Visible Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "visible_label"
+      ],
+      "title": "SetProvenanceLabel",
+      "type": "object"
+    },
+    "SetRenderOutputs": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "set_render_outputs",
+          "default": "set_render_outputs",
+          "title": "Op",
+          "type": "string"
+        },
+        "outputs": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/OutputPreset"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Outputs"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "reframe": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Reframe"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "SetRenderOutputs",
+      "type": "object"
+    },
+    "SetSfx": {
+      "additionalProperties": false,
+      "properties": {
+        "add": {
+          "items": {
+            "$ref": "#/$defs/SfxEvent"
+          },
+          "title": "Add",
+          "type": "array"
+        },
+        "op": {
+          "const": "set_sfx",
+          "default": "set_sfx",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "remove": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Remove",
+          "type": "array"
+        },
+        "update": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SfxChanges"
+          },
+          "title": "Update",
+          "type": "object"
+        }
+      },
+      "title": "SetSfx",
+      "type": "object"
+    },
+    "SetShot": {
+      "additionalProperties": false,
+      "properties": {
+        "changes": {
+          "$ref": "#/$defs/ShotChanges"
+        },
+        "op": {
+          "const": "set_shot",
+          "default": "set_shot",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scene_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scene Key"
+        },
+        "shot_key": {
+          "title": "Shot Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shot_key",
+        "changes"
+      ],
+      "title": "SetShot",
+      "type": "object"
+    },
+    "SetWardrobe": {
+      "additionalProperties": false,
+      "properties": {
+        "character_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Character Key"
+        },
+        "op": {
+          "const": "set_wardrobe",
+          "default": "set_wardrobe",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/EditScope"
+        },
+        "wardrobe_query": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "resolved to an approved wardrobe",
+          "title": "Wardrobe Query"
+        },
+        "wardrobe_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wardrobe Version Id"
+        }
+      },
+      "title": "SetWardrobe",
+      "type": "object"
+    },
+    "SetWorldBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "camera_position_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Camera Position Key"
+        },
+        "continuity_ref": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "asset": "#/$defs/AssetContinuityRef",
+                  "shot": "#/$defs/ShotContinuityRef",
+                  "world_plate": "#/$defs/PlateContinuityRef"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/PlateContinuityRef"
+                },
+                {
+                  "$ref": "#/$defs/ShotContinuityRef"
+                },
+                {
+                  "$ref": "#/$defs/AssetContinuityRef"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Continuity Ref"
+        },
+        "op": {
+          "const": "set_world_binding",
+          "default": "set_world_binding",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scope": {
+          "$ref": "#/$defs/EditScope"
+        },
+        "time_of_day": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Time Of Day"
+        },
+        "weather": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Weather"
+        },
+        "world_query": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "a world description the Director resolves to an approved world",
+          "title": "World Query"
+        },
+        "world_version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "World Version Id"
+        }
+      },
+      "title": "SetWorldBinding",
+      "type": "object"
+    },
+    "SetWorldOverride": {
+      "additionalProperties": false,
+      "description": "Scene-local overrides; never mutates World DNA (I6).",
+      "properties": {
+        "acoustics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AcousticsOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "add_elements": {
+          "items": {
+            "$ref": "#/$defs/AddedElement"
+          },
+          "title": "Add Elements",
+          "type": "array"
+        },
+        "clear_acoustics": {
+          "default": false,
+          "title": "Clear Acoustics",
+          "type": "boolean"
+        },
+        "clear_lighting": {
+          "default": false,
+          "title": "Clear Lighting",
+          "type": "boolean"
+        },
+        "element_states": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": "null clears",
+          "title": "Element States",
+          "type": "object"
+        },
+        "hide": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Hide",
+          "type": "array"
+        },
+        "lighting": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LightingOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "move_elements": {
+          "items": {
+            "$ref": "#/$defs/MovedElement"
+          },
+          "title": "Move Elements",
+          "type": "array"
+        },
+        "op": {
+          "const": "set_world_override",
+          "default": "set_world_override",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "remove_added": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Remove Added",
+          "type": "array"
+        },
+        "scope": {
+          "$ref": "#/$defs/EditScope"
+        },
+        "unhide": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Unhide",
+          "type": "array"
+        }
+      },
+      "title": "SetWorldOverride",
+      "type": "object"
+    },
+    "SfxChanges": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Asset Id"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "gain_db": {
+          "anyOf": [
+            {
+              "maximum": 6,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gain Db"
+        }
+      },
+      "title": "SfxChanges",
+      "type": "object"
+    },
+    "SfxEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Asset Id"
+        },
+        "at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordRef"
+            },
+            {
+              "$ref": "#/$defs/ShotRef"
+            },
+            {
+              "$ref": "#/$defs/SegmentRef"
+            }
+          ],
+          "title": "At"
+        },
+        "derived_from": {
+          "items": {
+            "$ref": "#/$defs/DerivedFrom"
+          },
+          "title": "Derived From",
+          "type": "array"
+        },
+        "description": {
+          "minLength": 1,
+          "title": "Description",
+          "type": "string"
+        },
+        "gain_db": {
+          "default": -10.0,
+          "maximum": 6,
+          "title": "Gain Db",
+          "type": "number"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "at",
+        "description"
+      ],
+      "title": "SfxEvent",
+      "type": "object"
+    },
+    "Shot": {
+      "additionalProperties": false,
+      "properties": {
+        "broll": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BrollSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "camera": {
+          "$ref": "#/$defs/CameraSpec"
+        },
+        "character_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Character Key"
+        },
+        "derived_from": {
+          "items": {
+            "$ref": "#/$defs/DerivedFrom"
+          },
+          "title": "Derived From",
+          "type": "array"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "layer": {
+          "$ref": "#/$defs/ShotLayer"
+        },
+        "product_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Product Key"
+        },
+        "reaction_source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReactionSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "screen": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ScreenSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "$ref": "#/$defs/DurationSpan"
+            }
+          ],
+          "title": "Span"
+        },
+        "takes": {
+          "$ref": "#/$defs/Takes"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TitleCard"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "type": {
+          "$ref": "#/$defs/ShotType"
+        },
+        "visual": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VisualSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "key",
+        "type",
+        "layer",
+        "span",
+        "camera"
+      ],
+      "title": "Shot",
+      "type": "object"
+    },
+    "ShotChanges": {
+      "additionalProperties": false,
+      "properties": {
+        "broll_prompt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Broll Prompt"
+        },
+        "layer": {
+          "anyOf": [
+            {
+              "enum": [
+                "base",
+                "overlay"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Layer"
+        },
+        "reaction_source": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReactionSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "speed_segments": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/SpeedSegment"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Speed Segments"
+        },
+        "takes_count": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Takes Count"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Type"
+        },
+        "webcam_bubble": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WebcamBubble"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "zooms": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/Zoom"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Zooms"
+        }
+      },
+      "title": "ShotChanges",
+      "type": "object"
+    },
+    "ShotContinuityRef": {
+      "additionalProperties": false,
+      "description": "Match a previous video's look. Enters cache keys as the referenced artifact's hash, never as ids (§12.2).",
+      "properties": {
+        "kind": {
+          "const": "shot",
+          "default": "shot",
+          "title": "Kind",
+          "type": "string"
+        },
+        "shot_key": {
+          "title": "Shot Key",
+          "type": "string"
+        },
+        "version_id": {
+          "format": "uuid",
+          "title": "Version Id",
+          "type": "string"
+        },
+        "video_id": {
+          "format": "uuid",
+          "title": "Video Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "video_id",
+        "version_id",
+        "shot_key"
+      ],
+      "title": "ShotContinuityRef",
+      "type": "object"
+    },
+    "ShotLayer": {
+      "enum": [
+        "base",
+        "overlay"
+      ],
+      "title": "ShotLayer",
+      "type": "string"
+    },
+    "ShotRef": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "shot",
+          "default": "shot",
+          "title": "Kind",
+          "type": "string"
+        },
+        "offset_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Offset Ms",
+          "type": "integer"
+        },
+        "shot_key": {
+          "title": "Shot Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shot_key"
+      ],
+      "title": "ShotRef",
+      "type": "object"
+    },
+    "ShotType": {
+      "description": "Closed shot types (§11). `two_shot` is rejected while `multi_character_enabled=false`.",
+      "enum": [
+        "talking_head",
+        "broll",
+        "insert",
+        "screen",
+        "product",
+        "title_card",
+        "reaction_clip",
+        "silent_hold",
+        "two_shot"
+      ],
+      "title": "ShotType",
+      "type": "string"
+    },
+    "Situation": {
+      "additionalProperties": false,
+      "properties": {
+        "audience_stance": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Audience Stance",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Kind",
+          "type": "string"
+        },
+        "stimulus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Stimulus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "audience_stance"
+      ],
+      "title": "Situation",
+      "type": "object"
+    },
+    "SituationChange": {
+      "additionalProperties": false,
+      "properties": {
+        "audience_stance": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Audience Stance"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        }
+      },
+      "title": "SituationChange",
+      "type": "object"
+    },
+    "SpeedSegment": {
+      "additionalProperties": false,
+      "properties": {
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "$ref": "#/$defs/DurationSpan"
+            }
+          ],
+          "title": "Span"
+        },
+        "speed": {
+          "exclusiveMinimum": 0.1,
+          "maximum": 8.0,
+          "title": "Speed",
+          "type": "number"
+        }
+      },
+      "required": [
+        "span",
+        "speed"
+      ],
+      "title": "SpeedSegment",
+      "type": "object"
+    },
+    "SplitShot": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/WordRef"
+        },
+        "new_shot_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "New Shot Key"
+        },
+        "op": {
+          "const": "split_shot",
+          "default": "split_shot",
+          "title": "Op",
+          "type": "string"
+        },
+        "reason": {
+          "default": "",
+          "description": "shown in the proposal; never drives control",
+          "maxLength": 500,
+          "title": "Reason",
+          "type": "string"
+        },
+        "scene_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scene Key"
+        },
+        "shot_key": {
+          "title": "Shot Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shot_key",
+        "at"
+      ],
+      "title": "SplitShot",
+      "type": "object"
+    },
+    "Stimulus": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "description": "stimulus_kind: element | clip | statement | memory",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Kind",
+          "type": "string"
+        },
+        "ref": {
+          "description": "element key, asset id, quoted statement or memory item id",
+          "title": "Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "ref"
+      ],
+      "title": "Stimulus",
+      "type": "object"
+    },
+    "Strategies": {
+      "additionalProperties": false,
+      "properties": {
+        "camera_awareness": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Camera Awareness",
+          "type": "string"
+        },
+        "gaze": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Gaze",
+          "type": "string"
+        },
+        "gesture": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Gesture",
+          "type": "string"
+        },
+        "posture": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Posture",
+          "type": "string"
+        },
+        "prosody": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Prosody",
+          "type": "string"
+        },
+        "reaction": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Reaction",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prosody",
+        "gaze",
+        "gesture",
+        "posture",
+        "reaction",
+        "camera_awareness"
+      ],
+      "title": "Strategies",
+      "type": "object"
+    },
+    "Takes": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Count",
+          "type": "integer"
+        },
+        "selected_take_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Selected Take Key"
+        }
+      },
+      "title": "Takes",
+      "type": "object"
+    },
+    "TimeOfDay": {
+      "description": "World `time_of_day` values (§19.1).",
+      "enum": [
+        "morning",
+        "midday",
+        "late_afternoon",
+        "golden_hour",
+        "evening",
+        "night"
+      ],
+      "title": "TimeOfDay",
+      "type": "string"
+    },
+    "TitleCard": {
+      "additionalProperties": false,
+      "properties": {
+        "style_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Style Id"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "TitleCard",
+      "type": "object"
+    },
+    "TransitionChange": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_words": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Words"
+        },
+        "style": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Style"
+        },
+        "trigger_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "trigger_kind": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trigger Kind"
+        }
+      },
+      "title": "TransitionChange",
+      "type": "object"
+    },
+    "TransitionIn": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_words": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Duration Words",
+          "type": "integer"
+        },
+        "style": {
+          "description": "transition_style: sudden | gradual | lagged",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Style",
+          "type": "string"
+        },
+        "trigger": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Trigger"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "style"
+      ],
+      "title": "TransitionIn",
+      "type": "object"
+    },
+    "Trigger": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/WordRef"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "at"
+      ],
+      "title": "Trigger",
+      "type": "object"
+    },
+    "VisualSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "keyframe": {
+          "$ref": "#/$defs/Keyframe"
+        },
+        "negative": {
+          "default": "",
+          "title": "Negative",
+          "type": "string"
+        },
+        "prompt_extra": {
+          "default": "",
+          "title": "Prompt Extra",
+          "type": "string"
+        }
+      },
+      "title": "VisualSpec",
+      "type": "object"
+    },
+    "VoiceProsody": {
+      "additionalProperties": false,
+      "description": "A per-video offset on the voice version's default prosody (§10.6).",
+      "properties": {
+        "energy": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Energy",
+          "type": "number"
+        },
+        "pitch_semitones": {
+          "default": 0.0,
+          "maximum": 12,
+          "minimum": -12,
+          "title": "Pitch Semitones",
+          "type": "number"
+        },
+        "rate": {
+          "default": 1.0,
+          "maximum": 2.0,
+          "minimum": 0.5,
+          "title": "Rate",
+          "type": "number"
+        }
+      },
+      "title": "VoiceProsody",
+      "type": "object"
+    },
+    "Weather": {
+      "enum": [
+        "clear",
+        "overcast",
+        "rain"
+      ],
+      "title": "Weather",
+      "type": "string"
+    },
+    "WebcamBubble": {
+      "additionalProperties": false,
+      "properties": {
+        "corner": {
+          "default": "bottom_right",
+          "enum": [
+            "top_left",
+            "top_right",
+            "bottom_left",
+            "bottom_right"
+          ],
+          "title": "Corner",
+          "type": "string"
+        },
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "size": {
+          "default": 0.25,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Size",
+          "type": "number"
+        }
+      },
+      "title": "WebcamBubble",
+      "type": "object"
+    },
+    "WordRef": {
+      "additionalProperties": false,
+      "description": "One word of a segment (index into the canonical tokenizer's output).",
+      "properties": {
+        "segment_key": {
+          "title": "Segment Key",
+          "type": "string"
+        },
+        "word": {
+          "minimum": 0,
+          "title": "Word",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "segment_key",
+        "word"
+      ],
+      "title": "WordRef",
+      "type": "object"
+    },
+    "WordSpan": {
+      "additionalProperties": false,
+      "description": "An inclusive word range. It may cross segments of the same scene, in order.",
+      "properties": {
+        "end": {
+          "$ref": "#/$defs/WordRef"
+        },
+        "kind": {
+          "const": "words",
+          "default": "words",
+          "title": "Kind",
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/WordRef"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "WordSpan",
+      "type": "object"
+    },
+    "WorldBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "camera_position_key": {
+          "title": "Camera Position Key",
+          "type": "string"
+        },
+        "continuity_ref": {
+          "anyOf": [
+            {
+              "discriminator": {
+                "mapping": {
+                  "asset": "#/$defs/AssetContinuityRef",
+                  "shot": "#/$defs/ShotContinuityRef",
+                  "world_plate": "#/$defs/PlateContinuityRef"
+                },
+                "propertyName": "kind"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/PlateContinuityRef"
+                },
+                {
+                  "$ref": "#/$defs/ShotContinuityRef"
+                },
+                {
+                  "$ref": "#/$defs/AssetContinuityRef"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Continuity Ref"
+        },
+        "overrides": {
+          "$ref": "#/$defs/WorldOverrides"
+        },
+        "time_of_day": {
+          "$ref": "#/$defs/TimeOfDay"
+        },
+        "weather": {
+          "$ref": "#/$defs/Weather",
+          "default": "clear"
+        },
+        "world_version_id": {
+          "format": "uuid",
+          "title": "World Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "world_version_id",
+        "camera_position_key",
+        "time_of_day"
+      ],
+      "title": "WorldBinding",
+      "type": "object"
+    },
+    "WorldOverrides": {
+      "additionalProperties": false,
+      "properties": {
+        "acoustics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AcousticsOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "add_elements": {
+          "items": {
+            "$ref": "#/$defs/AddedElement"
+          },
+          "title": "Add Elements",
+          "type": "array"
+        },
+        "element_states": {
+          "additionalProperties": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "title": "Element States",
+          "type": "object"
+        },
+        "hide_elements": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Hide Elements",
+          "type": "array"
+        },
+        "lighting": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LightingOverride"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "move_elements": {
+          "items": {
+            "$ref": "#/$defs/MovedElement"
+          },
+          "title": "Move Elements",
+          "type": "array"
+        }
+      },
+      "title": "WorldOverrides",
+      "type": "object"
+    },
+    "Zoom": {
+      "additionalProperties": false,
+      "properties": {
+        "ease": {
+          "default": "ease_in_out",
+          "enum": [
+            "linear",
+            "ease_in_out",
+            "ease_out",
+            "snap"
+          ],
+          "title": "Ease",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "rect": {
+          "description": "x, y, width, height of the zoom window (0..1)",
+          "maxItems": 4,
+          "minItems": 4,
+          "prefixItems": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            }
+          ],
+          "title": "Rect",
+          "type": "array"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "$ref": "#/$defs/DurationSpan"
+            }
+          ],
+          "title": "Span"
+        }
+      },
+      "required": [
+        "key",
+        "span",
+        "rect"
+      ],
+      "title": "Zoom",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A list of operations as one document: the JSON schema of `POST /v1/versions/{id}/edits`\n`operations` and of the Advanced editors (§28).",
+  "properties": {
+    "operations": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "add_annotation": "#/$defs/AddAnnotation",
+            "add_behavior_event": "#/$defs/AddBehaviorEvent",
+            "add_scene": "#/$defs/AddScene",
+            "add_shot": "#/$defs/AddShot",
+            "edit_script": "#/$defs/EditScript",
+            "memory_feedback": "#/$defs/MemoryFeedback",
+            "move_scene": "#/$defs/MoveScene",
+            "refresh_memory": "#/$defs/RefreshMemory",
+            "regenerate": "#/$defs/Regenerate",
+            "remove_annotation": "#/$defs/RemoveAnnotation",
+            "remove_behavior_event": "#/$defs/RemoveBehaviorEvent",
+            "remove_scene": "#/$defs/RemoveScene",
+            "remove_shot": "#/$defs/RemoveShot",
+            "replace_broll": "#/$defs/ReplaceBroll",
+            "reroute": "#/$defs/Reroute",
+            "select_take": "#/$defs/SelectTake",
+            "set_acting": "#/$defs/SetActing",
+            "set_annotation": "#/$defs/SetAnnotation",
+            "set_behavior_event": "#/$defs/SetBehaviorEvent",
+            "set_brand": "#/$defs/SetBrand",
+            "set_camera": "#/$defs/SetCamera",
+            "set_captions": "#/$defs/SetCaptions",
+            "set_cast": "#/$defs/SetCast",
+            "set_effects": "#/$defs/SetEffects",
+            "set_intent": "#/$defs/SetIntent",
+            "set_lock": "#/$defs/SetLock",
+            "set_meta": "#/$defs/SetMeta",
+            "set_music": "#/$defs/SetMusic",
+            "set_pacing": "#/$defs/SetPacing",
+            "set_product": "#/$defs/SetProduct",
+            "set_provenance_label": "#/$defs/SetProvenanceLabel",
+            "set_render_outputs": "#/$defs/SetRenderOutputs",
+            "set_sfx": "#/$defs/SetSfx",
+            "set_shot": "#/$defs/SetShot",
+            "set_wardrobe": "#/$defs/SetWardrobe",
+            "set_world_binding": "#/$defs/SetWorldBinding",
+            "set_world_override": "#/$defs/SetWorldOverride",
+            "split_shot": "#/$defs/SplitShot"
+          },
+          "propertyName": "op"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/SetIntent"
+          },
+          {
+            "$ref": "#/$defs/SetActing"
+          },
+          {
+            "$ref": "#/$defs/AddBehaviorEvent"
+          },
+          {
+            "$ref": "#/$defs/RemoveBehaviorEvent"
+          },
+          {
+            "$ref": "#/$defs/SetBehaviorEvent"
+          },
+          {
+            "$ref": "#/$defs/AddAnnotation"
+          },
+          {
+            "$ref": "#/$defs/RemoveAnnotation"
+          },
+          {
+            "$ref": "#/$defs/SetAnnotation"
+          },
+          {
+            "$ref": "#/$defs/SetWorldBinding"
+          },
+          {
+            "$ref": "#/$defs/SetWorldOverride"
+          },
+          {
+            "$ref": "#/$defs/SetWardrobe"
+          },
+          {
+            "$ref": "#/$defs/SetCast"
+          },
+          {
+            "$ref": "#/$defs/SetCamera"
+          },
+          {
+            "$ref": "#/$defs/SetPacing"
+          },
+          {
+            "$ref": "#/$defs/EditScript"
+          },
+          {
+            "$ref": "#/$defs/AddScene"
+          },
+          {
+            "$ref": "#/$defs/RemoveScene"
+          },
+          {
+            "$ref": "#/$defs/MoveScene"
+          },
+          {
+            "$ref": "#/$defs/AddShot"
+          },
+          {
+            "$ref": "#/$defs/RemoveShot"
+          },
+          {
+            "$ref": "#/$defs/SplitShot"
+          },
+          {
+            "$ref": "#/$defs/SetShot"
+          },
+          {
+            "$ref": "#/$defs/SetMeta"
+          },
+          {
+            "$ref": "#/$defs/SetRenderOutputs"
+          },
+          {
+            "$ref": "#/$defs/ReplaceBroll"
+          },
+          {
+            "$ref": "#/$defs/SetMusic"
+          },
+          {
+            "$ref": "#/$defs/SetSfx"
+          },
+          {
+            "$ref": "#/$defs/SetCaptions"
+          },
+          {
+            "$ref": "#/$defs/SetEffects"
+          },
+          {
+            "$ref": "#/$defs/SetBrand"
+          },
+          {
+            "$ref": "#/$defs/SetProduct"
+          },
+          {
+            "$ref": "#/$defs/SetProvenanceLabel"
+          },
+          {
+            "$ref": "#/$defs/Regenerate"
+          },
+          {
+            "$ref": "#/$defs/Reroute"
+          },
+          {
+            "$ref": "#/$defs/SelectTake"
+          },
+          {
+            "$ref": "#/$defs/SetLock"
+          },
+          {
+            "$ref": "#/$defs/RefreshMemory"
+          },
+          {
+            "$ref": "#/$defs/MemoryFeedback"
+          }
+        ]
+      },
+      "maxItems": 50,
+      "title": "Operations",
+      "type": "array"
+    }
+  },
+  "required": [
+    "operations"
+  ],
+  "title": "EditOperations",
+  "type": "object"
+}

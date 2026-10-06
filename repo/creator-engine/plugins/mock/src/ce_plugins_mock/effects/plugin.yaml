@@ -1,0 +1,44 @@
+# Text cards for titles, overlays, transitions and disclosures.
+# Mock: registered only when MOCK_GPU=true; never routed in production (§10.6, §24).
+id: mock_effects
+name: Mock effects
+version: 0.1.0
+kind: code
+entrypoint: ce_plugins_mock.effects.adapter:MockEffects
+mock: true
+capabilities:
+  - id: effects.transition
+    features: [crossfade]
+  - id: effects.title
+    features: [text]
+  - id: effects.overlay
+    features: [lower_third]
+  - id: effects.disclosure
+    features: [text]
+runtime:
+  {
+    family: cpu_inproc,
+    python: "3.12",
+    requires_gpu: false,
+    min_vram_gb: 0,
+    recommended_vram_gb: 0,
+    supports_cpu: true,
+  }
+models:
+  - key: mock-effects
+    display_name: mock-effects (procedural mock, no weights)
+    source: { type: builtin, revision: "1" }
+    license:
+      {
+        name: LicenseRef-CreatorEngine-FirstParty,
+        url: "plugins/mock/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-03,
+        verified_by: claude-code,
+      }
+pricing: { seconds_per_unit: 0.1 }
+allowed_envs: [dev, test]
+status: production
+validation: untested_on_gpu
+maturity_notes: "Mock engine; outputs are labelled and not model output."

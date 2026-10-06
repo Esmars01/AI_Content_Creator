@@ -1,0 +1,209 @@
+{
+  "$defs": {
+    "AnalyzerRef": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter_id": {
+          "minLength": 1,
+          "title": "Adapter Id",
+          "type": "string"
+        },
+        "capability": {
+          "minLength": 1,
+          "title": "Capability",
+          "type": "string"
+        },
+        "revision": {
+          "minLength": 1,
+          "title": "Revision",
+          "type": "string"
+        }
+      },
+      "required": [
+        "capability",
+        "adapter_id",
+        "revision"
+      ],
+      "title": "AnalyzerRef",
+      "type": "object"
+    },
+    "BehaviorSignature": {
+      "additionalProperties": false,
+      "description": "Compact fingerprint used by the repetition guard and take ranking (§15.8).",
+      "properties": {
+        "arc_shape": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Arc Shape",
+          "type": "array"
+        },
+        "expression_sequence": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Expression Sequence",
+          "type": "array"
+        },
+        "gesture_energy_profile": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Gesture Energy Profile",
+          "type": "array"
+        },
+        "head_motion_pattern": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Head Motion Pattern",
+          "type": "array"
+        }
+      },
+      "title": "BehaviorSignature",
+      "type": "object"
+    },
+    "CharacterTracks": {
+      "additionalProperties": false,
+      "description": "Summarized tracks per visible character (series sampled at `sample_hz`).",
+      "properties": {
+        "character_key": {
+          "title": "Character Key",
+          "type": "string"
+        },
+        "events": {
+          "description": "blinks, look-aways, smiles, pauses…",
+          "items": {
+            "$ref": "#/$defs/TrackEvent"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "face_detected_ratio": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Face Detected Ratio",
+          "type": "number"
+        },
+        "sample_hz": {
+          "default": 5.0,
+          "exclusiveMinimum": 0,
+          "title": "Sample Hz",
+          "type": "number"
+        },
+        "series": {
+          "additionalProperties": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array"
+          },
+          "description": "gaze_deviation_deg, smile, head_motion, gesture_energy, speech_rate, pitch…",
+          "title": "Series",
+          "type": "object"
+        }
+      },
+      "required": [
+        "character_key"
+      ],
+      "title": "CharacterTracks",
+      "type": "object"
+    },
+    "TrackEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "default": 1.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "end_s": {
+          "minimum": 0,
+          "title": "End S",
+          "type": "number"
+        },
+        "start_s": {
+          "minimum": 0,
+          "title": "Start S",
+          "type": "number"
+        },
+        "type": {
+          "minLength": 1,
+          "title": "Type",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "type",
+        "start_s",
+        "end_s"
+      ],
+      "title": "TrackEvent",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Measurement half only: keyed by the take artifact (its content hash), reused while the take\nis unchanged.",
+  "properties": {
+    "analyzers": {
+      "items": {
+        "$ref": "#/$defs/AnalyzerRef"
+      },
+      "title": "Analyzers",
+      "type": "array"
+    },
+    "signature": {
+      "$ref": "#/$defs/BehaviorSignature"
+    },
+    "take_artifact_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Take Artifact Id"
+    },
+    "take_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Take Sha256"
+    },
+    "tracks": {
+      "items": {
+        "$ref": "#/$defs/CharacterTracks"
+      },
+      "title": "Tracks",
+      "type": "array"
+    }
+  },
+  "title": "ObservedBehavior",
+  "type": "object"
+}

@@ -1,0 +1,126 @@
+# MuseTalk 1.5 (§39.7: the lip-sync patch default). Repaints the 256×256 mouth crop of each frame at
+# 25 fps from Whisper-tiny features of the new audio and blends it back (see patch.py for the two
+# documented differences from upstream, DECISIONS D93).
+# License reality [RV]: the code is MIT, but the weights on Hugging Face are CreativeML OpenRAIL-M
+# (commercial use allowed, with use-based restrictions that must be passed on); the spec's "MIT"
+# covers only the code. Promotion past sandbox needs the owner's review of the OpenRAIL-M terms.
+id: musetalk_v15
+name: MuseTalk 1.5 (lip-sync patch)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_lipsync_musetalk.adapter:MuseTalkAdapter
+test_backend: ce_plugin_lipsync_musetalk.testing:fake_backend
+capabilities:
+  - id: lipsync.dub
+    features: [region_patch]
+    languages: { mode: audio_driven, validated: [en, zh], unvalidated: [de, es, fr, it, ru, tr, ar, ja, ko] }
+runtime:
+  {
+    family: lipsync,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 6,
+    recommended_vram_gb: 24,
+    supports_cpu: false,
+  }
+models:
+  - key: musetalk-v15
+    size_gb: 3.62 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: TMElyralab/MuseTalk (musetalkV15 UNet)
+    source: { type: huggingface, repo: TMElyralab/MuseTalk, revision: 3ef28bc5cff08c90ad8178a25f1b570cd800170f }
+    files: [musetalkV15/unet.pth, musetalkV15/musetalk.json]
+    license:
+      {
+        name: CreativeML-OpenRAIL-M,
+        url: "https://huggingface.co/TMElyralab/MuseTalk/blob/3ef28bc5cff08c90ad8178a25f1b570cd800170f/README.md",
+        commercial_use: true,
+        conditions: [{ use_restrictions: "CreativeML OpenRAIL-M Attachment A" }],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license creativeml-openrail-m at the pinned revision (the GitHub code is MIT)",
+      }
+    dependencies:
+      - ref: "github:TMElyralab/MuseTalk@0a89dec45a0192b824e3cf4daf96c239440c5ed8"
+        role: code
+        source:
+          {
+            type: git,
+            repo: "https://github.com/TMElyralab/MuseTalk",
+            revision: 0a89dec45a0192b824e3cf4daf96c239440c5ed8,
+          }
+        license:
+          {
+            name: MIT,
+            url: "https://github.com/TMElyralab/MuseTalk/blob/0a89dec45a0192b824e3cf4daf96c239440c5ed8/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: 992ec5fd1dd4964cfa003665196cd0c0c10a7a5aa10109991e964eebd2c7f116,
+            evidence: license_file,
+          }
+      - ref: "stabilityai/sd-vae-ft-mse@31f26fdeee1355a5c34592e401dd41e45d25a493"
+        role: vae
+        source:
+          { type: huggingface, repo: stabilityai/sd-vae-ft-mse, revision: 31f26fdeee1355a5c34592e401dd41e45d25a493 }
+        files: [config.json, diffusion_pytorch_model.safetensors]
+        license:
+          {
+            name: MIT,
+            url: "https://huggingface.co/stabilityai/sd-vae-ft-mse/blob/31f26fdeee1355a5c34592e401dd41e45d25a493/README.md",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "model_card: license mit at the pinned revision",
+          }
+      - ref: "openai/whisper-tiny@169d4a4341b33bc18d8881c4b69c2e104e1cc0af"
+        role: audio_encoder
+        source: { type: huggingface, repo: openai/whisper-tiny, revision: 169d4a4341b33bc18d8881c4b69c2e104e1cc0af }
+        files: [config.json, preprocessor_config.json, model.safetensors]
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://huggingface.co/openai/whisper-tiny/blob/169d4a4341b33bc18d8881c4b69c2e104e1cc0af/README.md",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "model_card: license apache-2.0 at the pinned revision",
+          }
+      - ref: "mediapipe/face_landmarker.task (float16/1)"
+        role: face_landmarker
+        source:
+          {
+            type: url,
+            uri: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+            revision: "float16-1",
+          }
+        files: [face_landmarker.task]
+        sha256: { face_landmarker.task: 64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff }
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://storage.googleapis.com/mediapipe-assets/MediaPipe%20BlazeFace%20Model%20Card%20(Short%20Range).pdf",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "the same asset and terms as the mediapipe_face plugin (Phase 7)",
+          }
+defaults:
+  fps: 25
+  use_float16: true
+  batch_size: 8
+  extra_margin: 10
+  upper_boundary_ratio: 0.5
+  box_smoothing: 5
+  audio_padding_left: 2
+  audio_padding_right: 2
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 1.2, load_seconds: 25.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. Authors report real-time (30 fps+) inference on a V100; quality of the landmark box and outline mask vs the upstream parser is [RV]."

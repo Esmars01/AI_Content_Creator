@@ -1,0 +1,57 @@
+# DINOv2 ViT-S/14 image embeddings on CPU (§16.1, §19.6, §39.7: an Apache-2.0 image embedding
+# checkpoint). Real analyzer behind CPU_REAL_ENGINES. 384-d L2-normalized CLS embeddings; masks
+# (white = exclude, e.g. the person region) are filled with the image mean before embedding.
+id: dinov2_embed
+name: DINOv2 ViT-S/14 image embedding (CPU, ONNX)
+version: 0.1.0
+kind: analyzer
+entrypoint: ce_plugin_image_embed.adapter:DinoV2Embed
+capabilities:
+  - id: image.embed
+    features: [masked]
+runtime:
+  {
+    family: cpu_inproc,
+    python: "3.12",
+    requires_gpu: false,
+    min_vram_gb: 0,
+    recommended_vram_gb: 0,
+    supports_cpu: true,
+  }
+models:
+  - key: dinov2-small-onnx-q
+    display_name: facebook/dinov2-small (ONNX, quantized, Xenova/dinov2-small)
+    source: { type: huggingface, repo: Xenova/dinov2-small, revision: c2bb04a51fab207c420665f1946016107bffc701 }
+    files: [dinov2-small/model_quantized.onnx, dinov2-small/preprocessor_config.json]
+    sha256: { dinov2-small/model_quantized.onnx: 3afdc8bc63b50558d6e5770f5b799bb82455c2311183a2de43803f343a29d917 }
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/facebook/dinov2-small/blob/ed25f3a31f01632728cabb09d1542f84ab7b0056/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+      }
+    dependencies:
+      - ref: "facebook/dinov2-small@ed25f3a31f01632728cabb09d1542f84ab7b0056"
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://huggingface.co/facebook/dinov2-small/blob/ed25f3a31f01632728cabb09d1542f84ab7b0056/README.md",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+          }
+assets:
+  - dinov2-small/model_quantized.onnx
+  - dinov2-small/preprocessor_config.json
+defaults:
+  model_file: dinov2-small/model_quantized.onnx
+  preprocessor_file: dinov2-small/preprocessor_config.json
+pricing: { seconds_per_unit: 0.2 }
+allowed_envs: [dev, test, prod]
+status: production
+validation: smoke_passed
+maturity_notes: "Background/continuity embeddings; similarity thresholds are per world kind (config/qc/world.yaml)."

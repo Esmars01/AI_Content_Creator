@@ -1,0 +1,91 @@
+# SyncNet v2 (§39.7: lip-sync metric, advisory only; config/qc/*.yaml `lipsync.by_adapter.syncnet_v1`).
+# AV-offset and confidence on the speaker's 224×224 face crops at 25 fps. The code is MIT; the
+# weights (robots.ox.ac.uk) state no license [RV / owner input]: `commercial_use: false` keeps the
+# plugin in the sandbox (license policy denies it elsewhere) and the URL has no published checksum,
+# so the model cache will not fetch it until the owner clears the terms and pins the file.
+id: syncnet_v1
+name: SyncNet v2 (AV sync, advisory)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_qc_gpu.adapter:SyncNetAdapter
+test_backend: ce_plugin_qc_gpu.testing:fake_syncnet
+capabilities:
+  - id: qc.lipsync
+    features: [confidence, offset]
+runtime:
+  {
+    family: lipsync,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: false,
+    min_vram_gb: 2,
+    recommended_vram_gb: 4,
+    supports_cpu: true,
+  }
+models:
+  - key: syncnet-v2
+    display_name: SyncNet v2 weights (VGG, University of Oxford)
+    source: { type: url, uri: "http://www.robots.ox.ac.uk/~vgg/software/lipsync/data/syncnet_v2.model", revision: v2 }
+    files: [syncnet_v2.model]
+    license:
+      {
+        name: LicenseRef-Unspecified,
+        url: "https://github.com/joonson/syncnet_python/blob/907c0b579c2e2d83f0eae1b2ac9e720cde4e5623/download_model.sh",
+        commercial_use: false,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "the download script links the weights without a license; the repository's MIT license covers its code",
+      }
+    dependencies:
+      - ref: "github:joonson/syncnet_python@907c0b579c2e2d83f0eae1b2ac9e720cde4e5623"
+        role: code
+        source:
+          {
+            type: git,
+            repo: "https://github.com/joonson/syncnet_python",
+            revision: 907c0b579c2e2d83f0eae1b2ac9e720cde4e5623,
+          }
+        license:
+          {
+            name: MIT,
+            url: "https://github.com/joonson/syncnet_python/blob/907c0b579c2e2d83f0eae1b2ac9e720cde4e5623/LICENSE.md",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: 70155ceb20fb7aae10fc1e9d5c9753de6a10a50a8937e0f5ab3afcdf96c8754d,
+            evidence: license_file,
+          }
+      - ref: "mediapipe/face_landmarker.task (float16/1)"
+        role: face_landmarker
+        source:
+          {
+            type: url,
+            uri: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+            revision: "float16-1",
+          }
+        files: [face_landmarker.task]
+        sha256: { face_landmarker.task: 64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff }
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://storage.googleapis.com/mediapipe-assets/MediaPipe%20BlazeFace%20Model%20Card%20(Short%20Range).pdf",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "the same asset and terms as the mediapipe_face plugin (Phase 7)",
+          }
+defaults:
+  code_dir: /opt/upstream/syncnet_python
+  vshift: 15
+  crop_scale: 0.4
+  smoothing_kernel: 13
+  min_face_ratio: 0.5
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 0.3, load_seconds: 5.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run here; weights license unresolved (owner input). Advisory metric only (§39.7)."

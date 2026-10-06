@@ -1,0 +1,80 @@
+# faster-whisper (CTranslate2) "base" on CPU, int8 (§21, §39.7: ASR verification and the coarse
+# aligner in Phase 7; Qwen3-ASR / Qwen3-ForcedAligner are the GPU defaults of Phase 8). Real engine
+# behind CPU_REAL_ENGINES: used when its assets are present. The aligner maps Whisper word
+# timestamps onto the script's canonical words and reports `precision: coarse`, which widens QC
+# timing tolerances (§21).
+id: faster_whisper_cpu
+name: faster-whisper base (CPU, int8)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_asr_faster_whisper.adapter:FasterWhisperCpu
+capabilities:
+  - id: asr.transcribe
+    features: [word_timestamps]
+    languages: { mode: any, validated: [en], unvalidated: [de, es, fr, it, ru, tr, ar, az] }
+  - id: asr.align
+    features: [word_level]
+    languages: { mode: any, validated: [en], unvalidated: [de, es, fr, it, ru, tr, ar, az] }
+  - id: asr.lid
+    features: [lid]
+runtime:
+  { family: cpu_model, python: "3.12", requires_gpu: false, min_vram_gb: 0, recommended_vram_gb: 0, supports_cpu: true }
+models:
+  - key: faster-whisper-base
+    display_name: Systran/faster-whisper-base (CTranslate2 conversion of openai/whisper-base)
+    source: { type: huggingface, repo: Systran/faster-whisper-base, revision: ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66 }
+    files:
+      [
+        faster-whisper-base/config.json,
+        faster-whisper-base/model.bin,
+        faster-whisper-base/tokenizer.json,
+        faster-whisper-base/vocabulary.txt,
+      ]
+    sha256:
+      faster-whisper-base/model.bin: d01c3014881c9c6f3133c182f3d2887eb6ca1c789a7538c5c007196857a0a6a9
+    license:
+      {
+        name: MIT,
+        url: "https://huggingface.co/Systran/faster-whisper-base/blob/ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+      }
+    dependencies:
+      - ref: "openai/whisper-base"
+        license:
+          {
+            name: MIT,
+            url: "https://github.com/openai/whisper/blob/86098128c0b4f24f0e2aa2994de830614b474227/LICENSE",
+            text_sha256: b5d65a59060e68c4ff940e1eddfa6f94b2d68fdf58ed7f4dd57721c997e35e9d,
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+          }
+      - ref: "pypi:faster-whisper==1.2.1"
+        license:
+          {
+            name: MIT,
+            url: "https://github.com/SYSTRAN/faster-whisper/blob/master/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+          }
+assets:
+  - faster-whisper-base/config.json
+  - faster-whisper-base/model.bin
+  - faster-whisper-base/tokenizer.json
+  - faster-whisper-base/vocabulary.txt
+defaults:
+  model_dir: faster-whisper-base
+  compute_type: int8
+  beam_size: 3
+  pad_s: 0.5 # silence around each clip: synthesized speech starts abruptly and Whisper mishears the onset
+pricing: { seconds_per_unit: 0.6 }
+allowed_envs: [dev, test, prod]
+status: production
+validation: smoke_passed
+maturity_notes: "CPU verification ASR; word timestamps are coarse (±100–200 ms)."

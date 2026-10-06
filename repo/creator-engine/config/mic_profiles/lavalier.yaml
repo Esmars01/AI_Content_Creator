@@ -1,0 +1,9 @@
+# Microphone profile (§22 realism post: mic EQ curve).
+id: lavalier
+label: Lavalier microphone
+eq:
+  - {type: highpass, freq_hz: 80}
+  - {type: shelf_high, freq_hz: 6000, gain_db: 2}
+noise_floor_db: -65
+distance_m: 0.2
+compression: {threshold_db: -20, ratio: 2.0}

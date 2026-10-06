@@ -1,0 +1,15 @@
+# Performance QA policy (§16.5): severity by item priority × outcome.
+version: 1
+must:
+  retry_on: [HONORED_NOT_OBSERVED, HONORED_CONTRADICTED]
+  retry_on_unexpected_editorial: [APPROXIMATED_NOT_OBSERVED, APPROXIMATED_CONTRADICTED]   # only when expected_for_method is false
+  warn_on: [HONORED_PARTIAL, APPROXIMATED_PARTIAL]
+  after_retry: [fallback_route_if_measured_better, needs_review]
+should: {affects: take_ranking}
+nice: {affects: informational}
+never_fail: [NOT_MEASURABLE, NOT_APPLICABLE]
+low_reliability_proxies: warn_only
+editorial_not_executed: render_defect
+take_ranking_weight: 0.3
+unreliable_control_success_rate: 0.6   # measured success below this → the compiler plans APPROXIMATED (§16.6)
+calibration: {high: 0.85, medium: 0.65, min_n: 20}   # proxy calibration F1 → reliability class (§16.2, Phase 7)

@@ -1,0 +1,64 @@
+# Qwen3.6-35B-A3B (FP8) (§39.7: VLM judge and screen understanding) served in-process by vLLM. Structured answers with a
+# self-reported, uncalibrated confidence; media are cut to the requested window before the model sees them.
+id: vlm_qwen36_35b_a3b
+name: Qwen3.6-35B-A3B (FP8) via vLLM
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_vision_vllm.adapter:VLLMVisionAdapter
+test_backend: ce_plugin_vision_vllm.testing:fake_backend
+capabilities:
+  - id: vision.image
+    features: [structured]
+  - id: vision.video
+    features: [structured, windowed]
+runtime:
+  {
+    family: vllm,
+    python: "3.12",
+    cuda: "12.9",
+    requires_gpu: true,
+    min_vram_gb: 48,
+    recommended_vram_gb: 96,
+    supports_cpu: false,
+  }
+models:
+  - key: qwen3.6-35b-a3b-fp8
+    size_gb: 34.92 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: Qwen/Qwen3.6-35B-A3B-FP8
+    source: { type: huggingface, repo: Qwen/Qwen3.6-35B-A3B-FP8, revision: 95a723d08a9490559dae23d0cff1d9466213d989 }
+    files: ["*.json", "*.jinja", "*.txt", "*.safetensors"]
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/Qwen/Qwen3.6-35B-A3B-FP8/blob/95a723d08a9490559dae23d0cff1d9466213d989/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license apache-2.0 at the pinned revision",
+      }
+    dependencies:
+      - ref: "pypi:vllm==0.30.0"
+        role: runtime
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/vllm-project/vllm/blob/ced6857afa0ea7b2e3f0846a62e1394e90f15607/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4,
+            evidence: "license_file at the v0.30.0 tag",
+          }
+defaults:
+  max_model_len: 32768
+  gpu_memory_utilization: 0.85
+  max_tokens: 2048
+  temperature: 0.0
+  reference_gpu: rtx_pro_6000_96gb
+pricing: { seconds_per_unit: 0.6, load_seconds: 120.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. A mixture-of-experts VLM with 3B active parameters; the official FP8 checkpoint is about 36 GB of weights (the spec's 24 GB at 4-bit has no official checkpoint) [RV]."

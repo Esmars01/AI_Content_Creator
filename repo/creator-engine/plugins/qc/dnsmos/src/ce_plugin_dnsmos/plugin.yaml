@@ -1,0 +1,58 @@
+# DNSMOS P.835 (microsoft/DNS-Challenge, CC-BY-4.0 with an attribution obligation) speech quality on
+# CPU (§26, §39.7: DNSMOS CPU in Phase 7). Runs in-process with the other QC metrics (the spec lists
+# it on worker-cpu; ADR 0042). Real analyzer behind CPU_REAL_ENGINES. Scores SIG, BAK and OVRL MOS
+# (1–5) over 9 s windows with the non-personalized polynomial mapping of the reference script.
+id: dnsmos
+name: DNSMOS P.835 (CPU, ONNX)
+version: 0.1.0
+kind: analyzer
+entrypoint: ce_plugin_dnsmos.adapter:Dnsmos
+capabilities:
+  - id: qc.speech_quality
+    features: [mos]
+runtime:
+  {
+    family: cpu_inproc,
+    python: "3.12",
+    requires_gpu: false,
+    min_vram_gb: 0,
+    recommended_vram_gb: 0,
+    supports_cpu: true,
+  }
+models:
+  - key: dnsmos-p835-sig-bak-ovr
+    display_name: DNSMOS P.835 sig_bak_ovr.onnx
+    source:
+      {
+        type: url,
+        uri: "https://github.com/microsoft/DNS-Challenge/tree/591184a9fcb2cbdec02520fed81a32bbbf9d73ff/DNSMOS/DNSMOS",
+        revision: 591184a9fcb2cbdec02520fed81a32bbbf9d73ff,
+      }
+    files: [dnsmos/sig_bak_ovr.onnx]
+    sha256: { dnsmos/sig_bak_ovr.onnx: 269fbebdb513aa23cddfbb593542ecc540284a91849ac50516870e1ac78f6edd }
+    license:
+      {
+        name: CC-BY-4.0,
+        url: "https://github.com/microsoft/DNS-Challenge/blob/591184a9fcb2cbdec02520fed81a32bbbf9d73ff/LICENSE",
+        commercial_use: true,
+        conditions: [{ attribution_text: "DNSMOS P.835 by Microsoft (DNS Challenge), CC BY 4.0" }],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+      }
+assets:
+  - dnsmos/sig_bak_ovr.onnx
+defaults:
+  model_file: dnsmos/sig_bak_ovr.onnx
+  window_s: 9.01
+  hop_s: 1.0
+  min_score: 3.0 # mirrors config/qc/*.yaml checks.speech.by_adapter.dnsmos (the executor applies the tier's value)
+pricing: { seconds_per_unit: 0.05 }
+allowed_envs: [dev, test, prod]
+status: production
+validation: smoke_passed
+maturity_notes: "Trained on real speech; on synthetic voices it is a relative signal."
+obligations:
+  - {
+      text: "Speech quality measured with DNSMOS P.835 by Microsoft (DNS Challenge), licensed CC BY 4.0.",
+      placement: [docs, export_metadata],
+    }

@@ -1,0 +1,95 @@
+# Intent policy engine rules (§14; `ce_director.intent_policy`). Each rule matches on intent
+# values (scene intent; `cta_goal` from the video intent, on the last scene) and optionally the
+# mode and the scene's position (first | middle | last | only), and proposes defaults per channel.
+# For one (channel, key) the rule of the earliest precedence group wins. Every adopted decision
+# records derived_from: {kind: intent, ref: <the matched intent field>}. Values are vocabulary
+# tokens or plain parameters, never engine parameters (I1). `optional` proposals are recorded but
+# not applied. The keys the engine renders are listed in docs/DIRECTOR.md.
+version: 1
+precedence: [scene_reveal, scene_attention, scene_performance, video_cta]
+rules:
+  - id: tease_then_reveal
+    group: scene_reveal
+    match: {reveal_strategy: tease_then_reveal}
+    proposals:
+      voice: {pause_before_reveal_ms: [300, 500], emphasis_on_reveal_word: true}
+      acting: {transition_trigger_at_reveal: realization}
+      camera: {punch_in_on_reveal_word: true}
+      broll: {overlay_during_reveal: false, overlay_during_tease: allowed}
+      editing: {hold_through_reveal: true, no_cut_within_words: 2}
+      captions: {hide_reveal_keyword_until_spoken: true, emphasis_on_reveal: true}
+      music: {drop_beats_before_reveal: 1, resolve_after_reveal: true}
+      sfx: {riser_before: optional, impact_after: optional}
+  - id: immediate_answer
+    group: scene_reveal
+    match: {reveal_strategy: immediate_answer}
+    proposals:
+      voice: {emphasis_on_answer: true}
+      camera: {punch_in_on_reveal_word: false}
+      editing: {hold_through_reveal: false}
+  - id: pattern_interrupt
+    group: scene_attention
+    match: {attention_goal: pattern_interrupt}
+    proposals:
+      camera: {punch_in_on_first_word: true}
+      editing: {first_cut_within_s: 1.5}
+      sfx: {impact_on_first_word: optional}
+  - id: delay_payoff
+    group: scene_attention
+    match: {attention_goal: delay_payoff}
+    proposals:
+      editing: {hold_through_reveal: true}
+      music: {sustain_tension: true}
+  - id: start_confident_then_lower_energy
+    group: scene_performance
+    match: {performance_strategy: start_confident_then_lower_energy}
+    proposals:
+      acting: {trajectory: [confident, serious], transition_style: sudden}
+      voice: {prosody_sequence: [assertive_light, slow_measured]}
+  - id: skeptic_converted
+    group: scene_performance
+    match: {performance_strategy: skeptic_converted}
+    proposals:
+      acting: {trajectory: [skeptical, curious, confident], transition_style: gradual}
+  - id: build_from_calm_to_urgent
+    group: scene_performance
+    match: {performance_strategy: build_from_calm_to_urgent}
+    proposals:
+      acting: {trajectory: [calm, determined], transition_style: gradual}
+      voice: {prosody_sequence: [controlled_even, urgent_fast]}
+  - id: deadpan_then_crack
+    group: scene_performance
+    match: {performance_strategy: deadpan_then_crack}
+    proposals:
+      acting: {trajectory: [neutral, amused], transition_style: sudden}
+      voice: {prosody_sequence: [deadpan, playful_rising]}
+  - id: warm_confessional
+    group: scene_performance
+    match: {performance_strategy: warm_confessional}
+    proposals:
+      acting: {trajectory: [warm], transition_style: gradual}
+      voice: {prosody_sequence: [controlled_even]}
+  - id: follow_for_series
+    group: video_cta
+    match: {cta_goal: follow_for_series}
+    proposals:
+      captions: {cta_overlay: true}
+      editing: {end_card_s: 1.5}
+  - id: cta_follow
+    group: video_cta
+    match: {cta_goal: follow}
+    proposals:
+      captions: {cta_overlay: true}
+      editing: {end_card_s: 1.5}
+  - id: cta_comment
+    group: video_cta
+    match: {cta_goal: comment}
+    proposals:
+      captions: {cta_overlay: true}
+      editing: {end_card_s: 1.5}
+  - id: cta_save_share_link
+    group: video_cta
+    match: {cta_goal: click_link}
+    proposals:
+      captions: {cta_overlay: true}
+      editing: {end_card_s: 2.0}

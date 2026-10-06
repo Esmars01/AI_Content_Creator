@@ -1,0 +1,74 @@
+# ctc_aligner (§39.7: alignment for tr/ar, where Qwen3-ForcedAligner has no coverage). CTC forced
+# alignment of the script's characters over Omnilingual ASR CTC 1B emissions (character tokenizer,
+# 1600+ languages per the authors) [RV: per-language accuracy]. Runs on a GPU or, slower, on CPU.
+id: ctc_aligner
+name: CTC aligner (Omnilingual ASR CTC 1B)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_asr_ctc.adapter:CTCAlignerAdapter
+test_backend: ce_plugin_asr_ctc.testing:fake_backend
+capabilities:
+  - id: asr.align
+    features: [word_level, char_level]
+    languages: { mode: text, validated: [], unvalidated: [tr, ar, az, fa, ur, hi, uk, pl, id, vi] }
+runtime:
+  {
+    family: asr,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: false,
+    min_vram_gb: 6,
+    recommended_vram_gb: 12,
+    supports_cpu: true,
+  }
+models:
+  - key: omniasr-ctc-1b
+    display_name: facebook/omniASR-CTC-1B
+    source: { type: huggingface, repo: facebook/omniASR-CTC-1B, revision: 8c22e3ffdaa4aab6431b128b84b991a7d9c2515c }
+    files: [omniASR-CTC-1B.pt, omniASR_tokenizer.model]
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/facebook/omniASR-CTC-1B/blob/8c22e3ffdaa4aab6431b128b84b991a7d9c2515c/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license apache-2.0 at the pinned revision",
+      }
+    dependencies:
+      - ref: "pypi:omnilingual-asr==0.2.0"
+        role: code
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/facebookresearch/omnilingual-asr/blob/81f51e224ce9e74b02cc2a3eaf21b2d91d743455/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: a70a523bafbb595c2844104feb313d204904dac91c3d186c05f22a10a71c7a94,
+            evidence: "license_file of the source repository; PyPI metadata Apache-2.0",
+          }
+      - ref: "pypi:fairseq2==0.6"
+        role: runtime
+        license:
+          {
+            name: MIT,
+            url: "https://pypi.org/project/fairseq2/0.6/",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93,
+            evidence: "license_file in the 0.6 wheel (dist-info/LICENSE)",
+          }
+defaults:
+  max_seconds: 40.0 # the CTC model's non-streaming input limit [RV]
+  word_separator: " "
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 0.05, load_seconds: 20.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run here. CTC alignment is exact for the given text when the model's character vocabulary covers it; out-of-vocabulary characters are dropped."

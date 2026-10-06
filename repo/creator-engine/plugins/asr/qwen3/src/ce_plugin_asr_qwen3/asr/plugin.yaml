@@ -1,0 +1,115 @@
+# Qwen3-ASR 1.7B (§39.7: ASR verification default; 30 languages and 22 Chinese dialects per the
+# README, including tr and ar). Transcription never sees the script. Word timestamps come from
+# Qwen3-ForcedAligner (a dependency) for the 11 languages it aligns; elsewhere text only.
+id: qwen3_asr
+name: Qwen3-ASR 1.7B
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_asr_qwen3.adapter:Qwen3ASRAdapter
+test_backend: ce_plugin_asr_qwen3.testing:fake_asr_backend
+capabilities:
+  - id: asr.transcribe
+    features: [word_timestamps]
+    languages:
+      mode: any
+      validated: [en, zh]
+      unvalidated:
+        [
+          ar,
+          cs,
+          da,
+          de,
+          el,
+          es,
+          fa,
+          fi,
+          fil,
+          fr,
+          hi,
+          hu,
+          id,
+          it,
+          ja,
+          ko,
+          mk,
+          ms,
+          nl,
+          pl,
+          pt,
+          ro,
+          ru,
+          sv,
+          th,
+          tr,
+          vi,
+          yue,
+        ]
+  - id: asr.lid
+    features: [lid]
+runtime:
+  {
+    family: asr,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 8,
+    recommended_vram_gb: 16,
+    supports_cpu: false,
+  }
+models:
+  - key: qwen3-asr-1.7b
+    size_gb: 6.09 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: Qwen/Qwen3-ASR-1.7B
+    source: { type: huggingface, repo: Qwen/Qwen3-ASR-1.7B, revision: 7278e1e70fe206f11671096ffdd38061171dd6e5 }
+    files: ["*.json", "*.txt", "*.safetensors"]
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/Qwen/Qwen3-ASR-1.7B/blob/7278e1e70fe206f11671096ffdd38061171dd6e5/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license apache-2.0 at the pinned revision",
+      }
+    dependencies:
+      - ref: "Qwen/Qwen3-ForcedAligner-0.6B@c7cbfc2048c462b0d63a45797104fc9db3ad62b7"
+        role: forced_aligner
+        source:
+          { type: huggingface, repo: Qwen/Qwen3-ForcedAligner-0.6B, revision: c7cbfc2048c462b0d63a45797104fc9db3ad62b7 }
+        files: ["*.json", "*.txt", model.safetensors]
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://huggingface.co/Qwen/Qwen3-ForcedAligner-0.6B/blob/c7cbfc2048c462b0d63a45797104fc9db3ad62b7/README.md",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "model_card: license apache-2.0 at the pinned revision",
+          }
+      - ref: "pypi:qwen-asr==0.0.6"
+        role: code
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/QwenLM/Qwen3-ASR/blob/7c6daf77a2421100f5fb066495372c00129d39ff/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: a44a6081c73ad75f0255bb2bb5cab74ef1829565a895a24e53a4f11290ab7655,
+            evidence: "license_file of the source repository; PyPI metadata Apache-2.0",
+          }
+defaults:
+  attn_implementation: sdpa
+  word_timestamps: true
+  lid_confidence: 0.8 # Qwen3-ASR names a language without a probability; an uncalibrated constant
+  max_batch: 8
+  max_new_tokens: 1024
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 0.05, load_seconds: 25.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. README: state-of-the-art open-source ASR accuracy for the 1.7B model (authors' benchmarks)."

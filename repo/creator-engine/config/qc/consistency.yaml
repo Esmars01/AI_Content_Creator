@@ -1,0 +1,14 @@
+# Creator consistency bands (§20). Out-of-band metrics warn by default; users may promote
+# selected metrics to gates. Overrides in the spec are listed as intentional deviations.
+version: 1
+baseline_window_videos: 20
+metrics:
+  face_identity: {method: face_embed, min_similarity: 0.7, gate: false}
+  voice_identity: {method: voice_embed, min_similarity: 0.75, gate: false}
+  speech_style: {method: transcript, max_z: 2.0, gate: false}
+  behavior_patterns: {method: tracks, max_z: 2.0, gate: false}
+  emotional_tendencies: {method: cbs_and_observations, max_z: 2.0, gate: false}
+  worlds: {method: cross_video_world, min_score: 0.7, gate: false}
+  wardrobe: {method: image_embed_vlm, min_similarity: 0.7, gate: false}
+  camera_habits: {method: landmarks_and_camera_params, max_z: 2.0, gate: false}
+human_rating_sample_rate: 0.1

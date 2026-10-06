@@ -1,0 +1,19 @@
+{
+  "name": "@ce/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Generated OpenAPI client and VideoSpec/CBS TypeScript types (make gen-schema, make gen-client).",
+  "engines": {
+    "node": ">=24"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0"
+  },
+  "type": "module",
+  "types": "./src/index.ts",
+  "scripts": {
+    "gen:models": "openapi-typescript schema/models.openapi.json -o src/models.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "gen:api": "openapi-typescript schema/api.openapi.json -o src/api.ts"
+  }
+}

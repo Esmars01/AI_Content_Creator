@@ -1,0 +1,16 @@
+[project]
+name = "ce-plugin-analysis-image-embed"
+version = "0.1.0"
+description = "image.embed on CPU with DINOv2 ViT-S/14 (Apache-2.0, ONNX)."
+requires-python = ">=3.12"
+dependencies = ["ce-contracts", "numpy>=2.0", "pillow>=11.0", "onnxruntime>=1.20"]
+
+[project.entry-points."creator_engine.plugins"]
+dinov2_embed = "ce_plugin_image_embed"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ce_plugin_image_embed"]

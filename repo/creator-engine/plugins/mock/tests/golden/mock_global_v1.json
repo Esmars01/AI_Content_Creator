@@ -1,0 +1,103 @@
+{
+  "engine": {
+    "emotion": null,
+    "encoded": [
+      {
+        "control": "keyframe",
+        "dimension": "emotion_visual",
+        "end_s": 2.69,
+        "intensity": 0.6,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/emotion",
+        "label": "confident",
+        "method": "keyframe_conditioning",
+        "start_s": 0.1
+      },
+      {
+        "control": "keyframe",
+        "dimension": "posture",
+        "end_s": 2.69,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/posture",
+        "label": "seated_upright",
+        "method": "keyframe_conditioning",
+        "start_s": 0.1
+      },
+      {
+        "control": "keyframe",
+        "dimension": "camera_awareness",
+        "end_s": 2.69,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/camera_awareness",
+        "label": "direct_address",
+        "method": "keyframe_conditioning",
+        "start_s": 0.1
+      },
+      {
+        "control": "audio",
+        "dimension": "emotion_visual",
+        "end_s": 4.67,
+        "intensity": 0.6,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/emotion",
+        "label": "serious",
+        "method": "prosody_transfer",
+        "start_s": 2.74
+      }
+    ],
+    "intensity": null,
+    "prompt": "",
+    "syntax": "mock_global_prompt",
+    "unsupported": [
+      {
+        "dimension": "gaze",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/gaze",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "gesture",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/gesture",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "reaction",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/reaction",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "gaze",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/gaze",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "gesture",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/gesture",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "posture",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/posture",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "reaction",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/reaction",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "camera_awareness",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/camera_awareness",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "gaze",
+        "item_ref": "/scenes[scn_hook]/acting/events[ev_1]",
+        "reason": "realized_elsewhere:editorial_cutaway"
+      },
+      {
+        "dimension": "facial_expression",
+        "item_ref": "/scenes[scn_hook]/acting/events[ev_2]",
+        "reason": "unsupported"
+      }
+    ]
+  },
+  "translator": "mock_global_v1"
+}

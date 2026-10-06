@@ -1,0 +1,51 @@
+# Practical-RIFE 4.25 (§39.7: interpolation; the authors' recommended default version). Arbitrary-
+# timestep frame interpolation for frame-rate conversion; scene cuts repeat the nearer frame.
+# Weights [RV / owner input]: the 4.25 model package (train_log/: flownet.pkl plus its model code) is
+# distributed only through Google Drive and Baidu links in the README. The model cache refuses
+# `url` sources without pinned checksums, so this plugin cannot be fetched until the owner downloads,
+# verifies and mirrors the package (docs/MODEL_INSTALLATION.md) and records its sha256 here.
+id: rife_425
+name: Practical-RIFE 4.25 (frame interpolation)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_video_rife.adapter:RifeAdapter
+test_backend: ce_plugin_video_rife.testing:fake_backend
+capabilities:
+  - id: video.interpolate
+    features: [fps_convert]
+runtime:
+  {
+    family: post,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 4,
+    recommended_vram_gb: 8,
+    supports_cpu: true,
+  }
+models:
+  - key: rife-4.25
+    display_name: Practical-RIFE 4.25 model package (train_log)
+    source:
+      { type: url, uri: "https://drive.google.com/file/d/1ZKjcbmt1hypiFprJPIKW0Tt0lr_2i7bg/view", revision: "4.25" }
+    files: [train_log/flownet.pkl, train_log/RIFE_HDv3.py, train_log/IFNet_HDv3.py]
+    license:
+      {
+        name: MIT,
+        url: "https://github.com/hzwer/Practical-RIFE/blob/bbfd2ea90910789a860ea3e2b32a240cd577b75e/LICENSE",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        text_sha256: 7932fb49341512b959b1744a6d9cbb39e5a1ec89da438a34d0454d5d8df9fecd,
+        evidence: "license_file of the repository that links the package; the archive itself states no license [RV]",
+      }
+defaults:
+  scale: 1.0
+  cut_threshold: 40.0
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 0.5, load_seconds: 5.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run here; weights not fetchable without the owner's mirror (see the header)."

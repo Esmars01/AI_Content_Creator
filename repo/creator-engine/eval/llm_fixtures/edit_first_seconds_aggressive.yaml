@@ -1,0 +1,22 @@
+# Authored LLM fixture (hand-written, not recorded from a provider; §37). Edit acceptance (§2):
+# operations name the resolver's slots, so the fixture works for any spec.
+id: edit_first_seconds_aggressive
+kind: authored
+inputs:
+- "edit: make the first 3 seconds more aggressive"
+responses:
+  edit:
+    operations:
+    - op: set_acting
+      scope: {ref: "@first_3s"}
+      changes:
+        emotion: {displayed: {label: determined, intensity_delta: 0.25}}
+        strategies: {prosody: assertive, gesture: emphatic_beats, posture: seated_lean_in}
+      reason: a harder, more assertive delivery for the opening
+    - op: set_camera
+      scope: {ref: "@first_3s"}
+      add_moves:
+      - {type: punch_in, at_ref: "@span_start", scale: 1.1, transition: cut}
+      reason: a tighter frame from the first word
+    assumptions:
+    - "“Aggressive” read as a determined, assertive delivery with emphatic gestures, a forward lean and a tighter frame — not anger."

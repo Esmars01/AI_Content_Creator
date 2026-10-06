@@ -1,0 +1,18 @@
+# Authored LLM fixture (hand-written, not recorded from a provider; §37). Edit acceptance (§2).
+id: edit_outfit_keep_face
+kind: authored
+inputs:
+- "edit: change the outfit but keep the face"
+responses:
+  edit:
+    operations:
+    - op: set_wardrobe
+      scope: {}
+      wardrobe_query: a different outfit
+      reason: another approved outfit of the creator
+    - op: set_lock
+      add:
+      - {group: appearance, scope: {}, set_by: user}
+      reason: keep the face
+    assumptions:
+    - The creator's other approved outfit is used in every scene; the appearance is locked.

@@ -1,0 +1,17 @@
+# Video mode template (§13). Effective maturity in the UI is capped by route validation (§10.4).
+id: educational
+label: Educational
+maturity: production
+roadmap: MVP
+description: "Teaches a concept step by step with supporting visuals."
+allowed_shot_types: [talking_head, broll, insert, screen, title_card]
+default_camera_profiles: [desk_mirrorless, webcam, phone_front_selfie]
+default_world_kinds: [home_office, studio, classroom]
+duration_s: {min: 30, max: 180, default: 60}
+aspects: ["9:16", "16:9", "1:1", "4:5"]
+edit_grammar: {max_shot_s: 8, cutaway_every_s: 10, punch_in_on_emphasis: true, beat_snap: false}
+acting_density: medium
+editorial_methods: [editorial_cutaway, editorial_punch, caption_emphasis, music_cue, sfx_cue]
+strategy_packs: [tutorial_steps, listicle, hook_problem_payoff_cta]
+requires: []
+prompt_fragment: null

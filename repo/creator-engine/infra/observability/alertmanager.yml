@@ -1,0 +1,16 @@
+# Alertmanager (Phase 14). No receiver is wired to an external service by default: nothing leaves
+# the host until an operator adds one (email, chat webhook, pager) under `receivers`. Alerts are
+# visible in the Alertmanager UI (:9093) and in Grafana either way.
+route:
+  receiver: default
+  group_by: [alertname, service]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: [severity="page"]
+      receiver: default
+      repeat_interval: 1h
+
+receivers:
+  - name: default

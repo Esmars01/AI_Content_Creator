@@ -1,0 +1,13 @@
+security:
+  cookie_secure: false
+  password_hash: {time_cost: 1, memory_cost_kib: 8192, parallelism: 1}   # fast hashing in tests only
+  login_rate_limit_per_minute: 100000   # the suite logs in hundreds of times from one address
+provenance:
+  mode: mock_dev
+scheduler:
+  heartbeat_s: 1                   # the lease-expiry tests run in seconds
+  lease_s: 4
+  long_poll_s: 2
+  poll_interval_s: 0.2
+  reaper_interval_s: 0.5
+  temporal_heartbeat_s: 2

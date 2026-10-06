@@ -1,0 +1,88 @@
+# Like mock_avatar_global, with native segment emotion and parametric gaze and blink (§16.7).
+# Mock: registered only when MOCK_GPU=true; never routed in production (§10.6, §24).
+id: mock_avatar_segment
+name: Mock avatar engine (segment control)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugins_mock.avatar.adapter:MockAvatarSegment
+behavior_translator: ce_plugins_mock.avatar.translator:SegmentTranslator
+mock: true
+capabilities:
+  - id: avatar.a2v
+    features: [i2v]
+    languages: { mode: audio_driven, validated: [en], unvalidated: [de, es, fr, it, ru, tr, ar] }
+    resolutions: ["480p", "720p", "1080p"]
+    max_duration_s: 30
+    fps: 25
+behavior_matrix:
+  # Native segment emotion, parametric gaze and blink (§24 mock_avatar_segment).
+  emotion_visual:
+    {
+      control: native_segment,
+      temporal_precision: segment,
+      vocabulary:
+        [
+          neutral,
+          confident,
+          amused,
+          curious,
+          excited,
+          serious,
+          skeptical,
+          uncertain,
+          hesitant,
+          surprised,
+          calm,
+          warm,
+          playful,
+          concerned,
+          determined,
+        ],
+    }
+  facial_expression: { control: native_segment, temporal_precision: segment }
+  gaze: { control: parametric, temporal_precision: word }
+  blink: { control: parametric, temporal_precision: word }
+  head_motion: { control: parametric, temporal_precision: segment, knobs: [motion_energy] }
+  gesture: { control: text_segment, temporal_precision: segment }
+  posture: { control: native_segment, temporal_precision: segment }
+  camera_awareness: { control: native_segment, temporal_precision: segment }
+  reaction: { control: native_segment, temporal_precision: segment }
+  listening: { control: emergent }
+  segment_control: { supported: true, syntax: mock_segments_v1 }
+  prosody_coupling: { lip_sync_from_audio: strong, expression_from_audio: medium }
+  continuity:
+    {
+      first_frame_conditioning: true,
+      chunk_continuation: true,
+      reference_identity: strong,
+      background_preservation: medium,
+    }
+  object_interaction: { control: none }
+  multi_person: { max_persons: 1 }
+  temporal_control: { max_clip_s: 30, recommended_chunk_s: 20 }
+knobs:
+  motion_energy: { param: mock_motion_gain, range: [0.5, 1.5], monotonic: unverified, calibrated: false }
+runtime:
+  { family: cpu_model, python: "3.12", requires_gpu: false, min_vram_gb: 0, recommended_vram_gb: 0, supports_cpu: true }
+models:
+  - key: mock-avatar-segment
+    display_name: mock-avatar-segment (procedural mock, no weights)
+    source: { type: builtin, revision: "1" }
+    license:
+      {
+        name: LicenseRef-CreatorEngine-FirstParty,
+        url: "plugins/mock/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-03,
+        verified_by: claude-code,
+      }
+pricing: { seconds_per_unit: 0.8 }
+defaults:
+  behavior_failure_rate: 0.0
+  approximation_failure_rates: { text: 0.25, keyframe: 0.2, audio: 0.5 }
+  audio_coupling_gain: 0.8
+allowed_envs: [dev, test]
+status: production
+validation: untested_on_gpu
+maturity_notes: "Mock engine; outputs are labelled and not model output."

@@ -1,0 +1,62 @@
+# Qwen3-ForcedAligner 0.6B (§39.7: word alignment for en/de/es/fr/it/ru; 11 languages per the README).
+# Non-autoregressive timestamp prediction for the given text, up to 5 minutes of speech; its units
+# (words, or characters for CJK) are mapped onto the script's canonical words (`precision: fine`).
+id: qwen3_forced_aligner
+name: Qwen3-ForcedAligner 0.6B
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_asr_qwen3.adapter:Qwen3AlignerAdapter
+test_backend: ce_plugin_asr_qwen3.testing:fake_aligner_backend
+capabilities:
+  - id: asr.align
+    features: [word_level]
+    languages: { mode: text, validated: [en, zh], unvalidated: [de, es, fr, it, ru, pt, ja, ko, yue] }
+runtime:
+  {
+    family: asr,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 4,
+    recommended_vram_gb: 8,
+    supports_cpu: false,
+  }
+models:
+  - key: qwen3-forced-aligner-0.6b
+    size_gb: 1.71 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: Qwen/Qwen3-ForcedAligner-0.6B
+    source:
+      { type: huggingface, repo: Qwen/Qwen3-ForcedAligner-0.6B, revision: c7cbfc2048c462b0d63a45797104fc9db3ad62b7 }
+    files: ["*.json", "*.txt", model.safetensors]
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/Qwen/Qwen3-ForcedAligner-0.6B/blob/c7cbfc2048c462b0d63a45797104fc9db3ad62b7/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license apache-2.0 at the pinned revision",
+      }
+    dependencies:
+      - ref: "pypi:qwen-asr==0.0.6"
+        role: code
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/QwenLM/Qwen3-ASR/blob/7c6daf77a2421100f5fb066495372c00129d39ff/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: a44a6081c73ad75f0255bb2bb5cab74ef1829565a895a24e53a4f11290ab7655,
+            evidence: "license_file of the source repository; PyPI metadata Apache-2.0",
+          }
+defaults:
+  attn_implementation: sdpa
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 0.02, load_seconds: 15.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. README: timestamp accuracy above end-to-end aligners (authors' evaluation)."

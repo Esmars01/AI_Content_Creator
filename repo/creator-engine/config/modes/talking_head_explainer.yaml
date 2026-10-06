@@ -1,0 +1,17 @@
+# Video mode template (§13). Effective maturity in the UI is capped by route validation (§10.4).
+id: talking_head_explainer
+label: Talking-head explainer
+maturity: production
+roadmap: MVP
+description: "A creator explains one idea to camera with light B-roll."
+allowed_shot_types: [talking_head, broll, insert, title_card]
+default_camera_profiles: [phone_front_selfie, desk_mirrorless, webcam]
+default_world_kinds: [home_office, studio, living_room]
+duration_s: {min: 15, max: 90, default: 30}
+aspects: ["9:16", "16:9", "1:1", "4:5"]
+edit_grammar: {max_shot_s: 6, cutaway_every_s: 8, punch_in_on_emphasis: true, beat_snap: false}
+acting_density: medium
+editorial_methods: [editorial_cutaway, editorial_punch, caption_emphasis, music_cue, sfx_cue]
+strategy_packs: [myth_vs_reality, hook_problem_payoff_cta, contrarian_take]
+requires: []
+prompt_fragment: null

@@ -1,0 +1,7 @@
+# Strategy pack (§13 stage 4). Configurable, never hard-coded.
+id: hook_problem_payoff_cta
+label: "Hook → problem → payoff → CTA"
+structure: [hook, problem, explanation, payoff, cta]
+signature_format: false
+hook_count: 4
+guidance: "Open with a scroll-stopping hook, name the problem, deliver the payoff, close with one clear ask."

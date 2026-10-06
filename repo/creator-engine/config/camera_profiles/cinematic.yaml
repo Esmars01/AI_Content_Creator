@@ -1,0 +1,15 @@
+# Camera profile (§22). Deterministic camera and realism post use these values (ADR 0009).
+id: cinematic
+label: Cinematic camera
+maturity: production
+prompt_hints: ["cinematic look, controlled lighting, shallow depth of field"]
+subject_distance_m: 2.0
+sensor: { fps: 24, noise_luma: 0.003, noise_chroma: 0.0015, rolling_shutter: 0.0 }
+lens: { focal_equiv_mm: 40, distortion_k1: 0.005, vignette: 0.12, dof: shallow }
+framing: { default: medium, headroom: 0.12, eye_line: 0.35, overscan: 0.12 }
+motion: { type: gimbal, amplitude_px: 2, freq_hz: [0.05, 0.3], rotation_deg: 0.1, breathing_sway: false, stabilization: 0.9 }
+focus: { autofocus_hunts_per_min: 0.0 }
+exposure: { auto_exposure_drift: 0.0 }
+color: { lut: luts/cinematic_warm.cube, saturation: 0.98 }
+compression: { codec: h264, bitrate_kbps: 24000 }
+audio: { mic_profile: lavalier, distance_m: 0.2 }

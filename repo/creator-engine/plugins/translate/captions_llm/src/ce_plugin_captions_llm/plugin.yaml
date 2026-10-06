@@ -1,0 +1,31 @@
+# Caption translation (§27, §39.7 `captions_llm`, Phase 12). Reads the built ASS captions, turns
+# the per-word highlight events back into lines, translates the lines with the deployment's own
+# LLM provider (LLM_PROVIDER: the caption text goes to that provider as data, never as
+# instructions) and writes ASS, SRT and VTT in the target language with `review_state: pending` —
+# a person approves each translation before it can be exported.
+#
+# No model is shipped or downloaded: the provider and its terms are the operator's choice, so no
+# license is asserted here. It has not been run against a real provider in this repository
+# (no paid API calls), hence `untested_on_gpu`: production routing skips it until an operator's
+# smoke run promotes it; sandbox runs and the tests use it.
+id: captions_llm
+name: Caption translation (configured LLM)
+version: 0.1.0
+kind: code
+entrypoint: ce_plugin_captions_llm.adapter:CaptionsLLM
+test_backend: ce_plugin_captions_llm.testing:echo_backend # the contract suite's stand-in LLM (never routed)
+capabilities:
+  - id: captions.translate
+    features: [review_state]
+runtime: { family: cpu_inproc, python: "3.12", requires_gpu: false, supports_cpu: true }
+defaults:
+  temperature: 0.2
+  max_repairs: 2
+pricing: { seconds_per_unit: 0.5 }
+allowed_envs: [dev, test, prod]
+status: production
+validation: untested_on_gpu # not yet smoke-run against a real LLM provider (no paid calls here)
+maturity_notes: >-
+  Per-word highlight timing cannot survive translation: translated captions highlight by phrase.
+  Lines are translated in batches with indices checked; a batch that stays invalid after repairs
+  fails the node (no silent fallback to the source text).

@@ -1,0 +1,15 @@
+# Camera profile (§22). Deterministic camera and realism post use these values (ADR 0009).
+id: phone_front_selfie
+label: Smartphone selfie (front camera)
+maturity: production
+prompt_hints: ["shot on a smartphone front camera at arm's length", "natural window light"]
+subject_distance_m: 0.5
+sensor: { fps: 30, noise_luma: 0.012, noise_chroma: 0.006, rolling_shutter: 0.002 }
+lens: { focal_equiv_mm: 23, distortion_k1: 0.03, vignette: 0.15, dof: deep }
+framing: { default: medium_close_up, headroom: 0.08, eye_line: 0.38, overscan: 0.12 }
+motion: { type: handheld, amplitude_px: 6, freq_hz: [0.3, 1.2], rotation_deg: 0.4, breathing_sway: true, stabilization: 0.6 }
+focus: { autofocus_hunts_per_min: 0.5 }
+exposure: { auto_exposure_drift: 0.03 }
+color: { lut: luts/phone_natural.cube, saturation: 1.02 }
+compression: { codec: h264, bitrate_kbps: 8000 }
+audio: { mic_profile: phone_front_mic, distance_m: 0.4 }

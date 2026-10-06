@@ -1,0 +1,40 @@
+# Hashed bag-of-words vectors (deterministic, not semantic). In-process (cpu_inproc) since Phase 12:
+# planning embeds the brief and candidate hooks synchronously (ADR 0057).
+# Mock: registered only when MOCK_GPU=true; never routed in production (§10.6, §24).
+id: mock_embed
+name: Mock text embedding
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugins_mock.embed.adapter:MockEmbed
+mock: true
+capabilities:
+  - id: embed.text
+    features: [multilingual]
+    languages: { mode: any, validated: [en], unvalidated: [de, es, fr, it, ru, tr, ar] }
+runtime:
+  {
+    family: cpu_inproc,
+    python: "3.12",
+    requires_gpu: false,
+    min_vram_gb: 0,
+    recommended_vram_gb: 0,
+    supports_cpu: true,
+  }
+models:
+  - key: mock-embed
+    display_name: mock-embed (procedural mock, no weights)
+    source: { type: builtin, revision: "1" }
+    license:
+      {
+        name: LicenseRef-CreatorEngine-FirstParty,
+        url: "plugins/mock/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-03,
+        verified_by: claude-code,
+      }
+pricing: { seconds_per_unit: 0.01 }
+allowed_envs: [dev, test]
+status: production
+validation: untested_on_gpu
+maturity_notes: "Mock engine; outputs are labelled and not model output."

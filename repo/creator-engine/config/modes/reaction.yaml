@@ -1,0 +1,17 @@
+# Video mode template (§13). Effective maturity in the UI is capped by route validation (§10.4).
+id: reaction
+label: Reaction
+maturity: beta
+roadmap: MVP
+description: "The creator speaks reactions over a user-supplied clip shown picture-in-picture; silent reactions are approximated editorially and reported as such."
+allowed_shot_types: [reaction_clip, talking_head]
+default_camera_profiles: [webcam, desk_mirrorless]
+default_world_kinds: [home_office, studio]
+duration_s: {min: 20, max: 300, default: 60}
+aspects: ["9:16", "16:9", "1:1", "4:5"]
+edit_grammar: {max_shot_s: 8, cutaway_every_s: 0, punch_in_on_emphasis: true, beat_snap: false}
+acting_density: high
+editorial_methods: [editorial_cutaway, editorial_punch, caption_emphasis, music_cue, sfx_cue]
+strategy_packs: [contrarian_take]
+requires: [reaction_clip]
+prompt_fragment: null

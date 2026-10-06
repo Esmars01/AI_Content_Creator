@@ -1,0 +1,31 @@
+# V2 capability: a labelled pass-through in the MVP (§12.1).
+# Mock: registered only when MOCK_GPU=true; never routed in production (§10.6, §24).
+id: mock_expression
+name: Mock expression editor (pass-through)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugins_mock.expression.adapter:MockExpression
+mock: true
+capabilities:
+  - id: expression.edit
+    features: [blink, glance, smile]
+runtime:
+  { family: cpu_model, python: "3.12", requires_gpu: false, min_vram_gb: 0, recommended_vram_gb: 0, supports_cpu: true }
+models:
+  - key: mock-expression
+    display_name: mock-expression (procedural mock, no weights)
+    source: { type: builtin, revision: "1" }
+    license:
+      {
+        name: LicenseRef-CreatorEngine-FirstParty,
+        url: "plugins/mock/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-03,
+        verified_by: claude-code,
+      }
+pricing: { seconds_per_unit: 0.01 }
+allowed_envs: [dev, test]
+status: production
+validation: untested_on_gpu
+maturity_notes: "Mock engine; outputs are labelled and not model output."

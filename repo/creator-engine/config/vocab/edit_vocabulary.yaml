@@ -1,0 +1,127 @@
+# The single edit vocabulary (§12.7): lock groups ↔ SpecPath patterns, which groups pin routes,
+# and regenerate components ↔ node kinds, the spec paths they may change and the lock groups
+# that block them. `scope` maps a lock-scope list to the spec field whose `[*]` selector it
+# restricts (a world lock scoped to scn_a locks only /scenes[scn_a]/world).
+vocab_version: "2026.10.1"
+lock_groups:
+  script:
+    patterns: ["/script/segments[*]/text"]
+    pins_routes: false
+    scope: {}
+  voice:
+    patterns: ["/cast[*]/overrides/voice_version_id", "/cast[*]/voice_prosody"]
+    pins_routes: true
+    pinned_node_kinds: [voice.prepare, tts.segment, behavior.compile_voice]
+    scope: {character_keys: cast}
+  appearance:
+    patterns: ["/cast[*]/overrides/appearance_version_id", "/cast[*]/creator_version_id"]
+    pins_routes: true
+    pinned_node_kinds: [image.keyframe, avatar.render]
+    scope: {character_keys: cast}
+  wardrobe:
+    patterns: ["/scenes[*]/cast[*]/wardrobe_version_id"]
+    pins_routes: false
+    scope: {scene_keys: scenes, character_keys: cast}
+  world:
+    patterns: ["/scenes[*]/world"]
+    pins_routes: true
+    pinned_node_kinds: [world.plate]
+    scope: {scene_keys: scenes}
+  acting:
+    patterns: ["/scenes[*]/acting"]
+    pins_routes: false
+    scope: {scene_keys: scenes}
+  intent:
+    patterns: ["/intent", "/scenes[*]/intent"]
+    pins_routes: false
+    scope: {scene_keys: scenes}
+  camera:
+    patterns: ["/scenes[*]/shots[*]/camera", "/scenes[*]/world/camera_position_key"]
+    pins_routes: false
+    scope: {scene_keys: scenes, shot_keys: shots}
+  music:
+    patterns: ["/audio/music"]
+    pins_routes: true
+    pinned_node_kinds: [audio.music]
+    scope: {}
+  sfx:
+    patterns: ["/audio/sfx"]
+    pins_routes: true
+    pinned_node_kinds: [audio.sfx]
+    scope: {}
+  broll:
+    patterns: ["/scenes[*]/shots[*]/broll"]
+    pins_routes: true
+    pinned_node_kinds: [video.broll]
+    scope: {scene_keys: scenes, shot_keys: shots}
+  captions:
+    patterns: ["/captions"]
+    pins_routes: false
+    scope: {}
+  product:
+    patterns: ["/products"]
+    pins_routes: false
+    scope: {}
+regenerate_components:
+  voice:
+    node_kinds: [tts.segment, asr.verify, align.segment]
+    may_change: ["/generation/seed_overrides"]
+    blocked_by: [voice]
+    input_lock_groups: [voice, script]
+  keyframe:
+    node_kinds: [behavior.keyframe_state, image.keyframe]
+    may_change: ["/generation/seed_overrides"]
+    blocked_by: []
+    input_lock_groups: [appearance, wardrobe, world, camera]
+  avatar_video:
+    node_kinds: [avatar.render]
+    may_change: ["/generation/seed_overrides"]
+    blocked_by: []
+    input_lock_groups: [appearance, wardrobe, world, camera, voice, acting]
+  background:
+    node_kinds: [world.plate]
+    may_change: ["/generation/seed_overrides"]
+    blocked_by: [world]
+    input_lock_groups: [world]
+  world_plate:
+    node_kinds: [world.plate]
+    may_change: ["/generation/seed_overrides"]
+    blocked_by: [world]
+    input_lock_groups: [world]
+  broll:
+    node_kinds: [video.broll]
+    may_change: ["/generation/seed_overrides"]
+    blocked_by: [broll]
+    input_lock_groups: [broll]
+  camera_post:
+    node_kinds: [post.camera]
+    may_change: ["/generation/seed_overrides"]
+    blocked_by: [camera]
+    input_lock_groups: [camera]
+  acting:
+    node_kinds: [behavior.resolve, behavior.compile_voice, behavior.compile_visual]
+    may_change: ["/scenes[*]/acting", "/generation/seed_overrides"]
+    blocked_by: [acting]
+    input_lock_groups: [acting]
+    requires_director: true
+  music:
+    node_kinds: [audio.music]
+    may_change: ["/generation/seed_overrides"]
+    blocked_by: [music]
+    input_lock_groups: [music]
+  sfx:
+    node_kinds: [audio.sfx]
+    may_change: ["/generation/seed_overrides"]
+    blocked_by: [sfx]
+    input_lock_groups: [sfx]
+  captions:
+    node_kinds: [captions.build]
+    may_change: ["/generation/seed_overrides"]
+    blocked_by: [captions]
+    input_lock_groups: [captions]
+  lipsync:
+    node_kinds: [lipsync.patch]
+    may_change: ["/generation/seed_overrides"]
+    blocked_by: []
+    input_lock_groups: [voice, appearance]
+migrations: []

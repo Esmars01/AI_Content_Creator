@@ -1,0 +1,43 @@
+# AI Director (§13, §37): the repair loop, stage limits, the values intent policies render with,
+# and the labeled template Director that plans free-form dev input matching no fixture scenario
+# (`planner: template`). Every token is validated against config/vocab (I13).
+version: 1
+max_repairs: 2                     # targeted repair attempts per LLM stage
+temperature: 0.2
+max_tokens: 4096
+hooks: {min: 3, max: 5}            # stage 4 (exact scripts use their first sentence)
+script_words_tolerance: 0.25       # AI script length vs duration × WPM
+max_pacing_delta: 0.15             # exact scripts: pacing used to approach the requested duration
+punch_scale: 1.12                  # camera punch-ins proposed by policies and the compiler
+reveal_hold_words: 2               # default `no_cut_within_words` around a reveal
+cta_texts:                         # end-card text per `intent.video.cta_goal`
+  follow: "Follow for more"
+  follow_for_series: "Follow for part 2"
+  comment: "Tell me in the comments"
+  save: "Save this for later"
+  share: "Send this to a friend"
+  click_link: "Link in bio"
+music:
+  default_mood: "light, unobtrusive, no vocals"
+  tension_mood: "tense, sparse pulse, no vocals"
+  resolve_mood: "warm resolve, no vocals"
+  duck_db: -18
+template:
+  mode: talking_head_explainer
+  situation_kind: explaining_concept
+  audience_stance: curious
+  video_intent: {narrative_goal: explain_mechanism, audience_effect: insight, persuasion_goal: none, information_goal: define_concept, attention_goal: sustain, cta_goal: follow}
+  purposes:
+    hook:        {narrative_goal: challenge_common_belief, emotional_goal: build_excitement, audience_effect: curiosity, information_goal: none, attention_goal: pattern_interrupt, emotion: confident, intensity: 0.6, internal_state: eager_to_share, social_goal: build_rapport, audience_goal: spark_curiosity, performance_intent: tease, prosody: assertive_light, gaze: hold_camera, gesture: illustrative_light, reaction: none, camera_awareness: direct_address}
+    setup:       {narrative_goal: establish_credibility, emotional_goal: reassure, audience_effect: trust, information_goal: define_concept, attention_goal: sustain, emotion: calm, intensity: 0.5, internal_state: focused_explanation, social_goal: inform, audience_goal: make_viewer_nod_along, performance_intent: explain_plainly, prosody: controlled_even, gaze: hold_camera, gesture: illustrative_light, reaction: none, camera_awareness: direct_address}
+    context:     {narrative_goal: establish_credibility, emotional_goal: reassure, audience_effect: trust, information_goal: define_concept, attention_goal: sustain, emotion: calm, intensity: 0.5, internal_state: focused_explanation, social_goal: inform, audience_goal: make_viewer_nod_along, performance_intent: explain_plainly, prosody: controlled_even, gaze: hold_camera, gesture: illustrative_light, reaction: none, camera_awareness: direct_address}
+    problem:     {narrative_goal: challenge_common_belief, emotional_goal: provoke, audience_effect: doubt, information_goal: state_misconception, attention_goal: build_suspense, emotion: concerned, intensity: 0.5, internal_state: sincere_concern, social_goal: empathize, audience_goal: make_viewer_feel_understood, performance_intent: warn, prosody: slow_measured, gaze: hold_camera, gesture: illustrative_light, reaction: none, camera_awareness: direct_address}
+    turn:        {narrative_goal: challenge_common_belief, emotional_goal: create_doubt_then_reveal, audience_effect: surprise, information_goal: state_misconception, attention_goal: re_engage, emotion: serious, intensity: 0.6, internal_state: deliberate_reveal, social_goal: challenge, audience_goal: create_doubt, performance_intent: undercut_belief, prosody: slow_measured, gaze: hold_camera, gesture: still, reaction: none, camera_awareness: direct_address}
+    explanation: {narrative_goal: explain_mechanism, emotional_goal: reassure, audience_effect: insight, information_goal: explain_steps, attention_goal: sustain, emotion: confident, intensity: 0.5, internal_state: focused_explanation, social_goal: inform, audience_goal: make_viewer_remember, performance_intent: explain_plainly, prosody: assertive_light, gaze: hold_camera, gesture: illustrative_light, reaction: none, camera_awareness: direct_address}
+    example:     {narrative_goal: show_example, emotional_goal: build_excitement, audience_effect: insight, information_goal: give_example, attention_goal: sustain, emotion: curious, intensity: 0.5, internal_state: genuine_curiosity, social_goal: inform, audience_goal: make_viewer_remember, performance_intent: explain_plainly, prosody: playful_rising, gaze: hold_camera, gesture: illustrative_light, reaction: none, camera_awareness: direct_address}
+    story:       {narrative_goal: tell_anecdote, emotional_goal: amuse, audience_effect: amusement, information_goal: none, attention_goal: sustain, emotion: warm, intensity: 0.5, internal_state: reflective, social_goal: build_rapport, audience_goal: make_viewer_feel_understood, performance_intent: tell_with_suspense, prosody: controlled_even, gaze: glance_away_and_return, gesture: illustrative_light, reaction: none, camera_awareness: direct_address}
+    reveal:      {narrative_goal: reveal_payoff, emotional_goal: create_doubt_then_reveal, audience_effect: surprise, information_goal: summarize, attention_goal: release, emotion: confident, intensity: 0.6, internal_state: deliberate_reveal, social_goal: establish_authority, audience_goal: surprise_viewer, performance_intent: undercut_belief, prosody: slow_measured, gaze: hold_camera, gesture: still, reaction: none, camera_awareness: direct_address}
+    payoff:      {narrative_goal: reveal_payoff, emotional_goal: inspire, audience_effect: insight, information_goal: summarize, attention_goal: release, emotion: confident, intensity: 0.6, internal_state: quiet_confidence, social_goal: establish_authority, audience_goal: make_viewer_remember, performance_intent: explain_plainly, prosody: assertive, gaze: hold_camera, gesture: emphatic_beats, reaction: none, camera_awareness: direct_address}
+    summary:     {narrative_goal: reveal_payoff, emotional_goal: reassure, audience_effect: insight, information_goal: summarize, attention_goal: release, emotion: calm, intensity: 0.5, internal_state: quiet_confidence, social_goal: inform, audience_goal: make_viewer_remember, performance_intent: explain_plainly, prosody: controlled_even, gaze: hold_camera, gesture: illustrative_light, reaction: none, camera_awareness: direct_address}
+    cta:         {narrative_goal: call_to_action, emotional_goal: inspire, audience_effect: urgency, information_goal: none, attention_goal: release, emotion: warm, intensity: 0.5, internal_state: quiet_confidence, social_goal: build_rapport, audience_goal: make_viewer_act, performance_intent: invite_action, prosody: assertive_light, gaze: hold_camera, gesture: illustrative_light, reaction: none, camera_awareness: direct_address}
+    outro:       {narrative_goal: call_to_action, emotional_goal: reassure, audience_effect: reassurance, information_goal: none, attention_goal: release, emotion: warm, intensity: 0.5, internal_state: relieved_resolution, social_goal: build_rapport, audience_goal: make_viewer_act, performance_intent: invite_action, prosody: controlled_even, gaze: hold_camera, gesture: illustrative_light, reaction: none, camera_awareness: direct_address}

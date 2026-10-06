@@ -1,0 +1,184 @@
+# InfiniteTalk (§39.7: the default talking-head engine). Audio-driven image-to-video on
+# Wan2.1-I2V-14B-480P with InfiniteTalk's audio adapter and the LightX2V 4-step distillation LoRA.
+# One global text prompt per clip; expression and head motion are driven by the voice performance
+# (§5 behavior-control reality).
+#
+# Reality vs §39.7 ("4-step LoRA and fp8"): InfiniteTalk's pipeline applies LoRAs only to the
+# unquantized model (wan/multitalk.py at the pinned commit: `if lora_dir is not None and quant is
+# None`), so the default is bf16 + the 4-step LoRA with weight offloading; the fp8 checkpoint
+# (40 steps, no LoRA) is a documented alternative, not the default (DECISIONS D90).
+#
+# Every value below that describes the engine's behavior is a claim from the model card [RV] until
+# `scripts/smoke/infinitetalk.py` and the benchmarks measure it (ADR 0027). Licenses were read at the
+# pinned revisions on 2026-10-04 (docs/MODELS.md has the evidence trail).
+id: infinitetalk
+name: InfiniteTalk (Wan2.1-I2V-14B, LightX2V 4-step LoRA)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_avatar_infinitetalk.adapter:InfiniteTalkAdapter
+behavior_translator: ce_plugin_avatar_infinitetalk.translator:InfiniteTalkTranslator
+test_backend: ce_plugin_avatar_infinitetalk.testing:fake_backend
+capabilities:
+  - id: avatar.a2v
+    features: [i2v, long_form_streaming]
+    # "validated" = by the model authors (English and Chinese demos) [RV]; ours is `validation`.
+    languages: { mode: audio_driven, validated: [en, zh], unvalidated: [de, es, fr, it, ru, tr, ar] }
+    resolutions: ["480p", "720p"]
+    max_duration_s: 60 # color drift beyond ~1 min (README tips); chunks of ≤ 25 s are recommended
+    fps: 25
+behavior_matrix:
+  emotion_visual: { control: text_global, temporal_precision: clip, vocabulary: any_text }
+  facial_expression: { control: emergent }
+  reaction: { control: emergent }
+  listening: { control: emergent }
+  gaze: { control: emergent }
+  blink: { control: emergent }
+  head_motion: { control: emergent, knobs: [motion_energy] }
+  gesture: { control: emergent }
+  posture: { control: text_global, temporal_precision: clip }
+  camera_awareness: { control: text_global, temporal_precision: clip }
+  segment_control: { supported: false }
+  prosody_coupling: { lip_sync_from_audio: strong, expression_from_audio: strong }
+  continuity:
+    {
+      first_frame_conditioning: true,
+      chunk_continuation: true,
+      reference_identity: strong,
+      background_preservation: medium,
+    }
+  object_interaction: { control: none }
+  multi_person: { max_persons: 1 } # the multi-person checkpoint is a separate adapter (V2)
+  temporal_control: { max_clip_s: 60, recommended_chunk_s: 25 }
+knobs:
+  # Audio CFG: the README recommends 2 with a distillation LoRA (3–5 without). Higher values tie
+  # lip and head motion more tightly to the audio. Unused until CalibrationWorkflow measures it.
+  motion_energy: { param: audio_guide_scale, range: [1.5, 3.0], monotonic: unverified, calibrated: false }
+runtime:
+  {
+    family: wan,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 24,
+    recommended_vram_gb: 48,
+    supports_cpu: false,
+  }
+models:
+  - key: infinitetalk-single
+    size_gb: 86.92 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: MeiGen-AI/InfiniteTalk (single-person audio adapter)
+    source: { type: huggingface, repo: MeiGen-AI/InfiniteTalk, revision: d59847ebdacf19245bfca3fb23311c0cada8378a }
+    files: [single/infinitetalk.safetensors]
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/MeiGen-AI/InfiniteTalk/blob/d59847ebdacf19245bfca3fb23311c0cada8378a/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license apache-2.0 at the pinned revision (no LICENSE file in the weights repository)",
+      }
+    dependencies:
+      - ref: "Wan-AI/Wan2.1-I2V-14B-480P@6b73f84e66371cdfe870c72acd6826e1d61cf279"
+        role: base_weights
+        source:
+          { type: huggingface, repo: Wan-AI/Wan2.1-I2V-14B-480P, revision: 6b73f84e66371cdfe870c72acd6826e1d61cf279 }
+        files:
+          [
+            "config.json",
+            "*.safetensors",
+            "*.safetensors.index.json",
+            "*.pth",
+            "google/umt5-xxl/*",
+            "xlm-roberta-large/*",
+          ]
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://huggingface.co/Wan-AI/Wan2.1-I2V-14B-480P/blob/6b73f84e66371cdfe870c72acd6826e1d61cf279/LICENSE.txt",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "license_file (LICENSE.txt in the weights repository) and model_card apache-2.0",
+          }
+      - ref: "TencentGameMate/chinese-wav2vec2-base@3991242c806928916fff4a8c0e4f76acf661b743"
+        role: audio_encoder
+        source:
+          {
+            type: huggingface,
+            repo: TencentGameMate/chinese-wav2vec2-base,
+            revision: 3991242c806928916fff4a8c0e4f76acf661b743,
+          }
+        files: [config.json, preprocessor_config.json, pytorch_model.bin]
+        license:
+          {
+            name: MIT,
+            url: "https://huggingface.co/TencentGameMate/chinese-wav2vec2-base/blob/3991242c806928916fff4a8c0e4f76acf661b743/README.md",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "model_card: license mit at the pinned revision",
+          }
+      - ref: "lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v@fef288b326f4fed6d2983b9800c35363da31fcfe"
+        role: distill_lora
+        source:
+          {
+            type: huggingface,
+            repo: lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v,
+            revision: fef288b326f4fed6d2983b9800c35363da31fcfe,
+          }
+        files: [loras/Wan21_I2V_14B_lightx2v_cfg_step_distill_lora_rank64.safetensors]
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://huggingface.co/lightx2v/Wan2.1-I2V-14B-480P-StepDistill-CfgDistill-Lightx2v/blob/fef288b326f4fed6d2983b9800c35363da31fcfe/LICENSE.txt",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "license_file (LICENSE.txt in the repository) and model_card apache-2.0",
+          }
+      - ref: "github:MeiGen-AI/InfiniteTalk@50aa0a94184315407a991ae804d9b58d6d311ba8"
+        role: code
+        source:
+          {
+            type: git,
+            repo: "https://github.com/MeiGen-AI/InfiniteTalk",
+            revision: 50aa0a94184315407a991ae804d9b58d6d311ba8,
+          }
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/MeiGen-AI/InfiniteTalk/blob/50aa0a94184315407a991ae804d9b58d6d311ba8/LICENSE.txt",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4,
+            evidence: license_file,
+          }
+defaults:
+  size_buckets: { "480": infinitetalk-480, "720": infinitetalk-720 }
+  clip_frames: 81 # one clip; streaming beyond it (frames are 4n+1)
+  motion_frame: 9 # frames carried between streaming windows (README default)
+  fps: 25
+  steps: 4 # with the LightX2V distillation LoRA
+  shift: 2.0
+  text_guide_scale: 1.0 # README: 1 with a LoRA (5 without)
+  audio_guide_scale: 2.0 # README: 2 with a LoRA (4 without)
+  lora_scale: 1.0
+  quant: null # "fp8" selects quant_models/infinitetalk_single_fp8 (40 steps; the LoRA is then ignored upstream)
+  num_persistent_param_in_dit: 0 # weight offloading (fits the 24–48 GB classes); raise on 96 GB GPUs
+  color_correction_strength: 1.0
+  low_memory: { num_persistent_param_in_dit: 0, t5_cpu: true } # OOM retry settings (§25)
+  reference_gpu: rtx_pro_6000_96gb
+  verbal_cue: "A person is talking."
+  negative: ""
+pricing: { seconds_per_unit: 30.0, load_seconds: 180.0 } # on the reference GPU class (defaults.reference_gpu); placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. Model-card claims: color drift beyond ~60 s (chunk to ≤ 25 s); LoRA lowers ID preservation slightly; lip sync validated by the authors for en/zh only."

@@ -1,0 +1,43 @@
+# Local hooks only: they use the tools pinned in the uv and pnpm workspaces, so no hook
+# repositories are fetched at commit time.
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --force-exclude
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: ruff format --check
+        entry: uv run ruff format --check --force-exclude
+        language: system
+        types: [python]
+      - id: mypy
+        name: mypy
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: eslint
+        name: eslint
+        entry: pnpm exec eslint --no-warn-ignored
+        language: system
+        files: \.(c|m)?(j|t)sx?$
+      - id: prettier
+        name: prettier --check
+        entry: pnpm exec prettier --check --ignore-unknown
+        language: system
+        types_or: [javascript, ts, tsx, json, yaml, css]
+      - id: verify-spec
+        name: verify MASTER_BUILD_PROMPT consistency
+        entry: uv run python scripts/verify_spec.py
+        language: system
+        files: ^docs/MASTER_BUILD_PROMPT\.md$
+        pass_filenames: false
+      - id: verify-config
+        name: ce config validate
+        entry: uv run ce config validate
+        language: system
+        files: ^config/
+        pass_filenames: false

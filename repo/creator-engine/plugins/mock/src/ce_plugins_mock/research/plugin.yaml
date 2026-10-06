@@ -1,0 +1,42 @@
+# No network: fetch returns a labelled placeholder document.
+# Mock: registered only when MOCK_GPU=true; never routed in production (§10.6, §24).
+id: mock_research
+name: Mock research engine
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugins_mock.research.adapter:MockResearch
+mock: true
+capabilities:
+  - id: research.fetch
+    features: [html]
+  - id: research.ingest
+    features: [text]
+  - id: research.search
+    features: [keyword]
+runtime:
+  {
+    family: cpu_inproc,
+    python: "3.12",
+    requires_gpu: false,
+    min_vram_gb: 0,
+    recommended_vram_gb: 0,
+    supports_cpu: true,
+  }
+models:
+  - key: mock-research
+    display_name: mock-research (procedural mock, no weights)
+    source: { type: builtin, revision: "1" }
+    license:
+      {
+        name: LicenseRef-CreatorEngine-FirstParty,
+        url: "plugins/mock/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-03,
+        verified_by: claude-code,
+      }
+pricing: { seconds_per_unit: 0.01 }
+allowed_envs: [dev, test]
+status: production
+validation: untested_on_gpu
+maturity_notes: "Mock engine; outputs are labelled and not model output."

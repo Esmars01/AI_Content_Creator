@@ -1,0 +1,10 @@
+# Microphone profile (§22 realism post: mic EQ curve).
+id: dynamic_broadcast
+label: Dynamic broadcast microphone
+eq:
+  - {type: highpass, freq_hz: 60}
+  - {type: shelf_low, freq_hz: 150, gain_db: 2}
+  - {type: peak, freq_hz: 4500, gain_db: 2, q: 1.0}
+noise_floor_db: -68
+distance_m: 0.1
+compression: {threshold_db: -20, ratio: 2.0}

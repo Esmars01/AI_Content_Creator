@@ -1,0 +1,131 @@
+# Alert rules (§34, Phase 14). Thresholds are starting points for a small deployment, not tuned
+# against production traffic (none exists yet); adjust them in this file. Labels: severity is
+# `page` (someone should act now) or `ticket` (look during working hours).
+groups:
+  - name: availability
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"api|scheduler|orchestrator|render-worker"} == 0
+        for: 2m
+        labels: {severity: page}
+        annotations:
+          summary: "{{ $labels.job }} is not answering its metrics scrape"
+          runbook: docs/OPERATIONS.md#service-down
+      - alert: ApiErrorRate
+        expr: |
+          sum(rate(ce_http_requests_total{service="api",status=~"5.."}[5m]))
+            / clamp_min(sum(rate(ce_http_requests_total{service="api"}[5m])), 1e-9) > 0.02
+        for: 10m
+        labels: {severity: page}
+        annotations:
+          summary: "API 5xx ratio above 2% for 10 minutes"
+          runbook: docs/OPERATIONS.md#api-errors
+      - alert: ApiLatencyP95
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(ce_http_request_seconds_bucket{service="api"}[5m]))) > 1.5
+        for: 15m
+        labels: {severity: ticket}
+        annotations:
+          summary: "API p95 latency above 1.5 s"
+          runbook: docs/OPERATIONS.md#api-latency
+
+  - name: scheduler
+    rules:
+      - alert: GpuQueueBacklog
+        expr: sum(ce_gpu_tasks{state="queued"}) > 0 and sum(ce_workers{state=~"idle|busy"}) == 0
+        for: 10m
+        labels: {severity: page}
+        annotations:
+          summary: "Queued GPU tasks and no live worker for 10 minutes"
+          runbook: docs/OPERATIONS.md#queue-stuck
+      - alert: GpuLeaseWaitHigh
+        expr: |
+          histogram_quantile(0.9, sum by (le, capability) (rate(ce_gpu_lease_wait_seconds_bucket[15m]))) > 900
+        for: 15m
+        labels: {severity: ticket}
+        annotations:
+          summary: "p90 queue wait above 15 minutes for {{ $labels.capability }}"
+          runbook: docs/OPERATIONS.md#queue-stuck
+      - alert: LeaseExpiriesHigh
+        expr: sum(rate(ce_gpu_lease_expired_total[15m])) * 900 > 5
+        for: 15m
+        labels: {severity: ticket}
+        annotations:
+          summary: "More than 5 expired leases in 15 minutes (workers dying or partitioned)"
+          runbook: docs/OPERATIONS.md#lease-expiries
+      - alert: GpuTaskFailures
+        expr: |
+          sum(rate(ce_gpu_tasks_done_total{status="failed"}[30m]))
+            / clamp_min(sum(rate(ce_gpu_tasks_done_total[30m])), 1e-9) > 0.2
+        for: 30m
+        labels: {severity: ticket}
+        annotations:
+          summary: "More than 20% of GPU tasks failing"
+          runbook: docs/OPERATIONS.md#task-failures
+      - alert: TasksHeldByBudget
+        expr: sum(ce_gpu_tasks_held) > 0
+        for: 30m
+        labels: {severity: ticket}
+        annotations:
+          summary: "Tasks held by budget rules for 30 minutes ({{ $value }})"
+          runbook: docs/OPERATIONS.md#budget-holds
+      - alert: OpsMetricsFailing
+        expr: increase(ce_ops_collect_errors_total[15m]) > 2
+        labels: {severity: ticket}
+        annotations:
+          summary: "The scheduler leader cannot compute the ce_ops_* metrics"
+          runbook: docs/OPERATIONS.md#ops-metrics
+
+  - name: cost
+    rules:
+      - alert: DailySpendProjectedOverBudget
+        expr: ce_fleet_spend_usd{kind="projected"} > ce_fleet_spend_usd{kind="budget"} and ce_fleet_spend_usd{kind="budget"} > 0
+        for: 5m
+        labels: {severity: page}
+        annotations:
+          summary: "Projected GPU spend exceeds BUDGET_DAILY_USD"
+          runbook: docs/OPERATIONS.md#budget
+      - alert: ProvisioningErrors
+        expr: sum(increase(ce_fleet_provisions_total{result=~"error|restart_error"}[30m])) > 3
+        labels: {severity: ticket}
+        annotations:
+          summary: "Provider provisioning errors in the last 30 minutes"
+          runbook: docs/OPERATIONS.md#providers
+
+  - name: quality
+    rules:
+      - alert: ShotQcFailureRate
+        expr: |
+          sum by (adapter) (ce_ops_qc_shots{verdict="fail"})
+            / clamp_min(sum by (adapter) (ce_ops_qc_shots), 1) > 0.3
+          and sum by (adapter) (ce_ops_qc_shots) >= 10
+        for: 30m
+        labels: {severity: ticket}
+        annotations:
+          summary: "{{ $labels.adapter }}: more than 30% of shots fail QC (window: ce_ops_window_seconds)"
+          runbook: docs/OPERATIONS.md#quality
+      - alert: NotMeasurableRate
+        expr: |
+          sum(ce_ops_not_measurable) / clamp_min(sum(ce_ops_coverage_observations), 1) > 0.5
+          and sum(ce_ops_coverage_observations) >= 20
+        for: 30m
+        labels: {severity: ticket}
+        annotations:
+          summary: "More than half the behavior observations are NOT_MEASURABLE (analyzers missing or broken)"
+          runbook: docs/OPERATIONS.md#quality
+      - alert: ConsistencyOutOfBand
+        expr: |
+          sum(ce_ops_consistency{verdict="out_of_band"}) / clamp_min(sum(ce_ops_consistency), 1) > 0.25
+          and sum(ce_ops_consistency) >= 4
+        for: 30m
+        labels: {severity: ticket}
+        annotations:
+          summary: "More than 25% of creator consistency reports are out of band"
+          runbook: docs/OPERATIONS.md#quality
+      - alert: MemoryConflictsPiling
+        expr: ce_ops_memory_conflicts_open > 50
+        for: 1h
+        labels: {severity: ticket}
+        annotations:
+          summary: "{{ $value }} unresolved creator-memory conflicts"
+          runbook: docs/OPERATIONS.md#memory-conflicts

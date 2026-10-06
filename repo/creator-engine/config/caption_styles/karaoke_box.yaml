@@ -1,0 +1,14 @@
+# Caption style (§27). Fonts fall back through font_fallbacks for Latin Extended, Cyrillic and Arabic.
+id: karaoke_box
+label: Karaoke box
+font_family: Inter
+font_fallbacks: [Noto Sans, Noto Sans Arabic, DejaVu Sans]
+font_size_px: 64
+primary_color: "#FFFFFF"
+stroke_color: "#000000"
+stroke_width_px: 0
+highlight_color: "#7C3AED"
+highlight: active_word
+max_words_per_line: 3
+animation: box
+rtl_highlight: line   # RTL tracks fall back to line-level highlight (§27)

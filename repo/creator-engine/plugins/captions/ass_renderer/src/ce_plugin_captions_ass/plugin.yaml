@@ -1,0 +1,17 @@
+# Deterministic caption builder (§27): ASS with styles from config/caption_styles, active-word
+# highlight, platform safe zones and right-to-left handling; SRT and VTT exports. libass renders
+# the ASS at render time (FFmpeg `ass` filter, built with HarfBuzz and FriBidi).
+id: captions.ass_renderer
+name: ASS caption builder
+version: 0.1.0
+kind: code
+entrypoint: ce_plugin_captions_ass.adapter:AssCaptionBuilder
+capabilities:
+  - id: captions.build
+    features: [ass, srt, vtt, rtl]
+    languages: { mode: text, validated: [en, de, es, fr, it, ru, tr, ar, az], unvalidated: [] }
+runtime: { family: cpu_inproc, python: "3.12", requires_gpu: false, supports_cpu: true }
+allowed_envs: [dev, test, prod]
+status: production
+validation: smoke_passed # CPU code plugin: its unit tests are the smoke test (§23)
+maturity_notes: "Per-word highlight for LTR scripts; RTL tracks use line-level highlight (§27). Noto font chain arrives in Phase 7."

@@ -1,0 +1,191 @@
+# VoxCPM2 2B (§39.7: TTS alternate for tr/ar/hi and the 30-language long tail). Instruction-controlled
+# cloning ("(cheerful tone)Text" with a reference clip) and voice design from descriptions, 48 kHz.
+# Emotion, energy and delivery are text instructions [RV: how well a cloned voice follows them];
+# rate stays a deterministic ±10% stretch and pauses inserted silence (§21).
+id: voxcpm2
+name: VoxCPM2
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_voice_voxcpm2.adapter:VoxCPM2Adapter
+behavior_translator: ce_plugin_voice_voxcpm2.translator:VoxCPM2Translator
+test_backend: ce_plugin_voice_voxcpm2.testing:fake_backend
+capabilities:
+  - id: voice.tts
+    features: [instruction]
+    languages:
+      mode: text
+      validated: [en, zh]
+      unvalidated:
+        [
+          ar,
+          da,
+          de,
+          el,
+          es,
+          fi,
+          fr,
+          he,
+          hi,
+          id,
+          it,
+          ja,
+          km,
+          ko,
+          lo,
+          ms,
+          my,
+          nl,
+          "no",
+          pl,
+          pt,
+          ru,
+          sv,
+          sw,
+          th,
+          tl,
+          tr,
+          vi,
+        ]
+  - id: voice.clone_prepare
+    features: [zero_shot]
+    languages:
+      mode: text
+      validated: [en, zh]
+      unvalidated:
+        [
+          ar,
+          da,
+          de,
+          el,
+          es,
+          fi,
+          fr,
+          he,
+          hi,
+          id,
+          it,
+          ja,
+          km,
+          ko,
+          lo,
+          ms,
+          my,
+          nl,
+          "no",
+          pl,
+          pt,
+          ru,
+          sv,
+          sw,
+          th,
+          tl,
+          tr,
+          vi,
+        ]
+  - id: voice.design
+    features: [description]
+    languages:
+      mode: text
+      validated: [en, zh]
+      unvalidated:
+        [
+          ar,
+          da,
+          de,
+          el,
+          es,
+          fi,
+          fr,
+          he,
+          hi,
+          id,
+          it,
+          ja,
+          km,
+          ko,
+          lo,
+          ms,
+          my,
+          nl,
+          "no",
+          pl,
+          pt,
+          ru,
+          sv,
+          sw,
+          th,
+          tl,
+          tr,
+          vi,
+        ]
+behavior_matrix:
+  emotion_vocal: { control: text_segment } # "(…)" instruction from the vocabulary description
+  prosody_rate: { control: parametric, temporal_precision: segment } # ±10% time-stretch (§21)
+  prosody_pitch: { control: none }
+  prosody_energy: { control: text_segment } # the prosody strategy's description in the instruction
+  prosody_emphasis: { control: none }
+  prosody_pause: { control: parametric, temporal_precision: word } # inserted silence
+  nonverbal_audio: { control: none }
+  delivery: { control: text_segment }
+  accent: { control: none } # a property of the reference voice, or design_only (§21)
+runtime:
+  {
+    family: tts,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 10,
+    recommended_vram_gb: 24,
+    supports_cpu: false,
+  }
+models:
+  - key: voxcpm2
+    size_gb: 4.62 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: openbmb/VoxCPM2
+    source: { type: huggingface, repo: openbmb/VoxCPM2, revision: 32279effe8c19989596f05d353d1447f51d9e915 }
+    files:
+      [
+        audiovae.pth,
+        config.json,
+        model.safetensors,
+        special_tokens_map.json,
+        tokenization_voxcpm2.py,
+        tokenizer.json,
+        tokenizer_config.json,
+      ]
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/openbmb/VoxCPM2/blob/32279effe8c19989596f05d353d1447f51d9e915/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license apache-2.0 at the pinned revision",
+      }
+    dependencies:
+      - ref: "pypi:voxcpm==2.0.3"
+        role: code
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/OpenBMB/VoxCPM/blob/f0c787f0937dc1c9a8f4f64d9a332d9c5da2e629/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: 4f10acc209addacfad28293315c74c4cd648f771ee1263a748f1781d1e0265e4,
+            evidence: "license_file of the source repository; PyPI metadata Apache-2.0",
+          }
+defaults:
+  cfg_value: 2.0
+  inference_timesteps: 10
+  torch_compile: false
+  default_voice: "A clear, neutral adult voice at a moderate pace."
+  description_seed: 7
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 0.5, load_seconds: 40.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. README: 30 languages, controllable cloning, voice design, 48 kHz output, RTF ~0.3 on an RTX 4090 (authors')."

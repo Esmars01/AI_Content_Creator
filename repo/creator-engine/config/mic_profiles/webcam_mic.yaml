@@ -1,0 +1,10 @@
+# Microphone profile (§22 realism post: mic EQ curve).
+id: webcam_mic
+label: Webcam microphone
+eq:
+  - {type: highpass, freq_hz: 200}
+  - {type: peak, freq_hz: 3000, gain_db: 4, q: 0.8}
+  - {type: lowpass, freq_hz: 9000}
+noise_floor_db: -52
+distance_m: 0.7
+compression: {threshold_db: -20, ratio: 2.0}

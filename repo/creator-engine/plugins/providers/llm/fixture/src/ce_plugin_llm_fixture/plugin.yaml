@@ -1,0 +1,14 @@
+# Replays LLM responses keyed by scenario + stage, never by prompt hash, so template edits do not
+# break fixtures (§37). Fixtures are `recorded` (captured from a real provider) or `authored`.
+id: llm.fixture
+name: Fixture LLM provider
+version: 0.1.0
+kind: provider
+provider: { kind: llm, key: fixture }
+entrypoint: ce_plugin_llm_fixture.provider:create
+runtime: { family: cpu_inproc, python: "3.12", requires_gpu: false, supports_cpu: true }
+allowed_envs: [dev, test]
+status: production
+validation: smoke_passed
+defaults:
+  fixtures_dir: ""

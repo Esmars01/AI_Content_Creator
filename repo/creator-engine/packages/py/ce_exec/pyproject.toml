@@ -1,0 +1,37 @@
+[project]
+name = "ce-exec"
+version = "0.1.0"
+description = "Build execution: node outputs, reference loading, request builders and in-process node executors shared by the orchestrator and the render worker."
+requires-python = ">=3.12"
+dependencies = [
+    "ce-behavior",
+    "ce-build",
+    "ce-camera",
+    "ce-config",
+    "ce-contracts",
+    "ce-core",
+    "ce-creator",
+    "ce-db",
+    "ce-director",
+    "ce-llm",
+    "ce-memory",
+    "ce-obs",
+    "ce-policy",
+    "ce-qc",
+    "ce-realism",
+    "ce-render",
+    "ce-research",
+    "ce-router",
+    "ce-storage",
+    "ce-voice",
+    "ce-worker",  # the evaluation set and its checks (benchmarks)
+    "ce-world",
+    "numpy>=2.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ce_exec"]

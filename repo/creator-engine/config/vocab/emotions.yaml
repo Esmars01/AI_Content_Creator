@@ -1,0 +1,31 @@
+# Closed emotion vocabulary (§15.2). Labels are primary emotions; compound states are a label
+# plus intensity and arousal, never new free-form labels.
+# valence: -1..1, arousal: 0..1, dominance: 0..1. compatible_strategies lists strategy tokens
+# (any channel) that naturally express the label; incompatible lists labels that cannot be
+# displayed at the same time. proxies are keys in observation_proxies.yaml.
+vocab_version: "2026.10.1"
+families: [neutral, positive_high, positive_low, negative_high, negative_low, cognitive, social]
+labels:
+  neutral:     {family: neutral,       valence: 0.0,  arousal: 0.2, dominance: 0.5, compatible_strategies: [controlled_even, hold_camera, still], incompatible: [], proxies: [emotion_vlm_window]}
+  confident:   {family: positive_high, valence: 0.5,  arousal: 0.5, dominance: 0.8, compatible_strategies: [assertive, assertive_light, hold_camera, illustrative_light, illustrative_strong, seated_upright, standing_upright], incompatible: [uncertain, hesitant, embarrassed], proxies: [confident_composite, emotion_vlm_window]}
+  amused:      {family: positive_high, valence: 0.6,  arousal: 0.5, dominance: 0.6, compatible_strategies: [playful_rising, open, suppressed], incompatible: [angry, sad], proxies: [smile_score, emotion_vlm_window]}
+  curious:     {family: cognitive,     valence: 0.4,  arousal: 0.5, dominance: 0.5, compatible_strategies: [playful_rising, glance_away_and_return, seated_lean_in], incompatible: [], proxies: [emotion_vlm_window]}
+  excited:     {family: positive_high, valence: 0.8,  arousal: 0.9, dominance: 0.6, compatible_strategies: [urgent_fast, playful_rising, illustrative_strong, emphatic_beats, open, exaggerated], incompatible: [calm, sad], proxies: [gesture_energy_high, pitch_range_wide, emotion_vlm_window]}
+  serious:     {family: neutral,       valence: -0.1, arousal: 0.4, dominance: 0.7, compatible_strategies: [slow_measured, controlled_even, hold_camera, still, seated_lean_in], incompatible: [playful, amused], proxies: [emotion_vlm_window]}
+  skeptical:   {family: cognitive,     valence: -0.2, arousal: 0.4, dominance: 0.6, compatible_strategies: [deadpan, slow_measured, side_glance, suppressed, slow_burn], incompatible: [excited], proxies: [brow_raise_score, emotion_vlm_window]}
+  uncertain:   {family: cognitive,     valence: -0.2, arousal: 0.4, dominance: 0.3, compatible_strategies: [hesitant_with_pauses, look_down_thinking, self_soothing, seated_withdrawn], incompatible: [confident, determined], proxies: [pause_ratio_high, emotion_vlm_window]}
+  hesitant:    {family: cognitive,     valence: -0.2, arousal: 0.3, dominance: 0.3, compatible_strategies: [hesitant_with_pauses, look_down_thinking, avoid_camera, self_soothing], incompatible: [confident, determined], proxies: [pause_ratio_high, emotion_vlm_window]}
+  confused:    {family: cognitive,     valence: -0.3, arousal: 0.5, dominance: 0.3, compatible_strategies: [hesitant_with_pauses, side_glance, open], incompatible: [confident], proxies: [brow_raise_score, emotion_vlm_window]}
+  surprised:   {family: positive_high, valence: 0.2,  arousal: 0.9, dominance: 0.4, compatible_strategies: [open, exaggerated, suppressed], incompatible: [calm], proxies: [brow_raise_score, jaw_open_score, emotion_vlm_window]}
+  embarrassed: {family: social,        valence: -0.4, arousal: 0.5, dominance: 0.2, compatible_strategies: [look_down_thinking, avoid_camera, self_soothing, suppressed, seated_withdrawn], incompatible: [confident], proxies: [gaze_down_ratio, emotion_vlm_window]}
+  frustrated:  {family: negative_high, valence: -0.6, arousal: 0.7, dominance: 0.5, compatible_strategies: [urgent_fast, emphatic_beats, slow_burn], incompatible: [calm, relieved], proxies: [emotion_vlm_window]}
+  angry:       {family: negative_high, valence: -0.8, arousal: 0.9, dominance: 0.8, compatible_strategies: [urgent_fast, emphatic_beats, open], incompatible: [warm, amused, calm, playful], proxies: [emotion_vlm_window]}
+  sad:         {family: negative_low,  valence: -0.7, arousal: 0.2, dominance: 0.2, compatible_strategies: [slow_measured, look_down_thinking, still, seated_withdrawn], incompatible: [excited, amused, playful], proxies: [emotion_vlm_window]}
+  calm:        {family: positive_low,  valence: 0.3,  arousal: 0.1, dominance: 0.6, compatible_strategies: [controlled_even, slow_measured, hold_camera, still, seated_relaxed, standing_relaxed], incompatible: [excited, angry, surprised], proxies: [head_motion_low, emotion_vlm_window]}
+  warm:        {family: social,        valence: 0.7,  arousal: 0.3, dominance: 0.5, compatible_strategies: [controlled_even, hold_camera, illustrative_light, seated_relaxed], incompatible: [angry], proxies: [smile_score, emotion_vlm_window]}
+  sarcastic:   {family: social,        valence: -0.1, arousal: 0.4, dominance: 0.7, compatible_strategies: [deadpan, side_glance, suppressed], incompatible: [warm], proxies: [emotion_vlm_window]}
+  determined:  {family: positive_high, valence: 0.4,  arousal: 0.6, dominance: 0.9, compatible_strategies: [assertive, emphatic_beats, hold_camera, seated_lean_in, standing_upright], incompatible: [uncertain, hesitant], proxies: [emotion_vlm_window]}
+  relieved:    {family: positive_low,  valence: 0.6,  arousal: 0.3, dominance: 0.5, compatible_strategies: [controlled_even, seated_relaxed, open], incompatible: [frustrated], proxies: [emotion_vlm_window]}
+  concerned:   {family: negative_low,  valence: -0.4, arousal: 0.5, dominance: 0.4, compatible_strategies: [slow_measured, seated_lean_in, hold_camera], incompatible: [playful], proxies: [emotion_vlm_window]}
+  playful:     {family: positive_high, valence: 0.7,  arousal: 0.7, dominance: 0.6, compatible_strategies: [playful_rising, illustrative_light, open, breaks_fourth_wall], incompatible: [serious, sad, angry], proxies: [smile_score, emotion_vlm_window]}
+migrations: []

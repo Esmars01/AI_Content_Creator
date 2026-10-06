@@ -1,0 +1,47 @@
+# Prosody features (§16.1, §39.7: `prosody_features`, librosa ISC). Real analyzer behind
+# CPU_REAL_ENGINES (no model files; always available unless the setting is off). Measures pitch
+# (pYIN), RMS energy at 10 Hz, speech rate from word timings (or an onset-based estimate) and
+# pauses (word gaps, or silence runs without timings).
+id: prosody_features
+name: Prosody features (librosa)
+version: 0.1.0
+kind: analyzer
+entrypoint: ce_plugin_prosody.adapter:ProsodyFeatures
+capabilities:
+  - id: audio.prosody
+    features: [pitch, energy]
+runtime:
+  {
+    family: cpu_inproc,
+    python: "3.12",
+    requires_gpu: false,
+    min_vram_gb: 0,
+    recommended_vram_gb: 0,
+    supports_cpu: true,
+  }
+models:
+  - key: prosody-features-librosa
+    display_name: signal-processing features (no weights)
+    source: { type: builtin, revision: "1" }
+    license:
+      {
+        name: ISC,
+        url: "https://github.com/librosa/librosa/blob/1.0.0/LICENSE.md",
+        text_sha256: 79aa4a8086d51ac89f9a7322f546670cdef73e758c67f04587b7af8afafd6df8,
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+      }
+defaults:
+  sample_rate: 16000
+  series_hz: 10.0
+  fmin_hz: 65.0
+  fmax_hz: 400.0
+  min_pause_s: 0.2
+  silence_db: -40.0
+pricing: { seconds_per_unit: 0.1 }
+allowed_envs: [dev, test, prod]
+status: production
+validation: smoke_passed
+maturity_notes: "Signal features; speech rate is exact with word timings, an onset estimate without them."

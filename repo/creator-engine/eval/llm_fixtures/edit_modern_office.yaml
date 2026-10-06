@@ -1,0 +1,14 @@
+# Authored LLM fixture (hand-written, not recorded from a provider; §37). Edit acceptance (§2).
+id: edit_modern_office
+kind: authored
+inputs:
+- "edit: change the room to a modern office"
+responses:
+  edit:
+    operations:
+    - op: set_world_binding
+      scope: {}
+      world_query: modern office
+      reason: move every scene to a modern office
+    assumptions:
+    - Every scene moves to the approved world that matches “modern office”.

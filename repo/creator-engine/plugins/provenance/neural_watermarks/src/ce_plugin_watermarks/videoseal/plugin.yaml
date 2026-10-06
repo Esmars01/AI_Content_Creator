@@ -1,0 +1,66 @@
+# VideoSeal (§27 invisible video watermark; §39.7 MIT). The 96-bit VideoSeal 0.0 checkpoint carries a
+# render's whole `ce1:` payload id; frames are streamed in chunks and re-encoded (H.264 CRF 16).
+# VideoSeal 1.0 (256 bits) is served from dl.fbaipublicfiles.com without a published checksum and is
+# not used (ADR 0047 follow-up, DECISIONS D96).
+id: videoseal
+name: VideoSeal 0.0 (96-bit invisible video watermark)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_watermarks.adapter:VideoSealAdapter
+test_backend: ce_plugin_watermarks.testing:fake_video_backend
+capabilities:
+  - id: provenance.watermark_video
+    features: [invisible]
+  - id: provenance.verify
+    features: [watermark]
+runtime:
+  {
+    family: post,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 4,
+    recommended_vram_gb: 16,
+    supports_cpu: true,
+  }
+models:
+  - key: videoseal-0.0
+    size_gb: 0.15 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: facebook/video_seal (VideoSeal 0.0, 96 bits)
+    source: { type: huggingface, repo: facebook/video_seal, revision: 8037ef59ba2b2ec8fb8b55298ff37b8ccddd078d }
+    files: [checkpoint.pth]
+    license:
+      {
+        name: MIT,
+        url: "https://huggingface.co/facebook/video_seal/blob/8037ef59ba2b2ec8fb8b55298ff37b8ccddd078d/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license mit at the pinned revision",
+      }
+    dependencies:
+      - ref: "pypi:videoseal==1.0.1"
+        role: code
+        license:
+          {
+            name: MIT,
+            url: "https://github.com/facebookresearch/videoseal/blob/870ca7fb33578b90f14c602016b6c2788096226e/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: cf9b17822d1fcd4ff32ccbe14183386fb3adf6f2ff92dc184130823f7fc28173,
+            evidence: "license_file of the source repository; PyPI metadata MIT",
+          }
+defaults:
+  chunk_frames: 64
+  crf: 16
+  verify_frames: 96
+  min_bit_accuracy: 0.9
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 0.8, load_seconds: 10.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. Phase 7 measured 20 s per second of 1080×1920 video on 2 CPU threads (ADR 0047)."

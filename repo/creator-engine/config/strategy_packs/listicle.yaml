@@ -1,0 +1,7 @@
+# Strategy pack (§13 stage 4). Configurable, never hard-coded.
+id: listicle
+label: "Listicle"
+structure: [hook, example, example, example, summary, cta]
+signature_format: true
+hook_count: 4
+guidance: "Numbered points with a consistent rhythm; the format itself is a signature."

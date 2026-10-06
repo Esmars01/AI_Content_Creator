@@ -1,0 +1,51 @@
+# Discrete behavior event types (§15.2). Each maps to exactly one requestable dimension
+# (behavior_dimensions.yaml). Parameters: which optional fields an event accepts.
+vocab_version: "2026.10.1"
+directions: [left, right, up, down, down_left, down_right, up_left, up_right, toward_camera, away_from_camera]
+event_types:
+  # gaze
+  look_away:          {dimension: gaze, default_duration_ms: 700, params: [direction, intensity, purpose]}
+  glance_at_element:  {dimension: gaze, default_duration_ms: 600, params: [target, intensity, purpose]}
+  look_down:          {dimension: gaze, default_duration_ms: 800, params: [intensity, purpose]}
+  glance_at_camera:   {dimension: gaze, default_duration_ms: 500, params: [intensity, purpose]}
+  # facial expression
+  small_smile:        {dimension: facial_expression, default_duration_ms: 600, params: [intensity, purpose]}
+  broad_smile:        {dimension: facial_expression, default_duration_ms: 900, params: [intensity, purpose]}
+  eyebrow_raise:      {dimension: facial_expression, default_duration_ms: 500, params: [intensity, purpose]}
+  frown:              {dimension: facial_expression, default_duration_ms: 700, params: [intensity, purpose]}
+  squint:             {dimension: facial_expression, default_duration_ms: 500, params: [intensity, purpose]}
+  lip_press:          {dimension: facial_expression, default_duration_ms: 500, params: [intensity, purpose]}
+  smirk:              {dimension: facial_expression, default_duration_ms: 700, params: [intensity, purpose]}
+  wince:              {dimension: facial_expression, default_duration_ms: 400, params: [intensity, purpose]}
+  # blink
+  slow_blink:         {dimension: blink, default_duration_ms: 400, params: [purpose]}
+  # head motion
+  nod:                {dimension: head_motion, default_duration_ms: 600, params: [intensity, purpose]}
+  head_shake:         {dimension: head_motion, default_duration_ms: 800, params: [intensity, purpose]}
+  head_tilt:          {dimension: head_motion, default_duration_ms: 700, params: [direction, intensity, purpose]}
+  # gesture
+  open_palms:         {dimension: gesture, default_duration_ms: 1000, params: [intensity, purpose]}
+  count_on_fingers:   {dimension: gesture, default_duration_ms: 1500, params: [intensity, purpose]}
+  shrug:              {dimension: gesture, default_duration_ms: 800, params: [intensity, purpose]}
+  point_offscreen:    {dimension: gesture, default_duration_ms: 800, params: [direction, target, intensity, purpose]}
+  hand_to_chest:      {dimension: gesture, default_duration_ms: 1000, params: [intensity, purpose]}
+  finger_steeple:     {dimension: gesture, default_duration_ms: 1500, params: [intensity, purpose]}
+  wave:               {dimension: gesture, default_duration_ms: 1000, params: [intensity, purpose]}
+  thumbs_up:          {dimension: gesture, default_duration_ms: 800, params: [intensity, purpose]}
+  finger_point_at_camera: {dimension: gesture, default_duration_ms: 600, params: [intensity, purpose]}
+  # posture
+  lean_in:            {dimension: posture, default_duration_ms: 1200, params: [intensity, purpose]}
+  lean_back:          {dimension: posture, default_duration_ms: 1200, params: [intensity, purpose]}
+  sit_up:             {dimension: posture, default_duration_ms: 1000, params: [intensity, purpose]}
+  slump:              {dimension: posture, default_duration_ms: 1200, params: [intensity, purpose]}
+  shift_weight:       {dimension: posture, default_duration_ms: 1000, params: [intensity, purpose]}
+  # reaction
+  small_laugh:        {dimension: reaction, default_duration_ms: 900, params: [intensity, purpose, trigger_ref]}
+  double_take:        {dimension: reaction, default_duration_ms: 700, params: [direction, intensity, purpose, trigger_ref]}
+  sigh:               {dimension: reaction, default_duration_ms: 900, params: [intensity, purpose, trigger_ref]}
+  gasp:               {dimension: reaction, default_duration_ms: 500, params: [intensity, purpose, trigger_ref]}
+  eye_roll:           {dimension: reaction, default_duration_ms: 800, params: [intensity, purpose, trigger_ref]}
+  # listening (silent reactions; multi-person and reaction modes)
+  attentive_listen:   {dimension: listening, default_duration_ms: 2000, params: [target, intensity, purpose]}
+purposes: [thinking, knowing, emphasis, transition, reaction, recall, invitation, warmth, doubt, humor]
+migrations: []

@@ -1,0 +1,23 @@
+# Mock GPU provider (§25): simulated workers on CPU with configurable prices, start latency and
+# failure injection. It records instances only; the work itself runs on the statically configured
+# `worker-cpu` (Compose profile mock-gpu). Registered only when MOCK_GPU=true (§10.6).
+id: gpu.mock
+name: Mock GPU provider
+version: 0.1.0
+kind: provider
+mock: true
+provider: { kind: gpu, key: mock }
+entrypoint: ce_plugin_gpu_mock.provider:create
+runtime: { family: cpu_inproc, python: "3.12", requires_gpu: false, supports_cpu: true }
+allowed_envs: [dev, test]
+status: production
+validation: untested_on_gpu
+defaults:
+  classes:
+    mock_gpu: { vram_gb: 96, price_per_hour_usd: 0.0 }
+    mock_gpu_small: { vram_gb: 24, price_per_hour_usd: 0.0 }
+  regions: [local]
+  start_latency_s: 0.0
+  provision_failure_rate: 0.0
+  no_capacity: false
+  capacity_per_class: 8

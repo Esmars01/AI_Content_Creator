@@ -1,0 +1,15 @@
+# Authored LLM fixture (hand-written, not recorded from a provider; §37). Edit acceptance (§2).
+id: edit_slightly_handheld
+kind: authored
+inputs:
+- "edit: make the camera slightly handheld"
+responses:
+  edit:
+    operations:
+    - op: set_camera
+      scope: {}
+      add_moves:
+      - {type: handheld_drift, scale: 0.6, transition: smooth}
+      reason: a subtle handheld drift on the talking shots
+    assumptions:
+    - "“Slightly” read as 60% of the camera profile's handheld amplitude."

@@ -1,0 +1,9 @@
+# Microphone profile (§22 realism post: mic EQ curve).
+id: shotgun
+label: Shotgun microphone
+eq:
+  - {type: highpass, freq_hz: 100}
+  - {type: peak, freq_hz: 4000, gain_db: 2, q: 1.2}
+noise_floor_db: -60
+distance_m: 0.6
+compression: {threshold_db: -20, ratio: 2.0}

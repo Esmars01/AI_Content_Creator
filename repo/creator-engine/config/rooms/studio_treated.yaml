@@ -1,0 +1,7 @@
+# Room acoustics (§19.7, §22). The impulse response is synthetic (scripts/gen_synthetic_assets.py).
+id: studio_treated
+label: Acoustically treated studio
+rt60_s: 0.2
+impulse_response: impulse_responses/studio_treated.wav
+default_ambient: room_tone_quiet
+wet_mix: 0.06

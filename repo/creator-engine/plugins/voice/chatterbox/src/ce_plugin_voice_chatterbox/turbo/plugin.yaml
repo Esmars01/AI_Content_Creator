@@ -1,0 +1,99 @@
+# Chatterbox-Turbo (§39.7: English TTS alternate). 350M, one-step decoder, native paralinguistic
+# tags ([laugh], [chuckle], …) inline in the text; no exaggeration/CFG. Claims [RV].
+id: chatterbox_turbo
+name: Chatterbox-Turbo (English, paralinguistic tags)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_voice_chatterbox.adapter:ChatterboxTurboAdapter
+behavior_translator: ce_plugin_voice_chatterbox.translator:ChatterboxTurboTranslator
+test_backend: ce_plugin_voice_chatterbox.testing:fake_backend
+capabilities:
+  - id: voice.tts
+    features: []
+    languages: { mode: text, validated: [en], unvalidated: [] }
+  - id: voice.clone_prepare
+    features: [zero_shot]
+    languages: { mode: text, validated: [en], unvalidated: [] }
+behavior_matrix:
+  emotion_vocal: { control: emergent }
+  prosody_rate: { control: parametric, temporal_precision: segment } # ±10% time-stretch (§21)
+  prosody_pitch: { control: none }
+  prosody_energy: { control: none } # Turbo ignores exaggeration and CFG
+  prosody_emphasis: { control: none }
+  prosody_pause: { control: parametric, temporal_precision: word } # inserted silence
+  nonverbal_audio: { control: native_segment, temporal_precision: word, vocabulary: [laugh, light_laugh, chuckle] } # inline tags [RV]
+  delivery: { control: none }
+  accent: { control: none }
+runtime:
+  {
+    family: tts,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 8,
+    recommended_vram_gb: 16,
+    supports_cpu: false,
+  }
+models:
+  - key: chatterbox-turbo
+    size_gb: 3.77 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: ResembleAI/chatterbox-turbo (pinned revision)
+    source: { type: huggingface, repo: ResembleAI/chatterbox-turbo, revision: 749d1c1a46eb10492095d68fbcf55691ccf137cd }
+    files: ["*.safetensors", "*.json", "*.txt", "*.yaml", conds.pt]
+    license:
+      {
+        name: MIT,
+        url: "https://huggingface.co/ResembleAI/chatterbox-turbo/blob/749d1c1a46eb10492095d68fbcf55691ccf137cd/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license mit at the pinned revision",
+      }
+    dependencies:
+      - ref: "github:resemble-ai/chatterbox@5de7a54aa4e5e2baadb0182dde554908b48b85c2"
+        role: code
+        source:
+          {
+            type: git,
+            repo: "https://github.com/resemble-ai/chatterbox",
+            revision: 5de7a54aa4e5e2baadb0182dde554908b48b85c2,
+          }
+        license:
+          {
+            name: MIT,
+            url: "https://github.com/resemble-ai/chatterbox/blob/5de7a54aa4e5e2baadb0182dde554908b48b85c2/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: 4248e910a928849fe5815a0f9236e17fa07768d95b9193212752c464b93d6caa,
+            evidence: license_file,
+          }
+      - ref: "github:resemble-ai/Perth@ff1c8ac55a976971245cdd53c18d6131ca00d993"
+        role: watermark_code # Chatterbox watermarks every output with Perth
+        source:
+          {
+            type: git,
+            repo: "https://github.com/resemble-ai/Perth",
+            revision: ff1c8ac55a976971245cdd53c18d6131ca00d993,
+          }
+        license:
+          {
+            name: MIT,
+            url: "https://github.com/resemble-ai/Perth/blob/ff1c8ac55a976971245cdd53c18d6131ca00d993/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: 4543f6777abede354f09bc2ba6580bd475c364e7d6f39315bf9d315d033b48f4,
+            evidence: license_file,
+          }
+defaults:
+  temperature: 0.8
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 0.5, load_seconds: 30.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. Model card: low-latency English, paralinguistic tags; outputs carry the Perth watermark."

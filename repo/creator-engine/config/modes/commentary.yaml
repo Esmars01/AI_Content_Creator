@@ -1,0 +1,17 @@
+# Video mode template (§13). Effective maturity in the UI is capped by route validation (§10.4).
+id: commentary
+label: Commentary
+maturity: production
+roadmap: MVP
+description: "The creator gives opinions on a topic, with cutaways to context."
+allowed_shot_types: [talking_head, broll, insert]
+default_camera_profiles: [phone_front_selfie, desk_mirrorless, webcam]
+default_world_kinds: [home_office, studio, living_room]
+duration_s: {min: 20, max: 180, default: 60}
+aspects: ["9:16", "16:9", "1:1", "4:5"]
+edit_grammar: {max_shot_s: 6, cutaway_every_s: 8, punch_in_on_emphasis: true, beat_snap: false}
+acting_density: high
+editorial_methods: [editorial_cutaway, editorial_punch, caption_emphasis, music_cue, sfx_cue]
+strategy_packs: [contrarian_take, myth_vs_reality]
+requires: []
+prompt_fragment: null

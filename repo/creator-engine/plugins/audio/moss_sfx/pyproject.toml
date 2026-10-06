@@ -1,0 +1,21 @@
+[project]
+name = "ce-plugin-audio-moss-sfx"
+version = "0.1.0"
+description = "audio.sfx with MOSS-SoundEffect v2.0 (sound effects and room tone, 48 kHz) on the audio GPU family."
+requires-python = ">=3.10"
+# Light dependencies only; the MOSS-TTS code (pinned commit) and torch come from the audio family image.
+dependencies = ["ce-contracts", "ce-plugin-kit"]
+
+[project.entry-points."creator_engine.plugins"]
+moss_sfx_v2 = "ce_plugin_audio_moss_sfx"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ce_plugin_audio_moss_sfx"]
+
+[tool.ruff]
+extend = "../../../pyproject.toml"
+target-version = "py310"

@@ -1,0 +1,55 @@
+# Labelled moving gradients for B-roll (FFmpeg).
+# Mock: registered only when MOCK_GPU=true; never routed in production (§10.6, §24).
+id: mock_video
+name: Mock video engine
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugins_mock.video.adapter:MockVideo
+mock: true
+capabilities:
+  - id: video.t2v
+    features: [t2v]
+    resolutions: ["480p", "720p", "1080p"]
+    max_duration_s: 10
+    fps: 25
+  - id: video.i2v
+    features: [i2v]
+    resolutions: ["480p", "720p", "1080p"]
+    max_duration_s: 10
+    fps: 25
+  - id: video.r2v
+    features: [r2v]
+    max_duration_s: 10
+    fps: 25
+  - id: video.edit
+    features: [mask_edit]
+    max_duration_s: 10
+    fps: 25
+  - id: video.extend
+    features: [extend]
+    max_duration_s: 10
+    fps: 25
+  - id: video.joint_av
+    features: [joint_av]
+    max_duration_s: 10
+    fps: 25
+runtime:
+  { family: cpu_model, python: "3.12", requires_gpu: false, min_vram_gb: 0, recommended_vram_gb: 0, supports_cpu: true }
+models:
+  - key: mock-video
+    display_name: mock-video (procedural mock, no weights)
+    source: { type: builtin, revision: "1" }
+    license:
+      {
+        name: LicenseRef-CreatorEngine-FirstParty,
+        url: "plugins/mock/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-03,
+        verified_by: claude-code,
+      }
+pricing: { seconds_per_unit: 0.4 }
+allowed_envs: [dev, test]
+status: production
+validation: untested_on_gpu
+maturity_notes: "Mock engine; outputs are labelled and not model output."

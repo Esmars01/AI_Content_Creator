@@ -1,0 +1,17 @@
+# Video mode template (§13). Effective maturity in the UI is capped by route validation (§10.4).
+id: storytelling
+label: Storytelling
+maturity: production
+roadmap: MVP
+description: "A personal story told to camera with emotional beats."
+allowed_shot_types: [talking_head, broll, insert, silent_hold]
+default_camera_profiles: [desk_mirrorless, phone_front_selfie, cinematic]
+default_world_kinds: [home_office, living_room, bedroom]
+duration_s: {min: 30, max: 180, default: 60}
+aspects: ["9:16", "16:9", "1:1", "4:5"]
+edit_grammar: {max_shot_s: 8, cutaway_every_s: 10, punch_in_on_emphasis: true, beat_snap: false}
+acting_density: high
+editorial_methods: [editorial_cutaway, editorial_punch, caption_emphasis, music_cue, sfx_cue]
+strategy_packs: [story_arc]
+requires: []
+prompt_fragment: null

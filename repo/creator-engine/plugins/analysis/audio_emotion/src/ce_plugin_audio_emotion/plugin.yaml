@@ -1,0 +1,69 @@
+# emotion2vec+ base (§16.1 `audio.emotion`, §41 "Audio-emotion model license (emotion2vec+) — sandbox
+# only"). Nine coarse classes at utterance level; the adapter classifies sliding windows so judgement
+# can ask about a span. Weights: FunASR Model Open Source License 1.1 (attribution required; "provided
+# for reference and learning purposes only" — commercial use not verified, so commercial_use: false).
+id: audio_emotion
+name: emotion2vec+ base (speech emotion)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_audio_emotion.adapter:AudioEmotionAdapter
+test_backend: ce_plugin_audio_emotion.testing:fake_backend
+capabilities:
+  - id: audio.emotion
+    features: [classes]
+runtime:
+  {
+    family: asr,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: false,
+    min_vram_gb: 1,
+    recommended_vram_gb: 2,
+    supports_cpu: true,
+  }
+models:
+  - key: emotion2vec-plus-base
+    display_name: emotion2vec/emotion2vec_plus_base
+    source:
+      { type: huggingface, repo: emotion2vec/emotion2vec_plus_base, revision: b318240bfe67db81a8c572ecb37ce9c3759b81c9 }
+    files: [config.yaml, configuration.json, model.pt, tokens.txt]
+    sha256: { model.pt: 60710b5aae1dbe69bdac8920028fb05882d4314fd09031922b4b61ee9e7aadbd }
+    size_gb: 1.12
+    license:
+      {
+        name: FunASR Model Open Source License 1.1,
+        url: "https://github.com/modelscope/FunASR/blob/66d7a4c264a5993a2a63ed00c1f402c296ee521a/MODEL_LICENSE",
+        commercial_use: false,
+        conditions:
+          [
+            { attribution_text: "emotion2vec+ by Alibaba DAMO Academy / FunASR (FunASR Model Open Source License)" },
+            { non_commercial: true },
+          ],
+        verified_at: 2026-10-05,
+        verified_by: claude-code,
+        text_sha256: 7dba975a2069691db4992b0592d70828b330d2f8a30a71450f4e152a554e84f8,
+        evidence: "model card at the pin: license other, link FunASR; MODEL_LICENSE read at the pinned commit — use with attribution, 'for reference and learning purposes only' (commercial terms unclear)",
+      }
+    dependencies:
+      - ref: "github:modelscope/FunASR@66d7a4c264a5993a2a63ed00c1f402c296ee521a"
+        role: code
+        license:
+          {
+            name: MIT,
+            url: "https://github.com/modelscope/FunASR/blob/66d7a4c264a5993a2a63ed00c1f402c296ee521a/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-05,
+            verified_by: claude-code,
+            text_sha256: f382b62dcc61fc566b9215b1e3b604b539bfd96ed52ae1eeff5090f6dc176057,
+            evidence: license_file,
+          }
+defaults:
+  window_s: 2.0
+  hop_s: 1.0
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 0.01, load_seconds: 4.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run here. Coarse utterance-level classes; window-level answers are less reliable [RV]."

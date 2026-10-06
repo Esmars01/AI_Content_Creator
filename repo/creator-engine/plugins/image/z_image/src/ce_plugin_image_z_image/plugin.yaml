@@ -1,0 +1,78 @@
+# Z-Image-Turbo (§39.7: keyframes, portraits, world plates). Text-to-image with 8 DiT forwards
+# (num_inference_steps 9, guidance 0 — the README's Turbo settings). Text only: identity-conditioned
+# keyframes use the edit engine with the creator's references (§17.2).
+id: z_image_turbo
+name: Z-Image-Turbo
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_image_z_image.adapter:ZImageAdapter
+test_backend: ce_plugin_image_z_image.testing:fake_backend
+capabilities:
+  - id: image.generate
+    features: [t2i]
+    languages: { mode: text, validated: [en, zh], unvalidated: [de, es, fr, it, ru, tr, ar] }
+    resolutions: [] # any: generated within max_pixels at the requested aspect, then resized
+runtime:
+  {
+    family: image,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 16,
+    recommended_vram_gb: 24,
+    supports_cpu: false,
+  }
+models:
+  - key: z-image-turbo
+    size_gb: 30.59 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: Tongyi-MAI/Z-Image-Turbo (diffusers)
+    source: { type: huggingface, repo: Tongyi-MAI/Z-Image-Turbo, revision: f332072aa78be7aecdf3ee76d5c247082da564a6 }
+    files: [model_index.json, "scheduler/*", "text_encoder/*", "tokenizer/*", "transformer/*", "vae/*"]
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/Tongyi-MAI/Z-Image-Turbo/blob/f332072aa78be7aecdf3ee76d5c247082da564a6/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license apache-2.0 at the pinned revision",
+      }
+    dependencies:
+      - ref: "github:Tongyi-MAI/Z-Image@26f23eda626ffadda020b04ff79488e1d72004cd"
+        role: reference_code
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/Tongyi-MAI/Z-Image/blob/26f23eda626ffadda020b04ff79488e1d72004cd/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4,
+            evidence: license_file,
+          }
+      - ref: "pypi:diffusers==0.40.0"
+        role: code
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/huggingface/diffusers/blob/v0.40.0/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "PyPI metadata (Apache 2.0 License) of the pinned release",
+          }
+defaults:
+  steps: 9 # README: "This actually results in 8 DiT forwards"
+  guidance_scale: 0.0 # README: guidance should be 0 for the Turbo models
+  multiple: 16
+  max_pixels: 2359296 # 1536×1536
+  dtype: bf16
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 3.0, load_seconds: 60.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. Model card: photorealistic, bilingual text rendering, fits in 16 GB."

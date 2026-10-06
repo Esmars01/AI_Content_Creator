@@ -1,0 +1,74 @@
+# MediaPipe Pose Landmarker (lite) + Hand Landmarker on CPU (§16.1, §39.7). Real analyzer behind
+# CPU_REAL_ENGINES. Series: shoulder-width ratio against the take's median (lean proxy), gesture
+# energy (hand landmark motion; wrists from pose when no hand is found), head-motion energy.
+id: mediapipe_body
+name: MediaPipe body (pose + hands, CPU)
+version: 0.1.0
+kind: analyzer
+entrypoint: ce_plugin_mediapipe.body.adapter:MediaPipeBody
+capabilities:
+  - id: body.landmarks
+    features: [pose, hands]
+runtime:
+  {
+    family: cpu_inproc,
+    python: "3.12",
+    requires_gpu: false,
+    min_vram_gb: 0,
+    recommended_vram_gb: 0,
+    supports_cpu: true,
+  }
+models:
+  - key: mediapipe-pose-landmarker-lite
+    display_name: MediaPipe Pose Landmarker lite (float16/1)
+    source:
+      {
+        type: url,
+        uri: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+        revision: "float16/1",
+      }
+    files: [mediapipe/pose_landmarker_lite.task]
+    sha256: { mediapipe/pose_landmarker_lite.task: 59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a }
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://storage.googleapis.com/mediapipe-assets/Model%20Card%20BlazePose%20GHUM%203D.pdf",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+      }
+    dependencies:
+      - ref: "mediapipe/hand_landmarker.task (float16/1)"
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://storage.googleapis.com/mediapipe-assets/Model%20Card%20Hand%20Tracking%20(Lite_Full)%20with%20Fairness%20Oct%202021.pdf",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+          }
+      - ref: "pypi:mediapipe==1.0.1"
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/google-ai-edge/mediapipe/blob/master/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+          }
+assets:
+  - mediapipe/pose_landmarker_lite.task
+  - mediapipe/hand_landmarker.task
+defaults:
+  pose_file: mediapipe/pose_landmarker_lite.task
+  hand_file: mediapipe/hand_landmarker.task
+  max_side: 640
+  gesture_scale: 8.0 # mean hand-landmark displacement (frame-width units per sample) → 0..1 energy
+pricing: { seconds_per_unit: 0.2 }
+allowed_envs: [dev, test, prod]
+status: production
+validation: smoke_passed
+maturity_notes: "Lean and gesture are geometric proxies; calibrated per revision (§16.2)."

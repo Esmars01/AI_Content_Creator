@@ -1,0 +1,797 @@
+{
+  "$defs": {
+    "Avoidances": {
+      "additionalProperties": false,
+      "properties": {
+        "camera_behaviors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Camera Behaviors",
+          "type": "array"
+        },
+        "emotions": {
+          "items": {
+            "$ref": "#/$defs/EmotionCap"
+          },
+          "title": "Emotions",
+          "type": "array"
+        },
+        "gestures": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "title": "Gestures",
+          "type": "array"
+        },
+        "phrases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Phrases",
+          "type": "array"
+        },
+        "topics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Topics",
+          "type": "array"
+        },
+        "wardrobe": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Wardrobe",
+          "type": "array"
+        },
+        "worlds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Worlds",
+          "type": "array"
+        }
+      },
+      "title": "Avoidances",
+      "type": "object"
+    },
+    "BehaviorBaseline": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "energy": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Energy",
+          "type": "number"
+        },
+        "expressivity": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Expressivity",
+          "type": "number"
+        },
+        "warmth": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Warmth",
+          "type": "number"
+        }
+      },
+      "title": "BehaviorBaseline",
+      "type": "object"
+    },
+    "BehaviorSection": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline": {
+          "$ref": "#/$defs/BehaviorBaseline"
+        },
+        "deescalation_style": {
+          "default": "gradual",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Deescalation Style",
+          "type": "string"
+        },
+        "emotion_ranges": {
+          "patternProperties": {
+            "^[a-z0-9]+(?:_[a-z0-9]+)*$": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "title": "Emotion Ranges",
+          "type": "object"
+        },
+        "escalation_style": {
+          "default": "gradual",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Escalation Style",
+          "type": "string"
+        },
+        "masking_tendency": {
+          "default": 0.3,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Masking Tendency",
+          "type": "number"
+        },
+        "reaction_habits": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ReactionHabit"
+          },
+          "propertyNames": {
+            "enum": [
+              "surprise",
+              "laughter",
+              "hesitation",
+              "skepticism",
+              "excitement",
+              "frustration"
+            ]
+          },
+          "title": "Reaction Habits",
+          "type": "object"
+        }
+      },
+      "title": "BehaviorSection",
+      "type": "object"
+    },
+    "CameraSection": {
+      "additionalProperties": false,
+      "properties": {
+        "camera_distance": {
+          "default": "medium",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Camera Distance",
+          "type": "string"
+        },
+        "framing_preference": {
+          "default": "medium_close_up",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Framing Preference",
+          "type": "string"
+        },
+        "movement_preference": {
+          "default": "subtle_handheld",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Movement Preference",
+          "type": "string"
+        },
+        "preferred_camera_profiles": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "title": "Preferred Camera Profiles",
+          "type": "array"
+        },
+        "selfie_behavior": {
+          "default": "propped_phone",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Selfie Behavior",
+          "type": "string"
+        }
+      },
+      "title": "CameraSection",
+      "type": "object"
+    },
+    "CanonFact": {
+      "additionalProperties": false,
+      "description": "A fact the contradiction checker compares scripts against (§18.7).",
+      "properties": {
+        "key": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Key",
+          "type": "string"
+        },
+        "object": {
+          "minLength": 1,
+          "title": "Object",
+          "type": "string"
+        },
+        "pinned": {
+          "default": true,
+          "title": "Pinned",
+          "type": "boolean"
+        },
+        "predicate": {
+          "minLength": 1,
+          "title": "Predicate",
+          "type": "string"
+        },
+        "subject": {
+          "minLength": 1,
+          "title": "Subject",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "subject",
+        "predicate",
+        "object"
+      ],
+      "title": "CanonFact",
+      "type": "object"
+    },
+    "EditingSection": {
+      "additionalProperties": false,
+      "properties": {
+        "caption_style_preference": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Caption Style Preference"
+        },
+        "cut_cadence": {
+          "default": "medium",
+          "enum": [
+            "slow",
+            "medium",
+            "fast"
+          ],
+          "title": "Cut Cadence",
+          "type": "string"
+        },
+        "music_taste": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Music Taste",
+          "type": "array"
+        }
+      },
+      "title": "EditingSection",
+      "type": "object"
+    },
+    "EmotionCap": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Label",
+          "type": "string"
+        },
+        "max_intensity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Max Intensity",
+          "type": "number"
+        }
+      },
+      "required": [
+        "label",
+        "max_intensity"
+      ],
+      "title": "EmotionCap",
+      "type": "object"
+    },
+    "FashionSection": {
+      "additionalProperties": false,
+      "properties": {
+        "avoid": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Avoid",
+          "type": "array"
+        },
+        "style_descriptors": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Style Descriptors",
+          "type": "array"
+        }
+      },
+      "title": "FashionSection",
+      "type": "object"
+    },
+    "FillerTendency": {
+      "additionalProperties": false,
+      "properties": {
+        "fillers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fillers",
+          "type": "array"
+        },
+        "rate": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Rate",
+          "type": "number"
+        }
+      },
+      "title": "FillerTendency",
+      "type": "object"
+    },
+    "GazeSection": {
+      "additionalProperties": false,
+      "properties": {
+        "eye_contact_ratio": {
+          "default": 0.7,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Eye Contact Ratio",
+          "type": "number"
+        },
+        "look_away_directions": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "title": "Look Away Directions",
+          "type": "array"
+        },
+        "look_away_ms": {
+          "default": 600,
+          "exclusiveMinimum": 0,
+          "title": "Look Away Ms",
+          "type": "integer"
+        },
+        "thinking_gaze": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Thinking Gaze"
+        }
+      },
+      "title": "GazeSection",
+      "type": "object"
+    },
+    "GestureSection": {
+      "additionalProperties": false,
+      "properties": {
+        "default_posture": {
+          "default": "seated_upright",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Default Posture",
+          "type": "string"
+        },
+        "fidgets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fidgets",
+          "type": "array"
+        },
+        "gesture_density": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Gesture Density",
+          "type": "number"
+        },
+        "head_movement_amplitude": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Head Movement Amplitude",
+          "type": "number"
+        },
+        "preferred_gestures": {
+          "items": {
+            "$ref": "#/$defs/PreferredGesture"
+          },
+          "title": "Preferred Gestures",
+          "type": "array"
+        },
+        "preferred_hand": {
+          "default": "right",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Preferred Hand",
+          "type": "string"
+        }
+      },
+      "title": "GestureSection",
+      "type": "object"
+    },
+    "IdentitySection": {
+      "additionalProperties": false,
+      "properties": {
+        "bio": {
+          "default": "",
+          "title": "Bio",
+          "type": "string"
+        },
+        "canon": {
+          "items": {
+            "$ref": "#/$defs/CanonFact"
+          },
+          "title": "Canon",
+          "type": "array"
+        },
+        "display_name": {
+          "minLength": 1,
+          "title": "Display Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "display_name"
+      ],
+      "title": "IdentitySection",
+      "type": "object"
+    },
+    "Personality": {
+      "additionalProperties": false,
+      "properties": {
+        "conversational_style": {
+          "default": "casual",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Conversational Style",
+          "type": "string"
+        },
+        "directness": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Directness",
+          "type": "number"
+        },
+        "humor_style": {
+          "default": "none",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Humor Style",
+          "type": "string"
+        },
+        "sarcasm": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Sarcasm",
+          "type": "number"
+        },
+        "seriousness": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Seriousness",
+          "type": "number"
+        },
+        "traits": {
+          "$ref": "#/$defs/Traits"
+        },
+        "values": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Values",
+          "type": "array"
+        },
+        "warmth": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Warmth",
+          "type": "number"
+        }
+      },
+      "title": "Personality",
+      "type": "object"
+    },
+    "PreferredGesture": {
+      "additionalProperties": false,
+      "properties": {
+        "frequency": {
+          "default": "sometimes",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Frequency",
+          "type": "string"
+        },
+        "gesture": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Gesture",
+          "type": "string"
+        }
+      },
+      "required": [
+        "gesture"
+      ],
+      "title": "PreferredGesture",
+      "type": "object"
+    },
+    "PronunciationNote": {
+      "additionalProperties": false,
+      "properties": {
+        "respelling": {
+          "minLength": 1,
+          "title": "Respelling",
+          "type": "string"
+        },
+        "term": {
+          "minLength": 1,
+          "title": "Term",
+          "type": "string"
+        }
+      },
+      "required": [
+        "term",
+        "respelling"
+      ],
+      "title": "PronunciationNote",
+      "type": "object"
+    },
+    "ReactionHabit": {
+      "additionalProperties": false,
+      "properties": {
+        "expression": {
+          "description": "an event type",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Expression",
+          "type": "string"
+        },
+        "frequency": {
+          "default": "sometimes",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Frequency",
+          "type": "string"
+        },
+        "intensity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Intensity",
+          "type": "number"
+        }
+      },
+      "required": [
+        "expression",
+        "intensity"
+      ],
+      "title": "ReactionHabit",
+      "type": "object"
+    },
+    "SignaturePhrase": {
+      "additionalProperties": false,
+      "properties": {
+        "max_per_video": {
+          "default": 1,
+          "exclusiveMinimum": 0,
+          "title": "Max Per Video",
+          "type": "integer"
+        },
+        "text": {
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "SignaturePhrase",
+      "type": "object"
+    },
+    "Speech": {
+      "additionalProperties": false,
+      "properties": {
+        "filler_tendency": {
+          "$ref": "#/$defs/FillerTendency"
+        },
+        "pronunciation_notes": {
+          "items": {
+            "$ref": "#/$defs/PronunciationNote"
+          },
+          "title": "Pronunciation Notes",
+          "type": "array"
+        },
+        "sentence_structure": {
+          "default": "balanced",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Sentence Structure",
+          "type": "string"
+        },
+        "signature_phrases": {
+          "items": {
+            "$ref": "#/$defs/SignaturePhrase"
+          },
+          "title": "Signature Phrases",
+          "type": "array"
+        },
+        "speech_rate_preference": {
+          "default": "average",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Speech Rate Preference",
+          "type": "string"
+        },
+        "transition_phrases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Transition Phrases",
+          "type": "array"
+        },
+        "vocabulary_level": {
+          "default": "conversational",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Vocabulary Level",
+          "type": "string"
+        }
+      },
+      "title": "Speech",
+      "type": "object"
+    },
+    "Traits": {
+      "additionalProperties": false,
+      "properties": {
+        "agreeableness": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Agreeableness",
+          "type": "number"
+        },
+        "conscientiousness": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Conscientiousness",
+          "type": "number"
+        },
+        "extraversion": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Extraversion",
+          "type": "number"
+        },
+        "neuroticism": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Neuroticism",
+          "type": "number"
+        },
+        "openness": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Openness",
+          "type": "number"
+        }
+      },
+      "title": "Traits",
+      "type": "object"
+    },
+    "WorldSection": {
+      "additionalProperties": false,
+      "properties": {
+        "avoid": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Avoid",
+          "type": "array"
+        },
+        "world_kind_preferences": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "title": "World Kind Preferences",
+          "type": "array"
+        }
+      },
+      "title": "WorldSection",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "`CreatorVersion.dna`. The default appearance, voice, worlds and wardrobes are columns, not DNA.",
+  "properties": {
+    "avoidances": {
+      "$ref": "#/$defs/Avoidances"
+    },
+    "behavior": {
+      "$ref": "#/$defs/BehaviorSection"
+    },
+    "camera": {
+      "$ref": "#/$defs/CameraSection"
+    },
+    "editing": {
+      "$ref": "#/$defs/EditingSection"
+    },
+    "fashion": {
+      "$ref": "#/$defs/FashionSection"
+    },
+    "gaze": {
+      "$ref": "#/$defs/GazeSection"
+    },
+    "gesture": {
+      "$ref": "#/$defs/GestureSection"
+    },
+    "identity": {
+      "$ref": "#/$defs/IdentitySection"
+    },
+    "personality": {
+      "$ref": "#/$defs/Personality"
+    },
+    "speech": {
+      "$ref": "#/$defs/Speech"
+    },
+    "vocab_version": {
+      "minLength": 1,
+      "title": "Vocab Version",
+      "type": "string"
+    },
+    "world": {
+      "$ref": "#/$defs/WorldSection"
+    }
+  },
+  "required": [
+    "vocab_version",
+    "identity"
+  ],
+  "title": "CreatorDNA",
+  "type": "object"
+}

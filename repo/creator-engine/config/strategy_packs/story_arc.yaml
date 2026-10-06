@@ -1,0 +1,7 @@
+# Strategy pack (§13 stage 4). Configurable, never hard-coded.
+id: story_arc
+label: "Story arc"
+structure: [hook, setup, story, turn, payoff, outro]
+signature_format: false
+hook_count: 4
+guidance: "A short narrative with a turn and a lesson."

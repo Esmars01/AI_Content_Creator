@@ -1,0 +1,234 @@
+{
+  "$defs": {
+    "CompiledPart": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "default": "",
+          "title": "Detail",
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/CoverageLevel"
+        },
+        "method": {
+          "$ref": "#/$defs/RealizationMethod"
+        }
+      },
+      "required": [
+        "level",
+        "method"
+      ],
+      "title": "CompiledPart",
+      "type": "object"
+    },
+    "CoverageEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "approximation_executed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Approximation Executed"
+        },
+        "character_key": {
+          "title": "Character Key",
+          "type": "string"
+        },
+        "compiled": {
+          "$ref": "#/$defs/CompiledPart"
+        },
+        "dimension": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Dimension",
+          "type": "string"
+        },
+        "expected_for_method": {
+          "default": false,
+          "title": "Expected For Method",
+          "type": "boolean"
+        },
+        "item_ref": {
+          "title": "Item Ref",
+          "type": "string"
+        },
+        "observed": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObservedPart"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Outcome"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "requested": {
+          "title": "Requested",
+          "type": "string"
+        },
+        "summary": {
+          "default": "",
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "item_ref",
+        "character_key",
+        "dimension",
+        "requested",
+        "compiled"
+      ],
+      "title": "CoverageEntry",
+      "type": "object"
+    },
+    "CoverageLevel": {
+      "description": "Predicted execution of a requested behavior item (§10.3, §15.7).",
+      "enum": [
+        "HONORED",
+        "APPROXIMATED",
+        "UNSUPPORTED"
+      ],
+      "title": "CoverageLevel",
+      "type": "string"
+    },
+    "ObservationVerdict": {
+      "description": "What the analyzers saw (§16.3).",
+      "enum": [
+        "CONFIRMED",
+        "PARTIAL",
+        "NOT_OBSERVED",
+        "CONTRADICTED",
+        "NOT_MEASURABLE",
+        "NOT_APPLICABLE"
+      ],
+      "title": "ObservationVerdict",
+      "type": "string"
+    },
+    "ObservedPart": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "default": 0.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "measures": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "title": "Measures",
+          "type": "object"
+        },
+        "verdict": {
+          "$ref": "#/$defs/ObservationVerdict"
+        }
+      },
+      "required": [
+        "verdict"
+      ],
+      "title": "ObservedPart",
+      "type": "object"
+    },
+    "Outcome": {
+      "description": "The 12 viewer-level outcomes (§16.4). Only `*_CONFIRMED` counts as delivered (I9).",
+      "enum": [
+        "HONORED_CONFIRMED",
+        "HONORED_PARTIAL",
+        "HONORED_NOT_OBSERVED",
+        "HONORED_CONTRADICTED",
+        "APPROXIMATED_CONFIRMED",
+        "APPROXIMATED_PARTIAL",
+        "APPROXIMATED_NOT_OBSERVED",
+        "APPROXIMATED_CONTRADICTED",
+        "UNSUPPORTED",
+        "UNSUPPORTED_OBSERVED",
+        "NOT_MEASURABLE",
+        "NOT_APPLICABLE"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "RealizationMethod": {
+      "description": "Behavior compiler realization methods (§15.7).",
+      "enum": [
+        "native_parametric",
+        "native_segment",
+        "text_prompt_segment",
+        "text_prompt_global",
+        "shot_split",
+        "prosody_transfer",
+        "audio_nonverbal",
+        "editorial_cutaway",
+        "editorial_punch",
+        "caption_emphasis",
+        "music_cue",
+        "sfx_cue",
+        "keyframe_conditioning",
+        "pose_guided",
+        "post_expression",
+        "omit"
+      ],
+      "title": "RealizationMethod",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/CoverageEntry"
+      },
+      "title": "Entries",
+      "type": "array"
+    },
+    "stage": {
+      "enum": [
+        "predicted",
+        "compiled",
+        "observed"
+      ],
+      "title": "Stage",
+      "type": "string"
+    },
+    "version_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Version Id"
+    }
+  },
+  "required": [
+    "stage"
+  ],
+  "title": "BehaviorCoverageReport",
+  "type": "object"
+}

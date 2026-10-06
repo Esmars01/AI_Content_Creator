@@ -1,0 +1,80 @@
+# MediaPipe Face Detector (BlazeFace short range) and Face Landmarker v2 with blendshapes on CPU
+# (§16.1, §39.7). Real analyzer behind CPU_REAL_ENGINES: used when its assets are present.
+# Series: head yaw/pitch/roll (facial transformation matrix), a gaze-deviation proxy (head pose +
+# eye-look blendshapes), smile, brow raise/down, jaw open and eye closure (blendshapes [RV]).
+id: mediapipe_face
+name: MediaPipe face (detector + landmarker, CPU)
+version: 0.1.0
+kind: analyzer
+entrypoint: ce_plugin_mediapipe.face.adapter:MediaPipeFace
+capabilities:
+  - id: face.detect
+    features: [boxes]
+  - id: face.landmarks
+    features: [blendshapes, iris]
+runtime:
+  {
+    family: cpu_inproc,
+    python: "3.12",
+    requires_gpu: false,
+    min_vram_gb: 0,
+    recommended_vram_gb: 0,
+    supports_cpu: true,
+  }
+models:
+  - key: mediapipe-face-landmarker-v2
+    display_name: MediaPipe Face Landmarker (float16, v1 task bundle with blendshapes)
+    source:
+      {
+        type: url,
+        uri: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+        revision: "float16/1",
+      }
+    files: [mediapipe/face_landmarker.task]
+    sha256: { mediapipe/face_landmarker.task: 64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff }
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://storage.googleapis.com/mediapipe-assets/MediaPipe%20BlazeFace%20Model%20Card%20(Short%20Range).pdf",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+      }
+    dependencies:
+      - ref: "mediapipe/blaze_face_short_range.tflite (float16/1)"
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://storage.googleapis.com/mediapipe-assets/MediaPipe%20BlazeFace%20Model%20Card%20(Short%20Range).pdf",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+          }
+      - ref: "pypi:mediapipe==1.0.1"
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/google-ai-edge/mediapipe/blob/master/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+          }
+assets:
+  - mediapipe/face_landmarker.task
+  - mediapipe/blaze_face_short_range.tflite
+defaults:
+  landmarker_file: mediapipe/face_landmarker.task
+  detector_file: mediapipe/blaze_face_short_range.tflite
+  max_side: 640
+  eye_yaw_deg: 30.0 # eye-look blendshape 1.0 ≈ 30° of eye-in-head rotation (gaze proxy [RV])
+  eye_pitch_deg: 20.0
+  blink_closure: 0.6
+  look_away_deg: 12.0
+pricing: { seconds_per_unit: 0.15 }
+allowed_envs: [dev, test, prod]
+status: production
+validation: smoke_passed
+maturity_notes: "Gaze is a proxy (head pose + eye-look blendshapes); thresholds are calibrated per revision (§16.2)."

@@ -1,0 +1,17 @@
+# Video mode template (§13). Effective maturity in the UI is capped by route validation (§10.4).
+id: testimonial_dramatization
+label: Testimonial dramatization
+maturity: production
+roadmap: MVP
+description: "A dramatized testimonial; the testimonial guard and disclosure rules apply (§32)."
+allowed_shot_types: [talking_head, product, insert]
+default_camera_profiles: [phone_front_selfie, desk_mirrorless]
+default_world_kinds: [home_office, living_room, kitchen]
+duration_s: {min: 15, max: 60, default: 30}
+aspects: ["9:16", "16:9", "1:1", "4:5"]
+edit_grammar: {max_shot_s: 6, cutaway_every_s: 8, punch_in_on_emphasis: true, beat_snap: false}
+acting_density: medium
+editorial_methods: [editorial_cutaway, editorial_punch, caption_emphasis, music_cue, sfx_cue]
+strategy_packs: [story_arc, hook_problem_payoff_cta]
+requires: []
+prompt_fragment: null

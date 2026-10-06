@@ -1,0 +1,85 @@
+{
+  "cbs_content_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "editorial": [],
+  "prosody": [],
+  "realizations": [
+    {
+      "detail": "",
+      "dimension": "emotion_visual",
+      "item_ref": "/scenes[scn_smoke]/acting/states[st_1]/emotion",
+      "level": "APPROXIMATED",
+      "method": "text_prompt_global"
+    },
+    {
+      "detail": "",
+      "dimension": "emotion_visual",
+      "item_ref": "/scenes[scn_smoke]/acting/states[st_2]/emotion",
+      "level": "APPROXIMATED",
+      "method": "text_prompt_global"
+    },
+    {
+      "detail": "",
+      "dimension": "gaze",
+      "item_ref": "/scenes[scn_smoke]/acting/events[ev_glance]",
+      "level": "UNSUPPORTED",
+      "method": "omit"
+    },
+    {
+      "detail": "",
+      "dimension": "gesture",
+      "item_ref": "/scenes[scn_smoke]/acting/states[st_1]/strategies/gesture",
+      "level": "UNSUPPORTED",
+      "method": "omit"
+    }
+  ],
+  "route_digest": null,
+  "target_key": "sht_smoke",
+  "visual": [
+    {
+      "character_key": "char_smoke",
+      "chunk": null,
+      "shot_key": "sht_smoke",
+      "sub_spans": [
+        {
+          "descriptions": {},
+          "descriptors": [],
+          "end_s": 2.0,
+          "item_refs": [
+            "/scenes[scn_smoke]/acting/states[st_1]/emotion"
+          ],
+          "knobs": {},
+          "labels": {
+            "emotion_visual": "excited@0.6"
+          },
+          "start_s": 0.0
+        },
+        {
+          "descriptions": {},
+          "descriptors": [],
+          "end_s": 4.0,
+          "item_refs": [
+            "/scenes[scn_smoke]/acting/states[st_2]/emotion"
+          ],
+          "knobs": {},
+          "labels": {
+            "emotion_visual": "skeptical@0.5"
+          },
+          "start_s": 2.0
+        },
+        {
+          "descriptions": {},
+          "descriptors": [],
+          "end_s": 1.9,
+          "item_refs": [
+            "/scenes[scn_smoke]/acting/events[ev_glance]"
+          ],
+          "knobs": {},
+          "labels": {
+            "gaze": "look_away:down_left"
+          },
+          "start_s": 1.4
+        }
+      ]
+    }
+  ]
+}

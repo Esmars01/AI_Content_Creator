@@ -1,0 +1,10 @@
+# Microphone profile (§22 realism post: mic EQ curve).
+id: laptop_mic
+label: Laptop microphone
+eq:
+  - {type: highpass, freq_hz: 250}
+  - {type: peak, freq_hz: 2800, gain_db: 5, q: 0.8}
+  - {type: lowpass, freq_hz: 8000}
+noise_floor_db: -50
+distance_m: 0.6
+compression: {threshold_db: -20, ratio: 2.0}

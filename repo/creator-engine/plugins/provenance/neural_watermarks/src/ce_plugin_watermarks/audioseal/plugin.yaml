@@ -1,0 +1,63 @@
+# AudioSeal (§27 invisible audio watermark; §39.7 MIT). 16 bits (the payload id's first 16) at 16 kHz;
+# the watermark signal is upsampled and added to every channel of the 48 kHz mix.
+id: audioseal
+name: AudioSeal (16-bit invisible audio watermark)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_watermarks.adapter:AudioSealAdapter
+test_backend: ce_plugin_watermarks.testing:fake_audio_backend
+capabilities:
+  - id: provenance.watermark_audio
+    features: [invisible]
+  - id: provenance.verify
+    features: [watermark]
+runtime:
+  {
+    family: post,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 2,
+    recommended_vram_gb: 8,
+    supports_cpu: true,
+  }
+models:
+  - key: audioseal
+    size_gb: 0.09 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: facebook/audioseal (16-bit generator and detector)
+    source: { type: huggingface, repo: facebook/audioseal, revision: 3c19eba53390776cf2cc9ed5f6c9ac67ce72ecba }
+    files: [generator_base.pth, detector_base.pth]
+    license:
+      {
+        name: MIT,
+        url: "https://huggingface.co/facebook/audioseal/blob/3c19eba53390776cf2cc9ed5f6c9ac67ce72ecba/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license mit at the pinned revision",
+      }
+    dependencies:
+      - ref: "pypi:audioseal==0.2.0"
+        role: code
+        license:
+          {
+            name: MIT,
+            url: "https://github.com/facebookresearch/audioseal/blob/e63a8a0e5cdf7bb797159c92ba15961557fe9bd2/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93,
+            evidence: "license_file of the source repository; PyPI metadata MIT",
+          }
+defaults:
+  aac_bitrate: 256k
+  min_detection: 0.5
+  min_bit_accuracy: 0.875
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 0.1, load_seconds: 5.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. Phase 7 measured 101 s per 30 s of audio on 2 CPU threads (ADR 0047)."

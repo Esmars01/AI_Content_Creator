@@ -1,0 +1,60 @@
+# AuraFace v1 (glintr100, Apache-2.0) face-identity embeddings on CPU (§16.1, §39.7). Only the
+# recognition model is used: AuraFace's bundled detector and landmark files derive from insightface
+# (non-commercial) and are not fetched. Faces are found and aligned (5-point similarity transform to
+# the ArcFace template) with the MediaPipe Face Landmarker. Real analyzer behind CPU_REAL_ENGINES.
+id: auraface
+name: AuraFace v1 face embedding (CPU, ONNX)
+version: 0.1.0
+kind: analyzer
+entrypoint: ce_plugin_auraface.adapter:AuraFace
+capabilities:
+  - id: face.embed
+    features: [identity]
+runtime:
+  {
+    family: cpu_inproc,
+    python: "3.12",
+    requires_gpu: false,
+    min_vram_gb: 0,
+    recommended_vram_gb: 0,
+    supports_cpu: true,
+  }
+models:
+  - key: auraface-v1-glintr100
+    display_name: fal/AuraFace-v1 glintr100.onnx (recognition only)
+    source: { type: huggingface, repo: fal/AuraFace-v1, revision: af6d057c9b0ec4071d4c49c80e3539258798b609 }
+    files: [auraface/glintr100.onnx]
+    sha256: { auraface/glintr100.onnx: a7933ea5330113b01c9b60351d8f4c33003f145d8470ac5f0e52ee2effe25c60 }
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/fal/AuraFace-v1/blob/af6d057c9b0ec4071d4c49c80e3539258798b609/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+      }
+    dependencies:
+      - ref: "mediapipe/face_landmarker.task (float16/1), alignment"
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://storage.googleapis.com/mediapipe-assets/MediaPipe%20BlazeFace%20Model%20Card%20(Short%20Range).pdf",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+          }
+assets:
+  - auraface/glintr100.onnx
+  - mediapipe/face_landmarker.task
+defaults:
+  model_file: auraface/glintr100.onnx
+  landmarker_file: mediapipe/face_landmarker.task
+  sample_hz: 1.0 # frames embedded per second of video (the mean embedding is returned)
+  max_frames: 8
+pricing: { seconds_per_unit: 0.3 }
+allowed_envs: [dev, test, prod]
+status: production
+validation: smoke_passed
+maturity_notes: "Identity similarity is a measured score with confidence; thresholds per creator baseline (§17.4)."

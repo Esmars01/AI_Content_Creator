@@ -1,0 +1,5 @@
+# Production values are enforced by startup checks (invariant I11).
+security:
+  cookie_secure: true
+provenance:
+  mode: real

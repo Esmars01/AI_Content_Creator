@@ -1,0 +1,7 @@
+# Room acoustics (§19.7, §22). The impulse response is synthetic (scripts/gen_synthetic_assets.py).
+id: kitchen_live
+label: Kitchen with hard surfaces
+rt60_s: 0.6
+impulse_response: impulse_responses/kitchen_live.wav
+default_ambient: kitchen_appliances
+wet_mix: 0.18

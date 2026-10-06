@@ -1,0 +1,43 @@
+{
+  "additionalProperties": false,
+  "description": "One outfit of a creator (`WardrobeVersion`).",
+  "properties": {
+    "constraints": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Constraints",
+      "type": "array"
+    },
+    "description": {
+      "default": "",
+      "title": "Description",
+      "type": "string"
+    },
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "reference_asset_ids": {
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "title": "Reference Asset Ids",
+      "type": "array"
+    },
+    "style_tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Style Tags",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "WardrobeSpec",
+  "type": "object"
+}

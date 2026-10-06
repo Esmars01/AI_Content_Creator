@@ -1,0 +1,16 @@
+[project]
+name = "ce-plugin-provenance-c2pa"
+version = "0.1.0"
+description = "provenance.sign: C2PA manifests with c2pa-python (MIT OR Apache-2.0); dev test CA."
+requires-python = ">=3.12"
+dependencies = ["ce-contracts", "c2pa-python>=0.38", "cryptography>=43"]
+
+[project.entry-points."creator_engine.plugins"]
+c2pa_signer = "ce_plugin_c2pa"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ce_plugin_c2pa"]

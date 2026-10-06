@@ -1,0 +1,61 @@
+# SpeechBrain ECAPA-TDNN on VoxCeleb (§39.7 voice identity embedding; D80 deferred it to Phase 8 for a
+# license-verified checkpoint). 192-dim speaker embeddings for voice-drift checks between a voice
+# version's reference and generated segments. Weights Apache-2.0 per the model card; trained on
+# VoxCeleb [RV: dataset terms do not bind the weights' use].
+id: speaker_ecapa
+name: SpeechBrain ECAPA-TDNN speaker embedding
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_embed_speaker.adapter:SpeakerEcapaAdapter
+test_backend: ce_plugin_embed_speaker.testing:fake_backend
+capabilities:
+  - id: voice.embed
+    features: [speaker]
+runtime:
+  {
+    family: asr,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: false,
+    min_vram_gb: 1,
+    recommended_vram_gb: 2,
+    supports_cpu: true,
+  }
+models:
+  - key: spkrec-ecapa-voxceleb
+    display_name: speechbrain/spkrec-ecapa-voxceleb
+    source:
+      { type: huggingface, repo: speechbrain/spkrec-ecapa-voxceleb, revision: 0f99f2d0ebe89ac095bcc5903c4dd8f72b367286 }
+    files: [hyperparams.yaml, embedding_model.ckpt, mean_var_norm_emb.ckpt, classifier.ckpt, label_encoder.txt]
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/speechbrain/spkrec-ecapa-voxceleb/blob/0f99f2d0ebe89ac095bcc5903c4dd8f72b367286/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license apache-2.0 at the pinned revision",
+      }
+    dependencies:
+      - ref: "github:speechbrain/speechbrain@89ead74d163463d30c62329a09cfdb4c54f5abc1"
+        role: code
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/speechbrain/speechbrain/blob/89ead74d163463d30c62329a09cfdb4c54f5abc1/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4,
+            evidence: license_file,
+          }
+defaults:
+  min_speech_s: 1.0
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 0.01, load_seconds: 3.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run here. Model card: EER 0.80% on VoxCeleb1-test (cleaned), authors' figure."

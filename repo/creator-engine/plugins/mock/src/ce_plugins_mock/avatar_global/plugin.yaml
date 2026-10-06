@@ -1,0 +1,66 @@
+# Loops the keyframe with an audio-driven mouth waveform and writes behavior_track.json (§16.7).
+# Mock: registered only when MOCK_GPU=true; never routed in production (§10.6, §24).
+id: mock_avatar_global
+name: Mock avatar engine (global prompt)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugins_mock.avatar.adapter:MockAvatarGlobal
+behavior_translator: ce_plugins_mock.avatar.translator:GlobalPromptTranslator
+mock: true
+capabilities:
+  - id: avatar.a2v
+    features: [i2v]
+    languages: { mode: audio_driven, validated: [en], unvalidated: [de, es, fr, it, ru, tr, ar] }
+    resolutions: ["480p", "720p", "1080p"]
+    max_duration_s: 60
+    fps: 25
+behavior_matrix:
+  # Global text emotion; everything else emergent (§24 mock_avatar_global).
+  emotion_visual: { control: text_global, temporal_precision: clip, vocabulary: any_text }
+  facial_expression: { control: emergent }
+  reaction: { control: emergent }
+  listening: { control: emergent }
+  gaze: { control: emergent }
+  blink: { control: emergent }
+  head_motion: { control: emergent, knobs: [motion_energy] }
+  gesture: { control: emergent }
+  posture: { control: text_global, temporal_precision: clip }
+  camera_awareness: { control: text_global, temporal_precision: clip }
+  segment_control: { supported: false }
+  prosody_coupling: { lip_sync_from_audio: strong, expression_from_audio: strong }
+  continuity:
+    {
+      first_frame_conditioning: true,
+      chunk_continuation: true,
+      reference_identity: strong,
+      background_preservation: medium,
+    }
+  object_interaction: { control: none }
+  multi_person: { max_persons: 1 }
+  temporal_control: { max_clip_s: 60, recommended_chunk_s: 25 }
+knobs:
+  motion_energy: { param: mock_motion_gain, range: [0.5, 1.5], monotonic: unverified, calibrated: false }
+runtime:
+  { family: cpu_model, python: "3.12", requires_gpu: false, min_vram_gb: 0, recommended_vram_gb: 0, supports_cpu: true }
+models:
+  - key: mock-avatar-global
+    display_name: mock-avatar-global (procedural mock, no weights)
+    source: { type: builtin, revision: "1" }
+    license:
+      {
+        name: LicenseRef-CreatorEngine-FirstParty,
+        url: "plugins/mock/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-03,
+        verified_by: claude-code,
+      }
+pricing: { seconds_per_unit: 0.6 }
+defaults:
+  behavior_failure_rate: 0.0
+  approximation_failure_rates: { text: 0.25, keyframe: 0.2, audio: 0.5 }
+  audio_coupling_gain: 0.8
+allowed_envs: [dev, test]
+status: production
+validation: untested_on_gpu
+maturity_notes: "Mock engine; outputs are labelled and not model output."

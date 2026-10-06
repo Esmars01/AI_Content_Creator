@@ -1,0 +1,11 @@
+# Routing profile `cheapest`: minimum cost with the same hard filters.
+id: cheapest
+label: Cheapest
+quality_tier: draft
+allowed_statuses: [production]
+weights: {quality: 0.1, cost: 0.8, latency: 0.1, measured_behavior: 0.1}
+generation: {max_height: 540, fps: 25}
+final_preset_height: 720
+upscale_required: false
+interpolate: frame_rate_conversion
+fallback_chain_depth: 1

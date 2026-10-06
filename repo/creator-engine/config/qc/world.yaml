@@ -1,0 +1,12 @@
+# World continuity QC (§19.6). Low-reliability checks only warn until calibrated (Phase 11).
+version: 1
+checks:
+  world_identity: {method: image_embed, scope: shot, reliability: medium, gate: false}
+  world_elements: {method: vlm_structured, scope: shot, reliability: low, gate: false}
+  world_lighting: {method: color_and_luminance, scope: shot, reliability: low, gate: false}
+  background_continuity: {method: embed_color_vlm_pairwise, scope: video, reliability: medium, gate: false}
+  cross_video_world: {method: fingerprints, scope: creator, window_videos: 10, reliability: medium, gate: false}
+weights: {world_identity: 0.4, world_elements: 0.25, world_lighting: 0.15, background_continuity: 0.2}
+thresholds_by_world_kind:
+  default: {min_environment_identity: 0.75}
+  outdoor_location: {min_environment_identity: 0.6}

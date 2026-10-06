@@ -1,0 +1,108 @@
+# PP-OCR text detection and recognition on CPU (§27 screen analysis, §39.7): the official PP-OCRv6 small
+# ONNX exports (Phase 8; Phase 7 used the PP-OCRv4 models bundled in rapidocr-onnxruntime, D78) run
+# through RapidOCR's ONNX pipeline. The recognition dictionary and the detector thresholds come from each
+# export's `inference.yml`. Real analyzer behind CPU_REAL_ENGINES; its files come from
+# `make fetch-cpu-assets`. Licenses read at the pinned revisions on 2026-10-04.
+id: ppocr
+name: PP-OCRv6 small (RapidOCR ONNX pipeline, CPU)
+version: 0.2.0
+kind: analyzer
+entrypoint: ce_plugin_ppocr.adapter:PPOcr
+capabilities:
+  - id: vision.ocr
+    features: [boxes]
+runtime:
+  {
+    family: cpu_inproc,
+    python: "3.12",
+    requires_gpu: false,
+    min_vram_gb: 0,
+    recommended_vram_gb: 0,
+    supports_cpu: true,
+  }
+models:
+  - key: ppocrv6-small
+    display_name: PP-OCRv6 small detection + recognition (ONNX)
+    source:
+      {
+        type: huggingface,
+        repo: PaddlePaddle/PP-OCRv6_small_rec_onnx,
+        revision: b8f84f0b80c529de40b4fbb3544b84fa7233a513,
+      }
+    files: [inference.onnx, inference.yml]
+    sha256:
+      inference.onnx: 5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634
+      inference.yml: ab078671bb49f06228eadccd34f1bb501e157f7a047095ffb943ba81512c77d1
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/blob/b8f84f0b80c529de40b4fbb3544b84fa7233a513/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license apache-2.0 at the pinned revision",
+      }
+    dependencies:
+      - ref: "PaddlePaddle/PP-OCRv6_small_det_onnx@28fe5895c24fd108c19eb3e8479f4ab385fbfc62"
+        role: detector
+        source:
+          {
+            type: huggingface,
+            repo: PaddlePaddle/PP-OCRv6_small_det_onnx,
+            revision: 28fe5895c24fd108c19eb3e8479f4ab385fbfc62,
+          }
+        files: [inference.onnx, inference.yml]
+        sha256:
+          inference.onnx: d73e0058b7a8086bbd57f3d10b8bcd4ff95363f67e06e2762b5e814fe9c9410e
+          inference.yml: 193f435274bf9f0b5f71a929bbfbcf148282df7e633b34e7c373e8f44741b516
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx/blob/28fe5895c24fd108c19eb3e8479f4ab385fbfc62/README.md",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "model_card: license apache-2.0 at the pinned revision",
+          }
+      - ref: "pypi:rapidocr-onnxruntime==1.4.4 (pipeline code; its bundled PP-OCRv4 text-direction classifier)"
+        role: code
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/RapidAI/RapidOCR/blob/f65c7da00e72c19c258245e8e0e5f33af14488be/LICENSE",
+            text_sha256: 3e0af25fdd06aa9586ae97adb00ea927ebe5a3805ac77d2d3a81ce5f55693333,
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: license_file,
+          }
+      - ref: "PaddlePaddle/PaddleOCR PP-OCRv4 text-direction classifier (bundled in rapidocr-onnxruntime)"
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/PaddlePaddle/PaddleOCR/blob/dab3fe35379033fdcb2d0e9572fac0b36c9a9ebf/LICENSE",
+            text_sha256: 3840c5c0c61c294264d2dd77b8777be6ddd90121ef4e0e64abcd22edea581d6e,
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: license_file,
+          }
+assets:
+  - ppocrv6/det/inference.onnx
+  - ppocrv6/det/inference.yml
+  - ppocrv6/rec/inference.onnx
+  - ppocrv6/rec/inference.yml
+defaults:
+  max_side: 1280
+  min_confidence: 0.5
+  det_dir: ppocrv6/det
+  rec_dir: ppocrv6/rec
+pricing: { seconds_per_unit: 0.8 }
+allowed_envs: [dev, test, prod]
+status: production
+validation: smoke_passed
+maturity_notes: "PP-OCRv6 small: Latin (with diacritics, e.g. Turkish) and Chinese lines; Arabic and Cyrillic need other recognition models (roadmap). Measured 2026-10-04: whole caption lines with diacritics where v4 split words and dropped them."

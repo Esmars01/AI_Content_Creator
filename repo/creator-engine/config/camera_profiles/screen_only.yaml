@@ -1,0 +1,15 @@
+# Camera profile (§22). Deterministic camera and realism post use these values (ADR 0009).
+id: screen_only
+label: Screen recording only
+maturity: production
+prompt_hints: ["screen recording"]
+subject_distance_m: 0.7
+sensor: { fps: 30, noise_luma: 0.0, noise_chroma: 0.0, rolling_shutter: 0.0 }
+lens: { focal_equiv_mm: 30, distortion_k1: 0.0, vignette: 0.0, dof: deep }
+framing: { default: screen_full, headroom: 0.0, eye_line: 0.5, overscan: 0.0 }
+motion: { type: static, amplitude_px: 0, freq_hz: [0.0, 0.0], rotation_deg: 0.0, breathing_sway: false, stabilization: 1.0 }
+focus: { autofocus_hunts_per_min: 0.0 }
+exposure: { auto_exposure_drift: 0.0 }
+color: { lut: luts/screen_neutral.cube, saturation: 1.0 }
+compression: { codec: h264, bitrate_kbps: 8000 }
+audio: { mic_profile: usb_condenser, distance_m: 0.4 }

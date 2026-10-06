@@ -1,0 +1,47 @@
+# C2PA manifests (§27, §32, ADR 0013) signed with c2pa-python (MIT OR Apache-2.0). Production signs
+# with the certificate and key named by C2PA_SIGNING_CERT_PATH / C2PA_SIGNING_KEY_PATH and refuses to
+# load without them; dev and test generate a throwaway test CA and an ES256 leaf (document-signing EKU)
+# whose root is untrusted by design — dev verification expects a valid signature and hashes with an
+# untrusted root (§27). Not a mock: used in every mode (rule 11: C2PA signing is real from Phase 7).
+id: c2pa_signer
+name: C2PA signer (c2pa-python)
+version: 0.1.0
+kind: code
+entrypoint: ce_plugin_c2pa.adapter:C2paSigner
+capabilities:
+  - id: provenance.sign
+    features: [c2pa]
+  - id: provenance.verify
+    features: [c2pa]
+runtime:
+  {
+    family: cpu_inproc,
+    python: "3.12",
+    requires_gpu: false,
+    min_vram_gb: 0,
+    recommended_vram_gb: 0,
+    supports_cpu: true,
+  }
+models:
+  - key: c2pa-python
+    display_name: c2pa-python 0.38 (c2pa-rs)
+    source: { type: builtin, revision: "c2pa-python==0.38.0" }
+    license:
+      {
+        name: MIT OR Apache-2.0,
+        url: "https://github.com/contentauth/c2pa-python/blob/v0.38.0/LICENSE-MIT",
+        text_sha256: 89375a50de90d2dcaa04406086da832ad452ebcaf6ab402ef3d51b8401a67c71,
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+      }
+defaults:
+  claim_generator: creator-engine
+  claim_generator_version: "0.7.0"
+  algorithm: es256
+  dev_ca_validity_days: 30
+allowed_envs: [dev, test, prod]
+status: production
+validation: smoke_passed
+maturity_notes: "Dev certificates are generated per process and never trusted; production uses operator certificates."

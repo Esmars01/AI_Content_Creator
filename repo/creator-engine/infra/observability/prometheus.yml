@@ -1,0 +1,31 @@
+# Prometheus scrape configuration for the compose `observability` profile (§34, Phase 14).
+# Every service exposes `ce_*` metrics on the side port METRICS_PORT=9100, never on a port that
+# faces users or remote workers. Targets that are not running show as down;
+# `make obs-native` rewrites the hosts to localhost for services run on the host (docs/OBSERVABILITY.md).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  - job_name: api
+    static_configs: [{targets: ["api:9100"]}]
+  - job_name: scheduler
+    static_configs: [{targets: ["scheduler:9100"]}]
+  - job_name: orchestrator
+    static_configs: [{targets: ["orchestrator:9100"]}]
+  - job_name: render-worker
+    static_configs: [{targets: ["render-worker:9100"]}]
+  - job_name: worker
+    static_configs: [{targets: ["worker-cpu:9100"]}]
+  - job_name: otel-collector
+    static_configs: [{targets: ["otel-collector:8888"]}]
+  - job_name: prometheus
+    static_configs: [{targets: ["localhost:9090"]}]

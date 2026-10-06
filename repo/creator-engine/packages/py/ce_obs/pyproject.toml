@@ -1,0 +1,20 @@
+[project]
+name = "ce-obs"
+version = "0.1.0"
+description = "Logging (structlog JSON with redaction), tracing (OpenTelemetry) and metrics helpers."
+requires-python = ">=3.12"
+dependencies = [
+    "structlog>=25.4",
+    "opentelemetry-api>=1.36",
+    "opentelemetry-sdk>=1.36",
+    "opentelemetry-exporter-otlp-proto-http>=1.36",
+    "prometheus-client>=0.21",
+    "redis>=5.2",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ce_obs"]

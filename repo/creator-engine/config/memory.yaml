@@ -1,0 +1,56 @@
+# Creator Memory settings (§18): retrieval budgets, recency decay, promotion thresholds,
+# repetition windows and thresholds. Schema: ce_config.schemas.MemoryConfig.
+retrieval:
+  budgets:                 # max items per category in one MemorySnapshot
+    speech_habit: 8
+    reaction_habit: 6
+    gesture_habit: 6
+    emotional_tendency: 5
+    gaze_habit: 4
+    camera_habit: 4
+    social_behavior: 5
+    avoidance: 20
+    persona_fact: 15
+    stance: 10
+    preference: 10
+    rejected_pattern: 10
+  recency_half_life_days:  # recency decay per category
+    speech_habit: 120
+    reaction_habit: 180
+    gesture_habit: 180
+    emotional_tendency: 180
+    gaze_habit: 180
+    camera_habit: 180
+    social_behavior: 180
+    avoidance: 3650
+    persona_fact: 3650
+    stance: 365
+    preference: 90
+    rejected_pattern: 60
+  confidence_weight: 0.5
+  conflict_precedence: [pinned, authored, confidence, recency]
+promotion:                 # habit evidence from observation → active (§18.4)
+  min_evidence_count: 3
+  min_confidence: 0.7
+  repeated_edit_threshold: 3   # same edit kind on one creator → proposed preference
+  critique_threshold: 1        # accepted critique proposals of one kind → proposed preference
+  allow_mock_evidence: false   # habits measured on mock engines are never promoted (mock evidence)
+  habit_quantum: 0.05          # measured habit values are means rounded to this step
+  conflict_tolerance: 0.15     # a measured habit this far from an authored value is a conflict
+repetition:
+  hooks: {window_videos: 20, max_similarity: 0.82}
+  phrases: {window_videos: 10, ngram: 4, max_overlap: 0.3}
+  emotional_arcs: {window_videos: 5, max_similarity: 0.9}
+  visual_patterns: {window_videos: 3}
+  behavior_signatures: {window_videos: 10, near_duplicate: 0.92}
+embeddings:                # Phase 12: embedding ranking and the embedding-based hook guard
+  retrieval_weight: 0.5    # cosine(brief, item) added to the rank of text-like kinds (replaces the keyword bonus when both have vectors of one model)
+  hook_max_cosine: 0.9     # a hook closer than this to a recent hook (same embedding model) is rejected
+# Measured features of a built video (ce_qc.consistency) that count as habit evidence (§18.4,
+# MemoryUpdateWorkflow). value = measured / scale, clamped to 0..1. Scales are design choices
+# for the mock and CPU analyzers' units; recalibrate them with real engines.
+observation_habits:
+  - {feature: gaze_to_camera_ratio, kind: gaze_habit.eye_contact_ratio, field: ratio, scale: 1.0}
+  - {feature: gesture_energy, kind: gesture_habit.gesture_density, field: density, scale: 1.0}
+  - {feature: head_motion_energy, kind: gesture_habit.head_movement, field: amplitude, scale: 10.0}
+update_after_ready: true

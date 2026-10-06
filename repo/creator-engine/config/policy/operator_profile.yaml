@@ -1,0 +1,7 @@
+# Operator profile defaults (§41). Until the product owner answers, treat the operator as
+# EU-serving with revenue below $1M; license-gated models stay disabled by default.
+jurisdiction: EU
+revenue_band: lt_1m
+commercial_use: true
+distributes_images: false
+regions_served: [EU]

@@ -1,0 +1,13 @@
+[project]
+name = "ce-llm"
+version = "0.1.0"
+description = "LLMProvider interface and registry, structured-output repair helpers, prompt templates and data wrapping."
+requires-python = ">=3.12"
+dependencies = ["ce-contracts", "jinja2>=3.1", "pydantic>=2.9", "pyyaml>=6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ce_llm"]

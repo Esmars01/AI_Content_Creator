@@ -1,0 +1,187 @@
+# Base configuration (§35). Layering: this file → env/<APP_ENV>.yaml → environment variables
+# (pydantic-settings, names as in §35) → DB runtime settings (feature flags, operator profile).
+# Schema: ce_config.schemas.AppConfig. No magic numbers in code: anything that may change lives here.
+app:
+  name: creator-engine
+security:
+  cookie_secure: true
+  session_ttl_s: 1209600           # 14 days
+  api_key_prefix: ce_
+  password_min_length: 12
+  password_hash: {time_cost: 3, memory_cost_kib: 65536, parallelism: 4}   # argon2id, RFC 9106 low-memory profile
+  login_rate_limit_per_minute: 10  # per email and per client address
+  invitation_ttl_s: 604800         # 7 days
+  session_cookie: ce_session       # httpOnly, SameSite=Lax; Secure from cookie_secure
+  csrf_cookie: ce_csrf             # readable by the web app; echoed in X-CSRF-Token on mutations
+provenance:
+  # real | mock_dev. mock_dev is only allowed when APP_ENV is dev or test (ADR 0013, §32).
+  mode: real
+  visible_label_default: auto
+features:
+  multi_character_enabled: false   # §39.5; two_shot is rejected while false
+  digital_twins_enabled: false     # §17.3; V1
+  autonomous_suggest_enabled: false
+  share_links_enabled: false
+spec:
+  duration_tolerance: 0.25         # ± fraction of target_duration_s the estimate may differ (§11 validators)
+  default_wpm: 150                 # used when a voice version has no measured WPM yet
+  require_memory_snapshots: true
+uploads:
+  max_bytes: 2147483648            # 2 GiB
+  allowed_media_types: [video/mp4, video/quicktime, video/webm, audio/wav, audio/x-wav, audio/mpeg, audio/flac, image/png, image/jpeg, image/webp, application/pdf, text/plain, text/markdown, application/vnd.openxmlformats-officedocument.wordprocessingml.document, text/html, text/vtt, application/x-subrip]
+  ffprobe_timeout_s: 30            # §33: ffprobe runs in a subprocess with a timeout
+  max_filename_length: 255
+storage:
+  presign_ttl_s: 900
+events:
+  stream_maxlen: 10000             # per-stream cap; time retention is SSE_STREAM_RETENTION_S
+api:
+  default_page_size: 50
+  max_page_size: 200
+  sse_keepalive_s: 15
+  sse_replay_max: 1000             # events replayed after Last-Event-ID before streaming live
+render:
+  proxy: {height: 540, fps: 30, video_codec: h264, crf: 28, audio_bitrate_kbps: 96}   # previews (§27)
+  timeline: {lead_s: 0.2, segment_gap_s: 0.25, tail_s: 0.6, shot_pad_in_s: 0.2, shot_pad_out_s: 0.3}
+  ducking: {speech_pad_s: 0.1, attack_s: 0.08, release_s: 0.3}   # music gain envelope under speech (§27)
+  encode_preset: veryfast          # libx264 speed preset of delivery encodes
+  true_peak_codec_headroom_db: 1.5 # mix at TP − 1.5 dB so the AAC delivery still meets the spec's true peak
+  true_peak_retry_bitrates_kbps: [256, 320]  # still over after encoding: re-encode the audio at these, then attenuate
+  brand_logo: {corner: top_right, width_ratio: 0.14, margin_ratio: 0.04, opacity: 0.9}   # brand kit logo overlay
+  screen:                          # screen recordings (§27): analysis on upload, then zoom/speed/bubble planning
+    scene_threshold: 10.0          # FFmpeg scdet score of a cut (0–100)
+    keyframe_settle_s: 0.4
+    keyframe_every_s: 8.0          # inside long scenes: typing changes text without a cut
+    max_keyframes: 60
+    max_side: 1280
+    dead_time_min_s: 3.0           # no cut, text or pixel change this long → a speed segment
+    dead_time_speed: 4.0
+    zoom_min_s: 1.2
+    zoom_max_width: 0.9
+    vlm_sampling_fps: 1.0
+    bubble_size: 0.28
+scheduler:                         # §25
+  heartbeat_s: 5
+  lease_s: 30                      # a lease expires unless a heartbeat extends it
+  long_poll_s: 20
+  poll_interval_s: 0.5
+  max_infra_retries: 3             # lease expiry, worker crash, OOM: same seed (§12.5)
+  reaper_interval_s: 2
+  temporal_heartbeat_s: 10         # how often queued/leased tasks check for workflow cancellation
+  fleet_interval_s: 15
+  upload_slots: 6                  # presigned output slots granted with each lease
+  stickiness_s: 120
+  worker_stale_s: 120
+  ops_metrics_interval_s: 60       # database-derived ce_ops_* gauges (Phase 14)
+  ops_metrics_window_s: 3600
+  placement: {priority: 1.0, age_per_minute: 0.5, resident: 20, cached: 5, sticky: 10, load_penalty_per_gb: 0.1, cost_penalty_per_usd_hour: 1.0, fair_share: 0.5, per_org_candidates: 10}
+  fleet:                           # Phase 9 (§25)
+    provision_timeout_s: 900       # a provisioned worker that never registers is terminated after this
+    spend_horizon_h: 1.0           # projected spend = today's spend + the running fleet's burn over this horizon
+    low_priority_max: 25           # held while BUDGET_DAILY_USD would be exceeded
+    alert_cooldown_s: 3600
+    worker_env: {}
+build:                             # §12
+  max_parallel_nodes: 6
+  gpu_task_priority: 50
+  model_node_timeout_s: 7200
+  cpu_node_timeout_s: 600
+  render_node_timeout_s: 1800
+behavior:                          # ce_behavior (§10.6, §15.6, §15.7, §16); DECISIONS D35
+  memory_shift_max: 0.15           # an active memory habit moves a DNA default by at most this, inside DNA bounds
+  strategy_priority_cap: should    # state strategies inherit the state priority, capped here (emotion keeps it)
+  low_salience:                    # strategy tokens requested as `nice` (background behavior)
+    gesture: [still, illustrative_light]
+    gaze: [hold_camera]
+    reaction: [none]
+  planner_confidence:
+    base: {emotion: 0.8, prosody: 0.8, strategy: 0.7, event: 0.7, annotation: 0.8}
+    priority_delta: {must: 0.1, should: 0.0, nice: -0.1}
+    user_source_bonus: 0.1         # user tags and edits are explicit requests
+    supported_bonus: 0.1           # supported by a memory habit or a DNA preference
+  attention_element_kinds: [screen, window]   # world elements offered as attention targets
+  prosody_strategies:              # ProsodyDirective defaults; energy is relative to the DNA baseline
+    assertive: {rate: 1.05, energy_delta: 0.1, pitch_variation: 0.55}
+    assertive_light: {rate: 1.0, energy_delta: 0.0, pitch_variation: 0.5}
+    slow_measured: {rate: 0.9, energy_delta: -0.1, pitch_variation: 0.35}
+    hesitant_with_pauses: {rate: 0.85, energy_delta: -0.15, pitch_variation: 0.4}
+    controlled_even: {rate: 0.95, energy_delta: -0.05, pitch_variation: 0.3}
+    playful_rising: {rate: 1.05, energy_delta: 0.1, pitch_variation: 0.7}
+    urgent_fast: {rate: 1.2, energy_delta: 0.15, pitch_variation: 0.6}
+    deadpan: {rate: 0.95, energy_delta: -0.15, pitch_variation: 0.15}
+    whispered_aside: {rate: 0.9, energy_delta: -0.3, pitch_variation: 0.3}
+  judge: {partial_fraction: 0.6, contradiction_ratio: 0.5, min_face_ratio: 0.5, overlay_hidden_ratio: 0.5, relative_tolerance: 0.03}
+research:                          # Director stage 3 (§13): in-memory research on pasted text and URLs (Phase 4)
+  fetch:                           # the SSRF-guarded fetcher (§33): resolve → check every address → connect to it
+    timeout_s: 10                  # whole fetch, redirects included
+    max_bytes: 2097152             # 2 MiB of body
+    max_redirects: 3               # each hop is checked again
+    allowed_ports: [80, 443]
+    allowed_content_types: [text/html, application/xhtml+xml, text/plain, text/markdown]
+    user_agent: creator-engine-research/0.1
+  max_urls: 5                      # URLs taken from one input
+  max_pasted_chars: 200000
+  chunk_words: 120
+  chunk_overlap_words: 20
+  top_k: 8                         # evidence chunks handed to the fact check per query
+  ingest:                          # persistent project sources (Phase 12, ResearchIngestWorkflow)
+    fetch:                         # the same SSRF guard, with document types and larger bodies
+      timeout_s: 30
+      max_bytes: 20971520          # 20 MiB
+      max_redirects: 3
+      allowed_ports: [80, 443]
+      allowed_content_types: [text/html, application/xhtml+xml, text/plain, text/markdown, application/pdf]
+      user_agent: creator-engine-research/0.1
+    max_upload_bytes: 52428800     # 50 MiB per uploaded document
+    max_chars: 2000000             # extracted text kept per source
+    max_pdf_pages: 500
+    max_archive_bytes: 52428800    # uncompressed DOCX body
+    fact_words: 80                 # one fact = a window of this many words
+    fact_overlap_words: 15
+    max_facts: 5000                # per source
+    embed_batch: 32
+    vector_weight: 1.0             # hybrid retrieval: bm25/max + vector_weight * cosine
+    min_cosine: 0.2
+    min_claim_support: 0.5         # a claim's content terms its evidence must contain (and every number)
+embeddings:                        # embed.text (Phase 12); the dimension is EMBEDDING_DIM
+  batch_size: 32
+  max_chars: 2000
+packaging:                         # Director stage 12 (Phase 12)
+  design_limits:                   # OUR defaults where a platform's limits are unverified (D16); never shown as platform facts
+    title_max_chars: 100
+    description_max_chars: 2200
+    hashtags_max: 5
+    hashtag_max_chars: 30
+    cta_max_chars: 80
+  thumbnail_candidates: 3
+  thumbnail_text_max_chars: 40
+  max_repairs: 2
+exports:
+  require_approved_packaging: true
+  require_approved_translations: true
+captions:                          # captions.translate (captions_llm)
+  lines_per_request: 40
+  max_line_chars: 200
+qc:                                # Phase 11 jobs around the QC gate (§20, §24, §26; ADR 0056)
+  consistency_after_build: true    # ConsistencyWorkflow when a version reaches ready / needs_review
+  critique_sampling_fps: 2.0       # VLM pass over the proxy for the Creative Director critique
+  benchmark:
+    eval_set: eval/cases.yaml
+    seeds: 2
+    min_ratings_per_pair: 1
+    min_rated_share: 1.0           # every pair rated before a verdict
+    min_check_pass_rate: 1.0       # every automatic check of every case passes
+    min_win_rate: 0.4              # wins + ties/2 over rated pairs vs the production default
+    require_bench_for_promotion: true
+studio:                            # Phase 10 studio jobs (§17, §19.2, §21; ce_exec.studio_jobs)
+  face_size: 768                   # identity-pack candidates and expansions (square)
+  candidates_default: 12           # §17.2: 8–16 face candidates
+  angles: [front, three_quarter_left, three_quarter_right, profile_left, profile_right]
+  expressions: [neutral, smile, laugh, surprised, serious, thinking]
+  wardrobe_views: [front, three_quarter, full_body]
+  plate_width: 1080
+  plate_height: 1920
+  plate_candidates: 2              # per camera position × time of day × weather
+  min_vlm_age_estimate: 25         # §17.3 conservative margin
+  voice_test_text: "Okay, here is the thing nobody tells you about this. It actually works."
+  creator_test_project: Creator tests

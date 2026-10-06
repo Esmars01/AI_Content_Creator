@@ -1,0 +1,134 @@
+{
+  "$defs": {
+    "RouteDecision": {
+      "additionalProperties": false,
+      "description": "`route(node, context)` (§23). Identity = adapter, model, revision and translator version;\nthe rest records why it was chosen.",
+      "properties": {
+        "adapter_id": {
+          "minLength": 1,
+          "title": "Adapter Id",
+          "type": "string"
+        },
+        "fallbacks": {
+          "description": "adapter ids of the precomputed fallback chain",
+          "items": {
+            "type": "string"
+          },
+          "title": "Fallbacks",
+          "type": "array"
+        },
+        "model_id": {
+          "minLength": 1,
+          "title": "Model Id",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        },
+        "pinned": {
+          "default": false,
+          "title": "Pinned",
+          "type": "boolean"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "revision": {
+          "minLength": 1,
+          "title": "Revision",
+          "type": "string"
+        },
+        "routing_profile": {
+          "default": "draft",
+          "minLength": 1,
+          "title": "Routing Profile",
+          "type": "string"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Score"
+        },
+        "translator_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Translator Version"
+        }
+      },
+      "required": [
+        "adapter_id",
+        "model_id",
+        "revision"
+      ],
+      "title": "RouteDecision",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "artifact_map": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Artifact Map",
+      "type": "object"
+    },
+    "config_digests": {
+      "additionalProperties": {
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "title": "Config Digests",
+      "type": "object"
+    },
+    "effective_seeds": {
+      "additionalProperties": {
+        "minimum": 0,
+        "type": "integer"
+      },
+      "title": "Effective Seeds",
+      "type": "object"
+    },
+    "impl_versions": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Impl Versions",
+      "type": "object"
+    },
+    "routes": {
+      "additionalProperties": {
+        "$ref": "#/$defs/RouteDecision"
+      },
+      "title": "Routes",
+      "type": "object"
+    }
+  },
+  "title": "BuildManifest",
+  "type": "object"
+}

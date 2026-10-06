@@ -1,0 +1,7 @@
+# Room acoustics (§19.7, §22). The impulse response is synthetic (scripts/gen_synthetic_assets.py).
+id: bedroom_soft
+label: Bedroom with soft furnishings
+rt60_s: 0.3
+impulse_response: impulse_responses/bedroom_soft.wav
+default_ambient: room_tone_quiet
+wet_mix: 0.1

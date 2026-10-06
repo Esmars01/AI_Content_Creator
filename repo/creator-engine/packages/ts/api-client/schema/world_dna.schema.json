@@ -1,0 +1,819 @@
+{
+  "$defs": {
+    "BackgroundLayout": {
+      "additionalProperties": false,
+      "properties": {
+        "composition": {
+          "default": "",
+          "title": "Composition",
+          "type": "string"
+        },
+        "visible_elements": {
+          "description": "in depth order",
+          "items": {
+            "type": "string"
+          },
+          "title": "Visible Elements",
+          "type": "array"
+        }
+      },
+      "title": "BackgroundLayout",
+      "type": "object"
+    },
+    "CameraPosition": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_camera_profiles": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Allowed Camera Profiles",
+          "type": "array"
+        },
+        "default_framing": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Default Framing",
+          "type": "string"
+        },
+        "distance_m": {
+          "exclusiveMinimum": 0,
+          "maximum": 50,
+          "title": "Distance M",
+          "type": "number"
+        },
+        "height_m": {
+          "exclusiveMinimum": 0,
+          "maximum": 10,
+          "title": "Height M",
+          "type": "number"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "lens_equiv_mm": {
+          "exclusiveMinimum": 5,
+          "maximum": 400,
+          "title": "Lens Equiv Mm",
+          "type": "number"
+        },
+        "position": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "minimum": 0.0,
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Position"
+        },
+        "status": {
+          "$ref": "#/$defs/CameraPositionStatus",
+          "default": "permitted"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "minimum": 0.0,
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        }
+      },
+      "required": [
+        "key",
+        "height_m",
+        "distance_m",
+        "lens_equiv_mm",
+        "default_framing",
+        "allowed_camera_profiles"
+      ],
+      "title": "CameraPosition",
+      "type": "object"
+    },
+    "CameraPositionStatus": {
+      "enum": [
+        "permitted",
+        "forbidden"
+      ],
+      "title": "CameraPositionStatus",
+      "type": "string"
+    },
+    "Continuity": {
+      "additionalProperties": false,
+      "properties": {
+        "forbidden_views": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Forbidden Views",
+          "type": "array"
+        },
+        "must_show_from": {
+          "additionalProperties": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Must Show From",
+          "type": "object"
+        },
+        "position_tolerance_m": {
+          "default": 0.15,
+          "minimum": 0,
+          "title": "Position Tolerance M",
+          "type": "number"
+        }
+      },
+      "title": "Continuity",
+      "type": "object"
+    },
+    "ElementMutability": {
+      "enum": [
+        "fixed",
+        "movable",
+        "stateful"
+      ],
+      "title": "ElementMutability",
+      "type": "string"
+    },
+    "Geometry": {
+      "additionalProperties": false,
+      "properties": {
+        "ceiling_height_m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ceiling Height M"
+        },
+        "dimensions_m": {
+          "description": "width, depth, height in metres",
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Dimensions M",
+          "type": "array"
+        },
+        "layout": {
+          "default": "",
+          "title": "Layout",
+          "type": "string"
+        },
+        "shape": {
+          "default": "rectangular",
+          "title": "Shape",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dimensions_m"
+      ],
+      "title": "Geometry",
+      "type": "object"
+    },
+    "KeyLight": {
+      "additionalProperties": false,
+      "properties": {
+        "azimuth_deg": {
+          "maximum": 180,
+          "minimum": -180,
+          "title": "Azimuth Deg",
+          "type": "number"
+        },
+        "color_temp_k": {
+          "maximum": 12000,
+          "minimum": 1000,
+          "title": "Color Temp K",
+          "type": "number"
+        },
+        "elevation_deg": {
+          "maximum": 90,
+          "minimum": -90,
+          "title": "Elevation Deg",
+          "type": "number"
+        },
+        "intensity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Intensity",
+          "type": "number"
+        }
+      },
+      "required": [
+        "azimuth_deg",
+        "elevation_deg",
+        "intensity",
+        "color_temp_k"
+      ],
+      "title": "KeyLight",
+      "type": "object"
+    },
+    "LightingSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "contrast": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Contrast"
+        },
+        "fill_ratio": {
+          "default": 0.5,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Fill Ratio",
+          "type": "number"
+        },
+        "key": {
+          "$ref": "#/$defs/KeyLight"
+        },
+        "practicals": {
+          "items": {
+            "$ref": "#/$defs/Practical"
+          },
+          "title": "Practicals",
+          "type": "array"
+        },
+        "tolerance": {
+          "$ref": "#/$defs/LightingTolerance"
+        },
+        "window_light": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WindowLight"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "title": "LightingSpec",
+      "type": "object"
+    },
+    "LightingTolerance": {
+      "additionalProperties": false,
+      "properties": {
+        "color_temp_k": {
+          "default": 400,
+          "minimum": 0,
+          "title": "Color Temp K",
+          "type": "number"
+        },
+        "luminance": {
+          "default": 0.12,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Luminance",
+          "type": "number"
+        }
+      },
+      "title": "LightingTolerance",
+      "type": "object"
+    },
+    "Practical": {
+      "additionalProperties": false,
+      "properties": {
+        "color_temp_k": {
+          "maximum": 12000,
+          "minimum": 1000,
+          "title": "Color Temp K",
+          "type": "number"
+        },
+        "element": {
+          "title": "Element",
+          "type": "string"
+        }
+      },
+      "required": [
+        "element",
+        "color_temp_k"
+      ],
+      "title": "Practical",
+      "type": "object"
+    },
+    "TimeAndWeather": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_times": {
+          "items": {
+            "$ref": "#/$defs/TimeOfDay"
+          },
+          "minItems": 1,
+          "title": "Allowed Times",
+          "type": "array"
+        },
+        "allowed_weather": {
+          "items": {
+            "$ref": "#/$defs/Weather"
+          },
+          "title": "Allowed Weather",
+          "type": "array"
+        },
+        "default_time_of_day": {
+          "$ref": "#/$defs/TimeOfDay"
+        },
+        "default_weather": {
+          "$ref": "#/$defs/Weather",
+          "default": "clear"
+        },
+        "window_visible": {
+          "default": true,
+          "title": "Window Visible",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "default_time_of_day",
+        "allowed_times"
+      ],
+      "title": "TimeAndWeather",
+      "type": "object"
+    },
+    "TimeOfDay": {
+      "description": "World `time_of_day` values (§19.1).",
+      "enum": [
+        "morning",
+        "midday",
+        "late_afternoon",
+        "golden_hour",
+        "evening",
+        "night"
+      ],
+      "title": "TimeOfDay",
+      "type": "string"
+    },
+    "Weather": {
+      "enum": [
+        "clear",
+        "overcast",
+        "rain"
+      ],
+      "title": "Weather",
+      "type": "string"
+    },
+    "WindowLight": {
+      "additionalProperties": false,
+      "properties": {
+        "direction_deg": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Direction Deg"
+        },
+        "strength_by_time": {
+          "additionalProperties": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "type": "number"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/TimeOfDay"
+          },
+          "title": "Strength By Time",
+          "type": "object"
+        }
+      },
+      "title": "WindowLight",
+      "type": "object"
+    },
+    "WorldAcoustics": {
+      "additionalProperties": false,
+      "properties": {
+        "ambient": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "title": "Ambient",
+          "type": "array"
+        },
+        "noise_floor_db": {
+          "default": -60,
+          "maximum": 0,
+          "title": "Noise Floor Db",
+          "type": "number"
+        },
+        "room_profile": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Room Profile",
+          "type": "string"
+        },
+        "rt60_s": {
+          "exclusiveMinimum": 0,
+          "maximum": 5,
+          "title": "Rt60 S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "room_profile",
+        "rt60_s"
+      ],
+      "title": "WorldAcoustics",
+      "type": "object"
+    },
+    "WorldElement": {
+      "additionalProperties": false,
+      "properties": {
+        "color": {
+          "default": "",
+          "title": "Color",
+          "type": "string"
+        },
+        "default_state": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Default State"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "title": "Label",
+          "type": "string"
+        },
+        "material": {
+          "default": "",
+          "title": "Material",
+          "type": "string"
+        },
+        "mutability": {
+          "$ref": "#/$defs/ElementMutability",
+          "default": "fixed"
+        },
+        "orientation_deg": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Orientation Deg"
+        },
+        "position": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "minimum": 0.0,
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        },
+        "signature": {
+          "default": false,
+          "title": "Signature",
+          "type": "boolean"
+        },
+        "size_m": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Size M"
+        },
+        "states": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "title": "States",
+          "type": "array"
+        }
+      },
+      "required": [
+        "key",
+        "kind",
+        "position"
+      ],
+      "title": "WorldElement",
+      "type": "object"
+    },
+    "WorldReference": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "format": "uuid",
+          "title": "Asset Id",
+          "type": "string"
+        },
+        "role": {
+          "pattern": "^(establishing|position:cam_[a-z0-9_]+|element:el_[a-z0-9_]+)$",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "asset_id",
+        "role"
+      ],
+      "title": "WorldReference",
+      "type": "object"
+    },
+    "Zone": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_postures": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Allowed Postures",
+          "type": "array"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "position": {
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "minimum": 0.0,
+              "type": "number"
+            }
+          ],
+          "title": "Position",
+          "type": "array"
+        }
+      },
+      "required": [
+        "key",
+        "label",
+        "position",
+        "allowed_postures"
+      ],
+      "title": "Zone",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "acoustics": {
+      "$ref": "#/$defs/WorldAcoustics"
+    },
+    "background_layouts": {
+      "additionalProperties": {
+        "$ref": "#/$defs/BackgroundLayout"
+      },
+      "title": "Background Layouts",
+      "type": "object"
+    },
+    "camera_positions": {
+      "items": {
+        "$ref": "#/$defs/CameraPosition"
+      },
+      "minItems": 1,
+      "title": "Camera Positions",
+      "type": "array"
+    },
+    "continuity": {
+      "$ref": "#/$defs/Continuity"
+    },
+    "elements": {
+      "items": {
+        "$ref": "#/$defs/WorldElement"
+      },
+      "title": "Elements",
+      "type": "array"
+    },
+    "fingerprints_artifact_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "computed; set when plates are chosen",
+      "title": "Fingerprints Artifact Id"
+    },
+    "geometry": {
+      "$ref": "#/$defs/Geometry"
+    },
+    "kind": {
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+      "title": "Kind",
+      "type": "string"
+    },
+    "lighting": {
+      "$ref": "#/$defs/LightingSpec"
+    },
+    "name": {
+      "minLength": 1,
+      "title": "Name",
+      "type": "string"
+    },
+    "palette": {
+      "items": {
+        "pattern": "^#[0-9a-fA-F]{6}$",
+        "type": "string"
+      },
+      "title": "Palette",
+      "type": "array"
+    },
+    "references": {
+      "items": {
+        "$ref": "#/$defs/WorldReference"
+      },
+      "title": "References",
+      "type": "array"
+    },
+    "style_tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Style Tags",
+      "type": "array"
+    },
+    "time_and_weather": {
+      "$ref": "#/$defs/TimeAndWeather"
+    },
+    "vocab_version": {
+      "minLength": 1,
+      "title": "Vocab Version",
+      "type": "string"
+    },
+    "zones": {
+      "items": {
+        "$ref": "#/$defs/Zone"
+      },
+      "title": "Zones",
+      "type": "array"
+    }
+  },
+  "required": [
+    "vocab_version",
+    "name",
+    "kind",
+    "geometry",
+    "lighting",
+    "time_and_weather",
+    "acoustics",
+    "camera_positions"
+  ],
+  "title": "WorldDNA",
+  "type": "object"
+}

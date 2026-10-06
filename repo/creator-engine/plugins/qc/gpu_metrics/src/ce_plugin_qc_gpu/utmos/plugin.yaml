@@ -1,0 +1,80 @@
+# UTMOSv2 (§39.7: speech quality, MIT). Predicted naturalness MOS of synthetic speech (fusion of a
+# wav2vec 2.0 SSL branch and an EfficientNetV2 spectrogram branch). Fold 0 of the five released
+# checkpoints; the SSL encoder is read from the model cache.
+id: utmos_v2
+name: UTMOSv2 (speech naturalness MOS)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_qc_gpu.adapter:UTMOSAdapter
+test_backend: ce_plugin_qc_gpu.testing:fake_utmos
+capabilities:
+  - id: qc.speech_quality
+    features: [mos]
+runtime:
+  {
+    family: asr,
+    python: "3.11",
+    cuda: "12.8",
+    requires_gpu: false,
+    min_vram_gb: 2,
+    recommended_vram_gb: 4,
+    supports_cpu: true,
+  }
+models:
+  - key: utmosv2
+    display_name: sarulab-speech/UTMOSv2 (fold 0)
+    source: { type: huggingface, repo: sarulab-speech/UTMOSv2, revision: 506474f2b33dc77c234d668cc419be1861899cad }
+    files: [fold0_s42_best_model.pth]
+    license:
+      {
+        name: MIT,
+        url: "https://huggingface.co/sarulab-speech/UTMOSv2/blob/506474f2b33dc77c234d668cc419be1861899cad/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license mit at the pinned revision",
+      }
+    dependencies:
+      - ref: "facebook/wav2vec2-base@0b5b8e868dd84f03fd87d01f9c4ff0f080fecfe8"
+        role: ssl
+        source: { type: huggingface, repo: facebook/wav2vec2-base, revision: 0b5b8e868dd84f03fd87d01f9c4ff0f080fecfe8 }
+        files: [config.json, preprocessor_config.json, pytorch_model.bin]
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://huggingface.co/facebook/wav2vec2-base/blob/0b5b8e868dd84f03fd87d01f9c4ff0f080fecfe8/README.md",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "model_card: license apache-2.0 at the pinned revision",
+          }
+      - ref: "github:sarulab-speech/UTMOSv2@cc2700db57bb83ee13dc31ebe1b868c254e15d09"
+        role: code
+        source:
+          {
+            type: git,
+            repo: "https://github.com/sarulab-speech/UTMOSv2",
+            revision: cc2700db57bb83ee13dc31ebe1b868c254e15d09,
+          }
+        license:
+          {
+            name: MIT,
+            url: "https://github.com/sarulab-speech/UTMOSv2/blob/cc2700db57bb83ee13dc31ebe1b868c254e15d09/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: ddefd7cc91936715d038865d38d5ada0cd42d31916a2583f121dfa94242de76d,
+            evidence: license_file,
+          }
+defaults:
+  num_repetitions: 1
+  min_seconds: 1.0
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 0.05, load_seconds: 10.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run here."

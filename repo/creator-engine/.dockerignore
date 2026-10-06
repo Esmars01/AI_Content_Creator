@@ -1,0 +1,18 @@
+# Keep build contexts small and free of local state and secrets.
+.git
+.env
+.env.*
+!.env.example
+.venv
+**/.venv
+node_modules
+**/node_modules
+.data
+.cache
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+.hypothesis
+apps/web/.next
+*.bundle

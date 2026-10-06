@@ -1,0 +1,7 @@
+# Room acoustics (§19.7, §22). The impulse response is synthetic (scripts/gen_synthetic_assets.py).
+id: small_office
+label: Small home office
+rt60_s: 0.35
+impulse_response: impulse_responses/small_office.wav
+default_ambient: room_tone_light_hvac
+wet_mix: 0.12

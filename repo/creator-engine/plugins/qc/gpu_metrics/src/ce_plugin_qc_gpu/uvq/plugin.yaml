@@ -1,0 +1,53 @@
+# UVQ 1.5 (§39.7: no-reference video quality; FAST-VQA was rejected: S-Lab non-commercial license,
+# DECISIONS D92). Google's Universal Video Quality model in PyTorch; the checkpoints are part of the
+# Apache-2.0 repository (the `uvq` variant of the vision image clones it at the pinned commit).
+# Runs faster than real time on CPU at 1 sampled frame per second (README).
+id: uvq_15
+name: UVQ 1.5 (no-reference video quality)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_qc_gpu.adapter:UVQAdapter
+test_backend: ce_plugin_qc_gpu.testing:fake_uvq
+capabilities:
+  - id: qc.vqa
+    features: [no_reference]
+runtime:
+  {
+    family: vision,
+    python: "3.12",
+    cuda: "12.8",
+    requires_gpu: false,
+    min_vram_gb: 2,
+    recommended_vram_gb: 4,
+    supports_cpu: true,
+  }
+models:
+  - key: uvq-1.5
+    display_name: google/uvq UVQ 1.5 checkpoints (content, distortion, aggregation nets)
+    source: { type: git, repo: "https://github.com/google/uvq", revision: c204ecc04f093e90c941cb126c7ac3d5beca0414 }
+    files:
+      [
+        uvq1p5_pytorch/checkpoints/content_net.pth,
+        uvq1p5_pytorch/checkpoints/distortion_net.pth,
+        uvq1p5_pytorch/checkpoints/aggregation_net.pth,
+      ]
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://github.com/google/uvq/blob/c204ecc04f093e90c941cb126c7ac3d5beca0414/LICENSE",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        text_sha256: cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30,
+        evidence: "license_file of the repository that contains the checkpoints",
+      }
+defaults:
+  code_dir: /opt/upstream/uvq
+  fps: 1
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 0.1, load_seconds: 5.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run here. README: faster than real time on multi-core CPUs at 1 frame per second."

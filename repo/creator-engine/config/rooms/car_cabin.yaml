@@ -1,0 +1,7 @@
+# Room acoustics (§19.7, §22). The impulse response is synthetic (scripts/gen_synthetic_assets.py).
+id: car_cabin
+label: Car cabin
+rt60_s: 0.12
+impulse_response: impulse_responses/car_cabin.wav
+default_ambient: car_cabin
+wet_mix: 0.05

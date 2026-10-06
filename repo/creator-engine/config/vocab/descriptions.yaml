@@ -1,0 +1,628 @@
+# Model-agnostic natural-language descriptions of every vocabulary token (§15.2), with aliases
+# (used to map unknown LLM labels to the nearest token, §13) and descriptor variants (used for
+# anti-repetition between consecutive shots, §15.8). Text-prompted translators and the
+# Director LLM read these; they never contain engine syntax (I1).
+# A plain string is shorthand for {text: ...}. Emotions also carry `vocal`: the same emotion
+# phrased for the voice channel (instruction-following TTS), since `text` describes the face.
+vocab_version: "2026.10.1"
+descriptions:
+  emotion:
+    neutral: {text: "a neutral, relaxed face with no particular emotion", vocal: "an even, neutral tone with no particular emotion", aliases: [plain, flat, expressionless], variants: ["a composed, even expression", "a relaxed resting face"]}
+    confident: {text: "self-assured and at ease, steady eye contact, relaxed authority", vocal: "a self-assured, steady voice with relaxed authority", aliases: [assured, self_assured, sure], variants: ["calm self-assurance", "quiet, steady confidence"]}
+    amused: {text: "lightly entertained, a hint of a smile in the eyes and mouth", vocal: "a lightly amused tone, a smile audible in the voice", aliases: [entertained, tickled], variants: ["quietly entertained", "a playful glint of amusement"]}
+    curious: {text: "interested and inquisitive, attentive and slightly leaning toward the idea", vocal: "an interested, inquisitive tone", aliases: [inquisitive, intrigued, interested], variants: ["open, interested attention", "an inquisitive spark"]}
+    excited: {text: "energized and enthusiastic, animated face and lively delivery", vocal: "an energized, enthusiastic voice with lively intonation", aliases: [enthusiastic, thrilled, energetic, hyped], variants: ["bright, animated enthusiasm", "eager, lively energy"]}
+    serious: {text: "earnest and focused, steady gaze, no smile", vocal: "an earnest, focused tone", aliases: [earnest, grave, solemn], variants: ["focused earnestness", "a sober, steady expression"]}
+    skeptical: {text: "doubtful and unconvinced, a slight squint or raised brow", vocal: "a doubtful, unconvinced tone", aliases: [doubtful, unconvinced, suspicious], variants: ["a measured, doubtful look", "quiet disbelief"]}
+    uncertain: {text: "unsure of the answer, searching, slightly hesitant", vocal: "an unsure, tentative tone", aliases: [unsure, doubting_self], variants: ["searching uncertainty", "a tentative, unsure look"]}
+    hesitant: {text: "reluctant to commit, holding back, pauses before speaking", vocal: "a reluctant, holding-back voice", aliases: [reluctant, tentative], variants: ["guarded reluctance", "a careful, holding-back manner"]}
+    confused: {text: "puzzled, trying to make sense of something", vocal: "a puzzled tone, as if working something out", aliases: [puzzled, perplexed, baffled], variants: ["a puzzled frown", "visible bewilderment"]}
+    surprised: {text: "taken aback by something unexpected, eyes widening", vocal: "a taken-aback tone, as if hearing something unexpected", aliases: [astonished, startled, shocked], variants: ["sudden astonishment", "a startled reaction"]}
+    embarrassed: {text: "self-conscious and a little awkward, glancing away", vocal: "a self-conscious, slightly awkward voice", aliases: [sheepish, awkward, abashed], variants: ["sheepish self-consciousness", "a flustered, awkward look"]}
+    frustrated: {text: "annoyed at an obstacle, tense jaw, clipped delivery", vocal: "an annoyed, clipped tone", aliases: [annoyed, exasperated, irritated], variants: ["exasperated tension", "contained annoyance"]}
+    angry: {text: "openly angry, tense face, forceful delivery", vocal: "an openly angry, forceful voice", aliases: [furious, mad, outraged], variants: ["hot, forceful anger", "barely held fury"]}
+    sad: {text: "downcast and low in energy, softened face", vocal: "a low, downcast voice", aliases: [unhappy, sorrowful, down], variants: ["quiet sadness", "a heavy, downcast look"]}
+    calm: {text: "peaceful and unhurried, relaxed face and body", vocal: "a peaceful, unhurried voice", aliases: [serene, relaxed, tranquil], variants: ["unhurried calm", "a settled, peaceful presence"]}
+    warm: {text: "friendly and caring, soft eyes and a gentle smile", vocal: "a friendly, caring voice", aliases: [friendly, kind, caring, affectionate], variants: ["gentle friendliness", "open, caring warmth"]}
+    sarcastic: {text: "mockingly ironic, saying one thing and meaning another", vocal: "a mockingly ironic tone", aliases: [ironic, mocking, wry], variants: ["dry irony", "a knowing, mocking tone"]}
+    determined: {text: "resolved and committed, firm jaw and direct gaze", vocal: "a firm, resolved voice", aliases: [resolute, resolved, firm], variants: ["firm resolve", "steely determination"]}
+    relieved: {text: "tension released after a worry passes", vocal: "a relieved, released tone", aliases: [unburdened, eased], variants: ["a released breath of relief", "visible relief"]}
+    concerned: {text: "worried about something, attentive and slightly tense", vocal: "a worried, slightly tense tone", aliases: [worried, anxious, troubled], variants: ["careful concern", "a worried attentiveness"]}
+    playful: {text: "light-hearted and teasing, mischievous energy", vocal: "a light-hearted, teasing tone", aliases: [teasing, mischievous, cheeky], variants: ["light, teasing mischief", "a cheeky playfulness"]}
+  emotion_family:
+    neutral: "emotions without strong valence"
+    positive_high: "positive, high-arousal emotions"
+    positive_low: "positive, low-arousal emotions"
+    negative_high: "negative, high-arousal emotions"
+    negative_low: "negative, low-arousal emotions"
+    cognitive: "thinking-related states such as curiosity or doubt"
+    social: "emotions about the relationship with the audience"
+  situation_kind:
+    contradicting_the_audience: "the creator challenges something the audience probably believes"
+    persuading_skeptic: "the creator tries to win over a doubtful audience"
+    explaining_concept: "the creator explains how something works"
+    telling_story: "the creator narrates a story or anecdote"
+    recalling_memory: "the creator remembers something from their past"
+    reacting_to_clip: "the creator reacts to a clip shown on screen"
+    sharing_opinion: "the creator gives a personal opinion"
+    giving_instructions: "the creator walks the viewer through steps"
+    revealing_result: "the creator reveals an outcome or answer"
+    confessing: "the creator admits something personal or embarrassing"
+    announcing_news: "the creator announces news or an update"
+    comparing_options: "the creator weighs two or more options"
+    answering_question: "the creator answers a question from the audience"
+    calling_to_action: "the creator asks the viewer to do something"
+    greeting_audience: "the creator opens by greeting the viewer"
+  audience_stance:
+    neutral: "the audience has no strong view yet"
+    agrees_with_misconception: "the audience currently believes the misconception being addressed"
+    skeptical: "the audience doubts the creator's claim"
+    curious: "the audience wants to know more"
+    uninformed: "the audience knows little about the topic"
+    hostile: "the audience disagrees strongly"
+    supportive: "the audience already agrees with the creator"
+    distracted: "the audience's attention is elsewhere and must be won"
+  stimulus_kind:
+    element: "an object or feature of the world the creator reacts to"
+    clip: "a video clip the creator reacts to"
+    statement: "something said, quoted or read out"
+    memory: "something the creator remembers"
+  internal_state:
+    amused_certainty: "knows the belief is wrong and finds it a little funny"
+    deliberate_reveal: "drops the act on purpose to make the turn land"
+    doubt_about_reception: "unsure how the audience will take what comes next"
+    determined: "has decided to push through and make the point"
+    embarrassed_recall: "remembering something mildly embarrassing"
+    quiet_confidence: "calmly sure of the point without needing to prove it"
+    eager_to_share: "can't wait to tell the viewer something"
+    genuine_curiosity: "honestly wondering about the question"
+    mild_irritation: "slightly annoyed by a common mistake"
+    nervous_anticipation: "a little nervous about what is coming"
+    relieved_resolution: "relieved that the problem is solved"
+    focused_explanation: "concentrating on explaining clearly"
+    playful_mischief: "enjoying teasing the viewer"
+    sincere_concern: "genuinely worried for the viewer"
+    growing_conviction: "becoming more convinced while speaking"
+    surprised_recognition: "suddenly recognizing something unexpected"
+    reflective: "thinking back and weighing what it means"
+    uncertain_search: "searching for the right answer or words"
+  social_goal:
+    build_rapport: "make the viewer feel like a friend"
+    establish_authority: "come across as someone who knows"
+    win_trust: "earn the viewer's trust"
+    entertain: "make the moment fun"
+    reassure: "make the viewer feel safe"
+    challenge: "push the viewer to rethink"
+    empathize: "show understanding of the viewer's situation"
+    inform: "pass on information clearly"
+    persuade: "change the viewer's mind"
+    apologize: "take responsibility for something"
+    celebrate: "share a happy outcome"
+  audience_goal:
+    make_viewer_nod_along: "the viewer agrees, nodding along"
+    create_doubt: "the viewer starts to doubt what they believed"
+    spark_curiosity: "the viewer wants to know more"
+    make_viewer_laugh: "the viewer laughs or smiles"
+    make_viewer_feel_understood: "the viewer feels seen"
+    make_viewer_act: "the viewer takes an action"
+    make_viewer_remember: "the viewer remembers the point"
+    calm_viewer: "the viewer relaxes"
+    surprise_viewer: "the viewer is surprised"
+    convince_viewer: "the viewer is convinced"
+  performance_intent:
+    mock_agreement: "pretends to agree before undercutting"
+    undercut_belief: "knocks down the belief just stated"
+    build_case: "lays out reasons one by one"
+    tell_with_suspense: "tells it slowly to build suspense"
+    explain_plainly: "explains simply and directly"
+    confess: "admits something candidly"
+    tease: "hints at something without revealing it"
+    celebrate_result: "shares a result with joy"
+    warn: "warns the viewer about a risk"
+    invite_action: "invites the viewer to act"
+    react_genuinely: "reacts naturally to what is happening"
+    reflect: "thinks aloud about the meaning"
+  strategy.prosody:
+    assertive: {text: "firm, confident delivery with clear stresses", variants: ["firm and clear", "confident, punchy delivery"]}
+    assertive_light: {text: "confident but light and conversational delivery", variants: ["easy, light confidence", "breezy assurance"]}
+    slow_measured: {text: "slower, deliberate pacing with weight on key words", variants: ["slow and deliberate", "measured, weighty pacing"]}
+    hesitant_with_pauses: {text: "halting delivery with small pauses and restarts", variants: ["halting and careful", "stop-start, unsure delivery"]}
+    controlled_even: {text: "even, controlled delivery with little variation", variants: ["level and controlled", "steady, even tone"]}
+    playful_rising: {text: "bouncy delivery with rising, playful intonation", variants: ["bouncy and playful", "light, rising intonation"]}
+    urgent_fast: {text: "fast, urgent delivery with forward momentum", variants: ["quick and urgent", "pressing, fast pace"]}
+    deadpan: {text: "flat, dry delivery that hides the joke", variants: ["dry and flat", "straight-faced delivery"]}
+    whispered_aside: {text: "a softer, confidential aside, close to a whisper", variants: ["hushed aside", "confidential near-whisper"]}
+  strategy.gaze:
+    hold_camera: {text: "keeps eye contact with the camera", variants: ["steady eye contact", "looks straight into the lens"]}
+    glance_away_and_return: {text: "briefly looks away, then returns to the camera", variants: ["a quick glance off and back", "looks aside, then back to the lens"]}
+    look_down_thinking: {text: "looks down while thinking", variants: ["eyes drop in thought", "glances down, considering"]}
+    side_glance: {text: "a sideways look, as if doubting or sharing a secret", variants: ["a sidelong look", "eyes slide to the side"]}
+    avoid_camera: {text: "avoids looking at the camera", variants: ["eyes kept off the lens", "looks anywhere but the camera"]}
+  strategy.gesture:
+    still: {text: "hands mostly still and relaxed", variants: ["calm, still hands", "minimal hand movement"]}
+    illustrative_light: {text: "small hand gestures that illustrate the words", variants: ["light illustrative gestures", "small, natural hand movement"]}
+    illustrative_strong: {text: "large, expressive gestures that illustrate the words", variants: ["big, expressive gestures", "broad illustrative hand movement"]}
+    emphatic_beats: {text: "rhythmic hand beats on stressed words", variants: ["hand beats on key words", "punctuating gestures"]}
+    self_soothing: {text: "self-touching gestures such as rubbing hands or touching the neck", variants: ["nervous self-touching", "fidgeting hands"]}
+  strategy.posture:
+    seated_upright: {text: "sitting upright and alert", variants: ["sitting tall", "upright, alert seated posture"]}
+    seated_relaxed: {text: "sitting comfortably, leaning back slightly", variants: ["relaxed in the seat", "comfortably settled"]}
+    seated_lean_in: {text: "sitting and leaning toward the camera", variants: ["leaning in from the seat", "seated, drawn toward the viewer"]}
+    seated_withdrawn: {text: "sitting slightly hunched or pulled back", variants: ["pulled back in the seat", "slightly hunched"]}
+    standing_upright: {text: "standing tall and balanced", variants: ["standing straight", "upright stance"]}
+    standing_relaxed: {text: "standing loosely with weight on one leg", variants: ["easy standing posture", "loose, relaxed stance"]}
+    standing_lean_in: {text: "standing and leaning toward the camera", variants: ["leaning in while standing", "standing, drawn forward"]}
+    standing_withdrawn: {text: "standing with shoulders pulled in", variants: ["closed standing posture", "shoulders drawn in"]}
+  strategy.reaction:
+    none: "no visible reaction"
+    suppressed: "a reaction held back, only a small leak shows"
+    open: "a natural, visible reaction"
+    slow_burn: "a reaction that builds slowly"
+    exaggerated: "an overplayed, comedic reaction"
+  strategy.camera_awareness:
+    direct_address: "talks directly to the viewer through the camera"
+    aside_to_camera: "a brief aside to the camera, as if sharing a secret"
+    ignores_camera: "acts as if no camera is present"
+    breaks_fourth_wall: "openly acknowledges the camera or the video itself"
+  attention_target:
+    camera: "the camera, i.e. the viewer"
+    off_camera_person: "a person outside the frame"
+    notes: "notes or a script in hand or on the desk"
+    self: "inward attention, lost in thought"
+  attention_target_kind:
+    camera: "the camera"
+    element: "a world element, addressed by its el_ key"
+    off_camera_person: "a person outside the frame"
+    notes: "notes or a script"
+    self: "inward attention"
+  transition_style:
+    sudden: "the change happens at once"
+    gradual: "the change happens over several words"
+    lagged: "the change shows a beat after its trigger"
+  trigger_kind:
+    realization: "the character realizes something"
+    stimulus: "something in the scene provokes the change"
+    memory_recall: "a memory comes back"
+    interruption: "something interrupts"
+    audience_reaction: "an imagined audience reaction"
+    punchline: "a joke lands"
+    topic_shift: "the topic changes"
+    self_correction: "the character corrects themselves"
+  annotation_tag.pause:
+    beat: "a very short pause of about 150 ms"
+    short_pause: "a short pause of about 300 ms"
+    medium_pause: "a medium pause of about 600 ms"
+    long_pause: "a long pause of a second or more"
+  annotation_tag.emphasis:
+    emphasize: "stress this word"
+    stress_strong: "stress this word strongly"
+    de_emphasize: "say this word lightly, throwaway"
+  annotation_tag.nonverbal_audio:
+    laugh: "an audible laugh"
+    light_laugh: "a short, light laugh"
+    chuckle: "a quiet chuckle"
+    sigh: "an audible sigh"
+    breath: "an audible breath"
+    gasp: "a sharp intake of breath"
+  annotation_tag.delivery:
+    whisper: "whispered"
+    aside: "said as an aside, lower and quicker"
+    softer: "said more softly"
+    louder: "said more loudly"
+  annotation_tag.pronunciation:
+    respell: "pronounce as the given respelling"
+  annotation_tag.inserted_disfluency:
+    filler: "a filler word such as 'um' or 'like', inserted for naturalness"
+    false_start: "a false start that restarts the sentence"
+    repetition: "a natural repetition of a word"
+  camera.framing:
+    extreme_close_up: "eyes or mouth fill the frame"
+    close_up: "face fills the frame"
+    medium_close_up: "head and shoulders"
+    medium: "waist up"
+    medium_wide: "knees or hips up with some room around"
+    wide: "full body and surroundings"
+    insert: "a close detail of an object"
+    over_the_shoulder: "from behind one person toward another or a screen"
+    screen_full: "a screen recording fills the frame"
+  camera.angle:
+    eye_level: "camera at eye height"
+    high: "camera above, looking down"
+    low: "camera below, looking up"
+    dutch: "camera tilted on its axis"
+    top_down: "camera straight above"
+  camera.move_type:
+    punch_in: "a cut or quick scale-in to a tighter frame"
+    punch_out: "a cut or quick scale-out to a wider frame"
+    push_in: "a slow move toward the subject"
+    pull_out: "a slow move away from the subject"
+    pan: "a horizontal turn"
+    tilt: "a vertical turn"
+    handheld_drift: "subtle handheld movement"
+    whip: "a fast blurred turn"
+    static_hold: "the frame holds still"
+  camera.transition:
+    cut: "an instant change"
+    smooth: "an eased change over a few frames"
+    whip: "a whip transition"
+    crossfade: "a dissolve between two frames"
+  persona.humor_style:
+    none: "rarely jokes"
+    dry: "understated, deadpan humor"
+    playful: "light, teasing humor"
+    self_deprecating: "jokes at their own expense"
+    observational: "humor about everyday situations"
+    absurd: "surreal, absurd humor"
+    sarcastic: "ironic, biting humor"
+    wholesome: "gentle, kind humor"
+  persona.conversational_style:
+    casual: "relaxed, everyday speech"
+    professional: "polished, businesslike speech"
+    storytelling: "narrative, anecdote-driven speech"
+    teacherly: "patient, explanatory speech"
+    friendly_peer: "speaks like a friend at the same level"
+    energetic_host: "high-energy presenter style"
+    calm_expert: "calm, knowledgeable expert style"
+  persona.vocabulary_level:
+    simple: "everyday words, short sentences"
+    conversational: "natural spoken vocabulary"
+    technical: "domain terms used freely"
+    academic: "formal, precise vocabulary"
+  persona.sentence_structure:
+    short_punchy: "short, punchy sentences"
+    balanced: "a mix of short and longer sentences"
+    long_flowing: "long, flowing sentences"
+    rhetorical_questions: "frequent rhetorical questions"
+  persona.speech_rate_preference:
+    slow: "speaks slower than average"
+    average: "speaks at an average rate"
+    fast: "speaks faster than average"
+  persona.frequency:
+    rarely: "rarely"
+    sometimes: "sometimes"
+    often: "often"
+    always: "nearly always"
+  persona.escalation_style:
+    gradual: "emotion changes gradually"
+    sudden: "emotion changes suddenly"
+    contained: "emotion stays contained"
+  persona.confidence_pattern:
+    steady: "confidence stays steady"
+    rising: "confidence rises over a video"
+    falling: "confidence drops over a video"
+    fluctuating: "confidence goes up and down"
+  persona.hand:
+    left: "prefers the left hand"
+    right: "prefers the right hand"
+    both: "uses both hands equally"
+  persona.camera_distance:
+    close: "close to the camera"
+    medium: "at a medium distance from the camera"
+    far: "far from the camera"
+  persona.selfie_behavior:
+    handheld_selfie: "films a handheld selfie"
+    propped_phone: "props the phone up and talks to it"
+    desk_camera: "talks to a desk camera or webcam"
+    filmed_by_other: "is filmed by someone else"
+  persona.movement_preference:
+    static: "a static camera"
+    subtle_handheld: "subtle handheld camera movement"
+    dynamic: "lots of camera movement"
+  event_type:
+    look_away: {text: "briefly looks away from the camera", aliases: [glance_away, look_off]}
+    glance_at_element: "glances at an object in the room"
+    look_down: "looks down"
+    glance_at_camera: "a quick glance into the camera"
+    small_smile: {text: "a small, brief smile", aliases: [slight_smile, half_smile]}
+    broad_smile: {text: "a broad, open smile", aliases: [big_smile, grin]}
+    eyebrow_raise: {text: "raises the eyebrows", aliases: [raised_brow, brow_raise]}
+    frown: "a brief frown"
+    squint: "narrows the eyes"
+    lip_press: "presses the lips together"
+    smirk: "a one-sided smile"
+    wince: "a quick wince"
+    slow_blink: "a slow, deliberate blink"
+    nod: {text: "nods", aliases: [head_nod]}
+    head_shake: {text: "shakes the head", aliases: [shake_head]}
+    head_tilt: "tilts the head to one side"
+    open_palms: "shows open palms"
+    count_on_fingers: "counts points on the fingers"
+    shrug: "shrugs the shoulders"
+    point_offscreen: "points at something outside the frame"
+    hand_to_chest: "puts a hand on the chest"
+    finger_steeple: "presses the fingertips together"
+    wave: "waves"
+    thumbs_up: "gives a thumbs up"
+    finger_point_at_camera: "points a finger at the camera"
+    lean_in: "leans toward the camera"
+    lean_back: "leans back"
+    sit_up: "sits up straighter"
+    slump: "slumps"
+    shift_weight: "shifts weight or position"
+    small_laugh: {text: "a small, quick laugh", aliases: [little_laugh, chuckle_reaction]}
+    double_take: "a quick double take"
+    sigh: "a visible sigh"
+    gasp: "a visible gasp"
+    eye_roll: "rolls the eyes"
+    attentive_listen: "listens attentively without speaking"
+  direction:
+    left: "to the left"
+    right: "to the right"
+    up: "upward"
+    down: "downward"
+    down_left: "down and to the left"
+    down_right: "down and to the right"
+    up_left: "up and to the left"
+    up_right: "up and to the right"
+    toward_camera: "toward the camera"
+    away_from_camera: "away from the camera"
+  event_purpose:
+    thinking: "shows the character is thinking"
+    knowing: "shows the character knows more than they say"
+    emphasis: "underlines a point"
+    transition: "marks a change of state"
+    reaction: "reacts to something"
+    recall: "shows remembering"
+    invitation: "invites the viewer in"
+    warmth: "shows warmth"
+    doubt: "shows doubt"
+    humor: "lands a joke"
+  dimension:
+    emotion_visual: "emotion visible on the face and body"
+    emotion_vocal: "emotion audible in the voice"
+    facial_expression: "discrete facial expressions such as smiles and brow raises"
+    gaze: "where the eyes look"
+    blink: "blinking"
+    head_motion: "head movement such as nods and tilts"
+    gesture: "hand and arm gestures"
+    posture: "body posture"
+    camera_awareness: "how the character relates to the camera"
+    reaction: "reactions to stimuli"
+    listening: "behavior while not speaking"
+    nonverbal_audio: "non-verbal sounds such as laughs and sighs"
+    delivery: "delivery modes such as whisper or aside"
+    prosody_rate: "speech rate"
+    prosody_pitch: "pitch and intonation"
+    prosody_energy: "vocal energy and loudness"
+    prosody_emphasis: "stress on words"
+    prosody_pause: "pauses in speech"
+    accent: "accent and pronunciation"
+  engine_property:
+    segment_control: "the engine accepts behavior changes within one shot"
+    prosody_coupling: "facial motion follows the voice prosody"
+    continuity: "chunks continue seamlessly from previous frames"
+    object_interaction: "the engine can show handling of objects"
+    multi_person: "the engine can render more than one person"
+    temporal_control: "the engine can time behavior to the word"
+  intent.narrative_goal:
+    challenge_common_belief: "challenge something most people believe"
+    establish_credibility: "show why the creator should be trusted"
+    explain_mechanism: "explain how something works"
+    tell_anecdote: "tell a short personal story"
+    show_example: "show a concrete example"
+    contrast_options: "contrast two or more options"
+    reveal_payoff: "deliver the payoff promised earlier"
+    call_to_action: "ask the viewer to act"
+  intent.emotional_goal:
+    create_doubt_then_reveal: "raise doubt, then resolve it with a reveal"
+    build_excitement: "build excitement"
+    reassure: "reassure the viewer"
+    provoke: "provoke a reaction"
+    amuse: "amuse the viewer"
+    inspire: "inspire the viewer"
+    sober_reflection: "invite sober reflection"
+  intent.audience_effect:
+    curiosity: "the viewer becomes curious"
+    doubt: "the viewer starts doubting"
+    trust: "the viewer trusts the creator"
+    amusement: "the viewer is amused"
+    urgency: "the viewer feels urgency"
+    surprise: "the viewer is surprised"
+    insight: "the viewer gains an insight"
+    reassurance: "the viewer feels reassured"
+  intent.persuasion_goal:
+    none: "no persuasion"
+    reframe_mental_model: "change how the viewer thinks about the topic"
+    build_trust: "build trust"
+    create_urgency: "create urgency to act"
+    overcome_objection: "answer an objection"
+    social_proof: "show that others agree or use it"
+  intent.information_goal:
+    none: "no specific information"
+    state_misconception: "state the misconception"
+    define_concept: "define a concept"
+    explain_steps: "explain steps"
+    give_example: "give an example"
+    compare: "compare options"
+    summarize: "summarize"
+  intent.attention_goal:
+    pattern_interrupt: "break the viewer's scroll with something unexpected"
+    sustain: "keep attention steady"
+    delay_payoff: "hold back the answer to keep the viewer watching"
+    build_suspense: "build suspense"
+    re_engage: "win back drifting attention"
+    release: "release tension"
+  intent.reveal_strategy:
+    immediate_answer: "give the answer right away"
+    tease_then_reveal: "tease the answer, then reveal it"
+    open_loop: "open a question and close it later"
+    slow_build: "build toward the answer slowly"
+    callback: "reveal by calling back to something earlier"
+  intent.performance_strategy:
+    start_confident_then_lower_energy: "start confident, then drop the energy for the turn"
+    build_from_calm_to_urgent: "start calm and build to urgency"
+    deadpan_then_crack: "stay deadpan, then break into a smile or laugh"
+    warm_confessional: "warm, candid, confessional throughout"
+    skeptic_converted: "start skeptical and become convinced"
+  intent.cta_goal:
+    none: "no call to action"
+    follow: "follow the creator"
+    follow_for_series: "follow for the next part of a series"
+    comment: "leave a comment"
+    save: "save the video"
+    share: "share the video"
+    click_link: "click a link"
+  intent.scene_purpose:
+    hook: "the opening hook"
+    setup: "sets up the topic"
+    context: "gives background"
+    problem: "states the problem"
+    explanation: "explains"
+    example: "gives an example"
+    story: "tells a story"
+    turn: "turns the argument"
+    reveal: "reveals the answer"
+    payoff: "delivers the payoff"
+    summary: "summarizes"
+    cta: "the call to action"
+    outro: "closes the video"
+  memory_category:
+    speech_habit: "how the creator speaks"
+    reaction_habit: "how the creator typically reacts"
+    gesture_habit: "how the creator moves their hands, head and body"
+    emotional_tendency: "the creator's emotional tendencies"
+    gaze_habit: "where and how the creator looks"
+    camera_habit: "how the creator relates to the camera"
+    social_behavior: "the creator's social style"
+    avoidance: "things the creator never does or says"
+    persona_fact: "facts about the creator's life"
+    stance: "the creator's positions on topics"
+    preference: "learned user preferences for this creator"
+    rejected_pattern: "patterns the user rejected"
+  memory_kind:
+    speech_habit.vocabulary_level: "the creator's vocabulary level"
+    speech_habit.recurring_phrase: "a phrase the creator uses repeatedly"
+    speech_habit.sentence_structure: "the creator's typical sentence structure"
+    speech_habit.filler_tendency: "which filler words the creator uses and how often"
+    speech_habit.transition_phrase: "a phrase the creator uses to move between points"
+    speech_habit.pronunciation_pattern: "how the creator pronounces a term"
+    speech_habit.humor_style: "the creator's humor style"
+    reaction_habit.surprise: "how the creator shows surprise"
+    reaction_habit.laughter: "how the creator laughs"
+    reaction_habit.hesitation: "how the creator shows hesitation"
+    reaction_habit.skepticism: "how the creator shows skepticism"
+    reaction_habit.excitement: "how the creator shows excitement"
+    reaction_habit.frustration: "how the creator shows frustration"
+    gesture_habit.common_gesture: "a gesture the creator often uses"
+    gesture_habit.gesture_density: "how much the creator gestures"
+    gesture_habit.preferred_hand: "which hand the creator prefers"
+    gesture_habit.head_movement: "how much the creator moves their head"
+    gesture_habit.posture: "the creator's usual posture"
+    emotional_tendency.baseline_mood: "the creator's baseline mood"
+    emotional_tendency.emotional_range: "the range of an emotion the creator shows"
+    emotional_tendency.escalation: "how the creator's emotion escalates"
+    emotional_tendency.deescalation: "how the creator's emotion calms down"
+    emotional_tendency.confidence_pattern: "how the creator's confidence moves"
+    gaze_habit.eye_contact_ratio: "how much the creator looks into the camera"
+    gaze_habit.thinking_glance: "where the creator looks while thinking"
+    gaze_habit.look_away_frequency: "how often the creator looks away"
+    camera_habit.framing_preference: "the creator's preferred framing"
+    camera_habit.camera_distance: "the creator's usual distance from the camera"
+    camera_habit.selfie_behavior: "how the creator films themself"
+    camera_habit.movement_preference: "the creator's preferred camera movement"
+    social_behavior.directness: "how direct the creator is"
+    social_behavior.warmth: "how warm the creator is"
+    social_behavior.sarcasm: "how sarcastic the creator is"
+    social_behavior.seriousness: "how serious the creator is"
+    social_behavior.conversational_style: "the creator's conversational style"
+    avoidance.gesture: "a gesture the creator never makes"
+    avoidance.emotional_state: "an emotion the creator never shows above an intensity"
+    avoidance.camera_behavior: "a camera behavior the creator avoids"
+    avoidance.wardrobe: "clothing the creator avoids"
+    avoidance.world: "settings the creator avoids"
+    avoidance.phrase: "a phrase the creator never says"
+    avoidance.topic: "a topic the creator avoids"
+    persona_fact: "a fact about the creator's life"
+    stance: "the creator's position on a topic"
+    preference: "a learned adjustment for this creator"
+    rejected_pattern: "a pattern the user rejected"
+  rejected_pattern_kind:
+    hook: "a rejected hook"
+    phrase: "a rejected phrase"
+    take_behavior: "rejected behavior in a take"
+    visual: "a rejected visual pattern"
+    proposal: "a rejected edit proposal"
+  world_kind:
+    home_office: "a home office"
+    bedroom: "a bedroom"
+    studio: "a creator studio"
+    kitchen: "a kitchen"
+    living_room: "a living room"
+    cafe: "a cafe"
+    car_interior: "the inside of a car"
+    outdoor_location: "an outdoor location"
+    office: "an office"
+    podcast_studio: "a podcast studio"
+    classroom: "a classroom"
+    workshop: "a workshop"
+  element_kind:
+    furniture: "furniture such as a desk, chair or shelf"
+    prop: "a small movable object"
+    fixture: "a fixed installation"
+    window: "a window"
+    light: "a light source"
+    screen: "a screen or monitor"
+    plant: "a plant"
+    decor: "decoration"
+  element_state:
+    "on": "switched on"
+    "off": "switched off"
+    open: "open"
+    closed: "closed"
+    lit: "lit"
+    unlit: "unlit"
+    tidy: "tidy"
+    messy: "messy"
+    empty: "empty"
+    full: "full"
+  hand_space:
+    desk_surface: "hands rest on a desk"
+    table: "hands rest on a table"
+    lap: "hands rest in the lap"
+    counter: "hands rest on a counter"
+    none: "no surface for the hands"
+  ambient_profile:
+    room_tone_light_hvac: "quiet room tone with light ventilation"
+    room_tone_quiet: "very quiet room tone"
+    street_distant: "distant street noise"
+    cafe_murmur: "cafe chatter"
+    birds_outside: "birds outside"
+    rain_on_window: "rain on the window"
+    car_cabin: "car cabin hum"
+    kitchen_appliances: "kitchen appliance hum"
+  continuity_ref_kind:
+    world_plate: "match the canonical world plate"
+    shot: "match a shot from another video"
+    asset: "match an uploaded reference image"
+  reference_role:
+    establishing: "an establishing view of the world"
+    position: "a view from one camera position"
+    element: "a reference for one element"
+  lock_group:
+    script: "the wording of the script"
+    voice: "the voice and its delivered audio"
+    appearance: "the creator's look"
+    wardrobe: "the outfits"
+    world: "the world binding of a scene"
+    acting: "the acting plan"
+    intent: "the intent"
+    camera: "camera profiles, framing and moves"
+    music: "the music"
+    sfx: "the sound effects"
+    broll: "the B-roll"
+    captions: "the captions"
+    product: "the products"
+  regenerate_component:
+    voice: "re-synthesize the speech"
+    keyframe: "re-create a talking shot's keyframe"
+    avatar_video: "re-render a talking shot"
+    background: "a new plate variation of the same world binding"
+    world_plate: "re-create the plate from the canonical one"
+    broll: "re-generate B-roll"
+    camera_post: "re-run camera post-processing"
+    acting: "re-plan the acting (needs the Director)"
+    music: "re-generate the music"
+    sfx: "re-generate the sound effects"
+    captions: "rebuild the captions"
+    lipsync: "re-run the lip-sync patch"
+migrations: []

@@ -1,0 +1,279 @@
+{
+  "engine": {
+    "encoded": [
+      {
+        "control": "native",
+        "dimension": "emotion_visual",
+        "end_s": 2.69,
+        "intensity": 0.6,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/emotion",
+        "label": "confident",
+        "method": "native_segment",
+        "start_s": 0.1
+      },
+      {
+        "control": "native",
+        "dimension": "gaze",
+        "end_s": 2.69,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/gaze",
+        "label": "hold_camera",
+        "method": "native_parametric",
+        "start_s": 0.1
+      },
+      {
+        "control": "text",
+        "dimension": "gesture",
+        "end_s": 2.69,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/gesture",
+        "label": "illustrative_light",
+        "method": "text_prompt_segment",
+        "start_s": 0.1
+      },
+      {
+        "control": "native",
+        "dimension": "posture",
+        "end_s": 2.69,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/posture",
+        "label": "seated_upright",
+        "method": "native_segment",
+        "start_s": 0.1
+      },
+      {
+        "control": "native",
+        "dimension": "reaction",
+        "end_s": 2.69,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/reaction",
+        "label": "suppressed",
+        "method": "native_segment",
+        "start_s": 0.1
+      },
+      {
+        "control": "native",
+        "dimension": "camera_awareness",
+        "end_s": 2.69,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/camera_awareness",
+        "label": "direct_address",
+        "method": "native_segment",
+        "start_s": 0.1
+      },
+      {
+        "control": "native",
+        "dimension": "emotion_visual",
+        "end_s": 4.67,
+        "intensity": 0.6,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/emotion",
+        "label": "serious",
+        "method": "native_segment",
+        "start_s": 2.74
+      },
+      {
+        "control": "native",
+        "dimension": "gaze",
+        "end_s": 4.67,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/gaze",
+        "label": "glance_away_and_return",
+        "method": "native_parametric",
+        "start_s": 2.74
+      },
+      {
+        "control": "text",
+        "dimension": "gesture",
+        "end_s": 4.67,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/gesture",
+        "label": "still",
+        "method": "text_prompt_segment",
+        "start_s": 2.74
+      },
+      {
+        "control": "native",
+        "dimension": "posture",
+        "end_s": 4.67,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/posture",
+        "label": "seated_lean_in",
+        "method": "native_segment",
+        "start_s": 2.74
+      },
+      {
+        "control": "native",
+        "dimension": "reaction",
+        "end_s": 4.67,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/reaction",
+        "label": "none",
+        "method": "native_segment",
+        "start_s": 2.74
+      },
+      {
+        "control": "native",
+        "dimension": "camera_awareness",
+        "end_s": 4.67,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/camera_awareness",
+        "label": "direct_address",
+        "method": "native_segment",
+        "start_s": 2.74
+      },
+      {
+        "control": "native",
+        "dimension": "gaze",
+        "end_s": 4.1,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/events[ev_1]",
+        "label": "look_away:down_left",
+        "method": "native_parametric",
+        "start_s": 3.4
+      }
+    ],
+    "events": [
+      {
+        "control": "native",
+        "dimension": "gaze",
+        "end_s": 2.69,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/gaze",
+        "label": "hold_camera",
+        "method": "native_parametric",
+        "start_s": 0.1
+      },
+      {
+        "control": "native",
+        "dimension": "gaze",
+        "end_s": 4.67,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/gaze",
+        "label": "glance_away_and_return",
+        "method": "native_parametric",
+        "start_s": 2.74
+      },
+      {
+        "control": "native",
+        "dimension": "gaze",
+        "end_s": 4.1,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/events[ev_1]",
+        "label": "look_away:down_left",
+        "method": "native_parametric",
+        "start_s": 3.4
+      }
+    ],
+    "segments": [
+      {
+        "control": "native",
+        "dimension": "emotion_visual",
+        "end_s": 2.69,
+        "intensity": 0.6,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/emotion",
+        "label": "confident",
+        "method": "native_segment",
+        "start_s": 0.1
+      },
+      {
+        "control": "text",
+        "dimension": "gesture",
+        "end_s": 2.69,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/gesture",
+        "label": "illustrative_light",
+        "method": "text_prompt_segment",
+        "start_s": 0.1
+      },
+      {
+        "control": "native",
+        "dimension": "posture",
+        "end_s": 2.69,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/posture",
+        "label": "seated_upright",
+        "method": "native_segment",
+        "start_s": 0.1
+      },
+      {
+        "control": "native",
+        "dimension": "reaction",
+        "end_s": 2.69,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/reaction",
+        "label": "suppressed",
+        "method": "native_segment",
+        "start_s": 0.1
+      },
+      {
+        "control": "native",
+        "dimension": "camera_awareness",
+        "end_s": 2.69,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/camera_awareness",
+        "label": "direct_address",
+        "method": "native_segment",
+        "start_s": 0.1
+      },
+      {
+        "control": "native",
+        "dimension": "emotion_visual",
+        "end_s": 4.67,
+        "intensity": 0.6,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/emotion",
+        "label": "serious",
+        "method": "native_segment",
+        "start_s": 2.74
+      },
+      {
+        "control": "text",
+        "dimension": "gesture",
+        "end_s": 4.67,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/gesture",
+        "label": "still",
+        "method": "text_prompt_segment",
+        "start_s": 2.74
+      },
+      {
+        "control": "native",
+        "dimension": "posture",
+        "end_s": 4.67,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/posture",
+        "label": "seated_lean_in",
+        "method": "native_segment",
+        "start_s": 2.74
+      },
+      {
+        "control": "native",
+        "dimension": "reaction",
+        "end_s": 4.67,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/reaction",
+        "label": "none",
+        "method": "native_segment",
+        "start_s": 2.74
+      },
+      {
+        "control": "native",
+        "dimension": "camera_awareness",
+        "end_s": 4.67,
+        "intensity": 0.5,
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/camera_awareness",
+        "label": "direct_address",
+        "method": "native_segment",
+        "start_s": 2.74
+      }
+    ],
+    "syntax": "mock_segments_v1",
+    "unsupported": [
+      {
+        "dimension": "facial_expression",
+        "item_ref": "/scenes[scn_hook]/acting/events[ev_2]",
+        "reason": "unsupported"
+      }
+    ]
+  },
+  "translator": "mock_segment_v1"
+}

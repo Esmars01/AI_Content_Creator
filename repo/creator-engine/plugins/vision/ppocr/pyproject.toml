@@ -1,0 +1,16 @@
+[project]
+name = "ce-plugin-vision-ppocr"
+version = "0.1.0"
+description = "vision.ocr on CPU with PP-OCR through RapidOCR (Apache-2.0)."
+requires-python = ">=3.12"
+dependencies = ["ce-contracts", "numpy>=2.0", "pyyaml>=6", "rapidocr-onnxruntime==1.4.4", "opencv-python-headless>=4.10"]
+
+[project.entry-points."creator_engine.plugins"]
+ppocr = "ce_plugin_ppocr"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ce_plugin_ppocr"]

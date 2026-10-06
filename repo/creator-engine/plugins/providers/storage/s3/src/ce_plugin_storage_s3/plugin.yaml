@@ -1,0 +1,11 @@
+# Object storage through the S3 API (ADR 0010): SeaweedFS locally and self-hosted, Cloudflare R2 managed.
+id: storage.s3
+name: S3-API object storage
+version: 0.1.0
+kind: provider
+provider: { kind: storage, key: s3 }
+entrypoint: ce_plugin_storage_s3.provider:create
+runtime: { family: cpu_inproc, python: "3.12", requires_gpu: false, supports_cpu: true }
+allowed_envs: [dev, test, prod]
+status: production
+validation: smoke_passed # contract suite against SeaweedFS (plugins/providers/storage/s3/tests)

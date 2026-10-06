@@ -1,0 +1,63 @@
+{
+  "engine": {
+    "calibrated": false,
+    "cfg_weight": 0.5,
+    "encoded": [
+      {
+        "clamped": true,
+        "control": "time_stretch",
+        "dimension": "prosody_rate",
+        "item_ref": "/scenes[scn_a]/acting/states[st_1]/strategies/prosody",
+        "method": "native_parametric",
+        "tempo": 1.1
+      },
+      {
+        "control": "exaggeration_cfg",
+        "dimension": "prosody_energy",
+        "item_ref": "/scenes[scn_a]/acting/states[st_1]/strategies/prosody",
+        "method": "native_parametric"
+      },
+      {
+        "control": "inserted_silence",
+        "dimension": "prosody_pause",
+        "item_ref": "/script/segments[seg_a]/annotations[an_1]",
+        "method": "native_parametric"
+      }
+    ],
+    "exaggeration": 0.54,
+    "pauses_ms": {
+      "1": 300
+    },
+    "syntax": "chatterbox_params",
+    "tags": {},
+    "tempo": 1.1,
+    "unsupported": [
+      {
+        "dimension": "emotion_vocal",
+        "item_ref": "/scenes[scn_a]/acting/states[st_1]/emotion",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "prosody_pitch",
+        "item_ref": "/scenes[scn_a]/acting/states[st_1]/strategies/prosody",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "prosody_emphasis",
+        "item_ref": "/script/segments[seg_a]/annotations[an_2]",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "nonverbal_audio",
+        "item_ref": "/script/segments[seg_a]/annotations[an_3]",
+        "reason": "unsupported:no_tag_for_this_sound"
+      },
+      {
+        "dimension": "accent",
+        "item_ref": "/characters[char_a]/voice/accent",
+        "reason": "unsupported"
+      }
+    ]
+  },
+  "translator": "chatterbox_v1"
+}

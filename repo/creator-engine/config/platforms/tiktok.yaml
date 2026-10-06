@@ -1,0 +1,27 @@
+# Platform rules and render presets (§27, §8). The rules are UNVERIFIED (verified_at: null):
+# platform limits change often, so every limit stays null until it is checked against the
+# platform's official documentation and verified_at is set (rule 14; packaging in Phase 12).
+# Render presets are our own encoding choices, not platform facts.
+id: tiktok
+label: TikTok
+verified_at: null
+sources: []
+rules:
+  aspects: ['9:16']
+  max_duration_s: null
+  title_max_chars: null
+  description_max_chars: null
+  hashtags_max: null
+  # Design default for caption placement until verified against the platform UI.
+  caption_safe_zone: {top: 0.12, bottom: 0.22, left: 0.06, right: 0.14}
+render_presets:
+  - {id: tiktok_1080x1920_30, aspect: "9:16", width: 1080, height: 1920, fps: 30, video_codec: h264, crf: 18, max_bitrate_kbps: 12000, audio_codec: aac, audio_bitrate_kbps: 192, loudness_override: null}
+# Packaging presentation (Director stage 12, Phase 12): our design choices, not platform facts.
+packaging: {thumbnail_width: 1080, thumbnail_height: 1920, hashtag_prefix: "#", description_hashtags: true}
+# Disclosure checklist confirmed on export (§32). The items paraphrase the spec's list; they are
+# reminders for the person who uploads, not verified platform rules.
+export_checklist:
+  - {key: ai_generated_label, label: "AI-generated content label turned on when posting (TikTok)", required: true}
+  - {key: ai_ad_tag, label: "If this is an ad: the AI-generated ad tag is set (TikTok)", required: true}
+  - {key: not_mass_produced, label: "This is not mass-produced, templated output posted at scale (§32 warning)", required: true}
+  - {key: visible_label_reviewed, label: "The visible AI label and provenance status were reviewed", required: true}

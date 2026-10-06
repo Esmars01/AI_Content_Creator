@@ -1,0 +1,14 @@
+# Any OpenAI-compatible chat-completions endpoint (self-hosted vLLM, a gateway). The base URL, key
+# and model come from OPENAI_COMPAT_BASE_URL, OPENAI_COMPAT_API_KEY and LLM_MODEL (§35).
+id: llm.openai_compatible
+name: OpenAI-compatible LLM provider
+version: 0.1.0
+kind: provider
+provider: { kind: llm, key: openai_compatible }
+entrypoint: ce_plugin_llm_openai_compatible.provider:create
+runtime: { family: cpu_inproc, python: "3.12", requires_gpu: false, supports_cpu: true }
+allowed_envs: [dev, test, prod]
+status: production
+validation: untested_on_gpu # exercised with recorded HTTP exchanges until a key is configured
+defaults:
+  timeout_s: 120

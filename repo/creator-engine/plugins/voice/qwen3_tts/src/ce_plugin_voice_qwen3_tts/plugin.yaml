@@ -1,0 +1,102 @@
+# Qwen3-TTS 1.7B (§39.7: TTS default for de/es/fr/it/ru; voice-design alternate). The Base model clones
+# a voice from a short reference (voice.prepare caches its clone prompt); the VoiceDesign model creates
+# voices from descriptions. The cloning model takes no instructions (README model table), so emotion
+# follows the text and the reference [RV]. 10 languages; no tr/ar (Chatterbox Multilingual covers them).
+id: qwen3_tts
+name: Qwen3-TTS 1.7B (Base + VoiceDesign)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_voice_qwen3_tts.adapter:Qwen3TTSAdapter
+behavior_translator: ce_plugin_voice_qwen3_tts.translator:Qwen3TTSTranslator
+test_backend: ce_plugin_voice_qwen3_tts.testing:fake_backend
+capabilities:
+  - id: voice.tts
+    features: []
+    languages: { mode: text, validated: [en, zh], unvalidated: [de, es, fr, it, ru, ja, ko, pt] }
+  - id: voice.clone_prepare
+    features: [zero_shot]
+    languages: { mode: text, validated: [en, zh], unvalidated: [de, es, fr, it, ru, ja, ko, pt] }
+  - id: voice.design
+    features: [description]
+    languages: { mode: text, validated: [en, zh], unvalidated: [de, es, fr, it, ru, ja, ko, pt] }
+behavior_matrix:
+  emotion_vocal: { control: emergent }
+  prosody_rate: { control: parametric, temporal_precision: segment } # ±10% time-stretch (§21)
+  prosody_pitch: { control: none }
+  prosody_energy: { control: none }
+  prosody_emphasis: { control: none }
+  prosody_pause: { control: parametric, temporal_precision: word } # inserted silence
+  nonverbal_audio: { control: none }
+  delivery: { control: none }
+  accent: { control: none } # design_only: a new voice version via voice.design (§21)
+runtime:
+  {
+    family: tts,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 12,
+    recommended_vram_gb: 24,
+    supports_cpu: false,
+  }
+models:
+  - key: qwen3-tts-base
+    size_gb: 4.23 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: Qwen/Qwen3-TTS-12Hz-1.7B-Base
+    source:
+      { type: huggingface, repo: Qwen/Qwen3-TTS-12Hz-1.7B-Base, revision: fd4b254389122332181a7c3db7f27e918eec64e3 }
+    files: ["*.json", "*.txt", model.safetensors, "speech_tokenizer/*"]
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base/blob/fd4b254389122332181a7c3db7f27e918eec64e3/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license apache-2.0 at the pinned revision",
+      }
+    dependencies:
+      - ref: "pypi:qwen-tts==0.1.1"
+        role: code
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/QwenLM/Qwen3-TTS/blob/022e286b98fbec7e1e916cb940cdf532cd9f488e/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: a44a6081c73ad75f0255bb2bb5cab74ef1829565a895a24e53a4f11290ab7655,
+            evidence: "license_file of the source repository; PyPI metadata Apache-2.0",
+          }
+  - key: qwen3-tts-voicedesign
+    size_gb: 4.21 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign
+    source:
+      {
+        type: huggingface,
+        repo: Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign,
+        revision: 5ecdb67327fd37bb2e042aab12ff7391903235d3,
+      }
+    files: ["*.json", "*.txt", model.safetensors, "speech_tokenizer/*"]
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign/blob/5ecdb67327fd37bb2e042aab12ff7391903235d3/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license apache-2.0 at the pinned revision",
+      }
+defaults:
+  attn_implementation: flash_attention_2
+  default_voice: "A clear, neutral adult voice at a moderate pace."
+  description_seed: 7
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 0.6, load_seconds: 45.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. Model card: 10 languages, 3-second voice cloning, voice design from descriptions."

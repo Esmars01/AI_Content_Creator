@@ -1,0 +1,11 @@
+# Routing profile `draft` (§22, §23): fast, cheap previews.
+id: draft
+label: Draft
+quality_tier: draft
+allowed_statuses: [production]
+weights: {quality: 0.3, cost: 0.4, latency: 0.3, measured_behavior: 0.2}
+generation: {max_height: 720, fps: 25}
+final_preset_height: 720
+upscale_required: false
+interpolate: frame_rate_conversion
+fallback_chain_depth: 2

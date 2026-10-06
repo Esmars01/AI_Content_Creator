@@ -1,0 +1,42 @@
+# Seeded scores with MOCK_QC_FAIL_RATE (§26).
+# Mock: registered only when MOCK_GPU=true; never routed in production (§10.6, §24).
+id: mock_qc
+name: Mock QC metrics
+version: 0.1.0
+kind: analyzer
+entrypoint: ce_plugins_mock.qc.adapter:MockQC
+mock: true
+capabilities:
+  - id: qc.lipsync
+    features: [confidence]
+  - id: qc.vqa
+    features: [no_reference]
+  - id: qc.speech_quality
+    features: [mos]
+runtime:
+  {
+    family: cpu_inproc,
+    python: "3.12",
+    requires_gpu: false,
+    min_vram_gb: 0,
+    recommended_vram_gb: 0,
+    supports_cpu: true,
+  }
+models:
+  - key: mock-qc
+    display_name: mock-qc (procedural mock, no weights)
+    source: { type: builtin, revision: "1" }
+    license:
+      {
+        name: LicenseRef-CreatorEngine-FirstParty,
+        url: "plugins/mock/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-03,
+        verified_by: claude-code,
+      }
+pricing: { seconds_per_unit: 0.01 }
+allowed_envs: [dev, test]
+status: production
+validation: untested_on_gpu
+maturity_notes: "Mock engine; outputs are labelled and not model output."

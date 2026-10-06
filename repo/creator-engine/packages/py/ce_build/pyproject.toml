@@ -1,0 +1,13 @@
+[project]
+name = "ce-build"
+version = "0.1.0"
+description = "Execution graph, node keys, cache keys, BuildManifest, dirty analysis, impact estimation."
+requires-python = ">=3.12"
+dependencies = ["ce-config", "ce-contracts", "ce-core", "ce-router", "ce-voice"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ce_build"]

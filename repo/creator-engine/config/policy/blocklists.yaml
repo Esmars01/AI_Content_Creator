@@ -1,0 +1,5 @@
+# Blocklists (§32; enforcement in Phases 4 and 13). Terms are matched case-insensitively.
+version: 1
+topics: []
+terms: []
+protected_persons: []

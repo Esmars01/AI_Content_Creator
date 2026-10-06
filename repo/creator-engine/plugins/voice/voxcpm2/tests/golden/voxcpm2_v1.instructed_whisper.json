@@ -1,0 +1,67 @@
+{
+  "engine": {
+    "encoded": [
+      {
+        "control": "instruction",
+        "dimension": "emotion_vocal",
+        "item_ref": "/scenes[scn_a]/acting/states[st_1]/emotion",
+        "method": "text_prompt_segment"
+      },
+      {
+        "clamped": false,
+        "control": "time_stretch",
+        "dimension": "prosody_rate",
+        "item_ref": "/scenes[scn_a]/acting/states[st_1]/strategies/prosody",
+        "method": "native_parametric",
+        "tempo": 1.05
+      },
+      {
+        "control": "instruction",
+        "dimension": "prosody_energy",
+        "item_ref": "/scenes[scn_a]/acting/states[st_1]/strategies/prosody",
+        "method": "text_prompt_segment"
+      },
+      {
+        "control": "inserted_silence",
+        "dimension": "prosody_pause",
+        "item_ref": "/script/segments[seg_a]/annotations[an_1]",
+        "method": "native_parametric"
+      },
+      {
+        "control": "instruction",
+        "dimension": "delivery",
+        "item_ref": "/script/segments[seg_a]/annotations[an_4]",
+        "method": "text_prompt_segment"
+      }
+    ],
+    "instruction": "an earnest, focused tone, slower, deliberate pacing with weight on key words, whispered",
+    "pauses_ms": {
+      "1": 300
+    },
+    "syntax": "voxcpm2_instruction",
+    "tempo": 1.05,
+    "unsupported": [
+      {
+        "dimension": "prosody_pitch",
+        "item_ref": "/scenes[scn_a]/acting/states[st_1]/strategies/prosody",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "prosody_emphasis",
+        "item_ref": "/script/segments[seg_a]/annotations[an_2]",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "nonverbal_audio",
+        "item_ref": "/script/segments[seg_a]/annotations[an_3]",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "accent",
+        "item_ref": "/characters[char_a]/voice/accent",
+        "reason": "unsupported"
+      }
+    ]
+  },
+  "translator": "voxcpm2_v1"
+}

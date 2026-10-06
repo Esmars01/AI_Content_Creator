@@ -1,0 +1,117 @@
+# The situational acting vocabulary (§15.1–§15.3): every control token of the acting chain.
+# Strategy tokens per channel and the posture vocabulary are here; event types are in
+# behavior_events.yaml (the two sets are disjoint, checked by the vocabulary lint).
+vocab_version: "2026.10.1"
+situation_kinds:
+  - contradicting_the_audience
+  - persuading_skeptic
+  - explaining_concept
+  - telling_story
+  - recalling_memory
+  - reacting_to_clip
+  - sharing_opinion
+  - giving_instructions
+  - revealing_result
+  - confessing
+  - announcing_news
+  - comparing_options
+  - answering_question
+  - calling_to_action
+  - greeting_audience
+audience_stances: [neutral, agrees_with_misconception, skeptical, curious, uninformed, hostile, supportive, distracted]
+stimulus_kinds: [element, clip, statement, memory]
+internal_states:
+  - amused_certainty
+  - deliberate_reveal
+  - doubt_about_reception
+  - determined
+  - embarrassed_recall
+  - quiet_confidence
+  - eager_to_share
+  - genuine_curiosity
+  - mild_irritation
+  - nervous_anticipation
+  - relieved_resolution
+  - focused_explanation
+  - playful_mischief
+  - sincere_concern
+  - growing_conviction
+  - surprised_recognition
+  - reflective
+  - uncertain_search
+social_goals: [build_rapport, establish_authority, win_trust, entertain, reassure, challenge, empathize, inform, persuade, apologize, celebrate]
+audience_goals:
+  - make_viewer_nod_along
+  - create_doubt
+  - spark_curiosity
+  - make_viewer_laugh
+  - make_viewer_feel_understood
+  - make_viewer_act
+  - make_viewer_remember
+  - calm_viewer
+  - surprise_viewer
+  - convince_viewer
+performance_intents:
+  - mock_agreement
+  - undercut_belief
+  - build_case
+  - tell_with_suspense
+  - explain_plainly
+  - confess
+  - tease
+  - celebrate_result
+  - warn
+  - invite_action
+  - react_genuinely
+  - reflect
+strategies:
+  prosody: [assertive, assertive_light, slow_measured, hesitant_with_pauses, controlled_even, playful_rising, urgent_fast, deadpan, whispered_aside]
+  gaze: [hold_camera, glance_away_and_return, look_down_thinking, side_glance, avoid_camera]
+  gesture: [still, illustrative_light, illustrative_strong, emphatic_beats, self_soothing]
+  posture: [seated_upright, seated_relaxed, seated_lean_in, seated_withdrawn, standing_upright, standing_relaxed, standing_lean_in, standing_withdrawn]
+  reaction: [none, suppressed, open, slow_burn, exaggerated]
+  camera_awareness: [direct_address, aside_to_camera, ignores_camera, breaks_fourth_wall]
+# attention_target is `camera`, `off_camera_person`, `notes`, `self`, or a world element key (el_…).
+attention_targets: [camera, off_camera_person, notes, self]
+attention_target_kinds: [camera, element, off_camera_person, notes, self]
+transition_styles: [sudden, gradual, lagged]
+trigger_kinds: [realization, stimulus, memory_recall, interruption, audience_reaction, punchline, topic_shift, self_correction]
+# Script annotation tags by annotation type (§11). User acting tags map onto these (§21).
+annotation_tags:
+  pause: [beat, short_pause, medium_pause, long_pause]
+  emphasis: [emphasize, stress_strong, de_emphasize]
+  nonverbal_audio: [laugh, light_laugh, chuckle, sigh, breath, gasp]
+  delivery: [whisper, aside, softer, louder]
+  pronunciation: [respell]
+  inserted_disfluency: [filler, false_start, repetition]
+# Camera grammar used by shots (`shots[].camera`) and camera profiles.
+camera:
+  framing: [extreme_close_up, close_up, medium_close_up, medium, medium_wide, wide, insert, over_the_shoulder, screen_full]
+  angle: [eye_level, high, low, dutch, top_down]
+  move_type: [punch_in, punch_out, push_in, pull_out, pan, tilt, handheld_drift, whip, static_hold]
+  transition: [cut, smooth, whip, crossfade]
+# Persona scales used by Creator DNA and Creator Memory values (§17.1, §18.1).
+persona:
+  humor_style: [none, dry, playful, self_deprecating, observational, absurd, sarcastic, wholesome]
+  conversational_style: [casual, professional, storytelling, teacherly, friendly_peer, energetic_host, calm_expert]
+  vocabulary_level: [simple, conversational, technical, academic]
+  sentence_structure: [short_punchy, balanced, long_flowing, rhetorical_questions]
+  speech_rate_preference: [slow, average, fast]
+  frequency: [rarely, sometimes, often, always]
+  escalation_style: [gradual, sudden, contained]
+  confidence_pattern: [steady, rising, falling, fluctuating]
+  hand: [left, right, both]
+  camera_distance: [close, medium, far]
+  selfie_behavior: [handheld_selfie, propped_phone, desk_camera, filmed_by_other]
+  movement_preference: [static, subtle_handheld, dynamic]
+# Defaults the acting validators use (§15.3); tune in config, never in code.
+validation:
+  intensity_jump_needs_transition: 0.35
+# Default pause lengths per pause tag, used for duration estimates and prosody directives
+# unless an annotation sets pause_ms explicitly.
+pause_ms:
+  beat: 150
+  short_pause: 350
+  medium_pause: 600
+  long_pause: 1000
+migrations: []

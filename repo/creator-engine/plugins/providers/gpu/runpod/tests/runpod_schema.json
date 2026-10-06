@@ -1,0 +1,391 @@
+{
+  "api_version": "0.1.0",
+  "endpoint_fields": [
+    "allowedCudaVersions",
+    "computeType",
+    "createdAt",
+    "dataCenterIds",
+    "env",
+    "executionTimeoutMs",
+    "gpuCount",
+    "gpuTypeIds",
+    "id",
+    "idleTimeout",
+    "instanceIds",
+    "minCudaVersion",
+    "name",
+    "networkVolumeId",
+    "networkVolumeIds",
+    "scalerType",
+    "scalerValue",
+    "template",
+    "templateId",
+    "userId",
+    "version",
+    "workers",
+    "workersMax",
+    "workersMin"
+  ],
+  "pod_fields": [
+    "adjustedCostPerHr",
+    "aiApiId",
+    "consumerUserId",
+    "containerDiskInGb",
+    "containerRegistryAuthId",
+    "costPerHr",
+    "cpuFlavorId",
+    "desiredStatus",
+    "dockerEntrypoint",
+    "dockerStartCmd",
+    "endpointId",
+    "env",
+    "gpu",
+    "id",
+    "image",
+    "interruptible",
+    "lastStartedAt",
+    "lastStatusChange",
+    "locked",
+    "machine",
+    "machineId",
+    "memoryInGb",
+    "name",
+    "networkVolume",
+    "portMappings",
+    "ports",
+    "publicIp",
+    "savingsPlans",
+    "slsVersion",
+    "templateId",
+    "vcpuCount",
+    "volumeEncrypted",
+    "volumeInGb",
+    "volumeMountPath"
+  ],
+  "read_at": "2026-10-04",
+  "requests": {
+    "endpoint_update": {
+      "allowedCudaVersions": {
+        "enum": ["13.0", "12.9", "12.8", "12.7", "12.6", "12.5", "12.4", "12.3", "12.2", "12.1", "12.0", "11.8"],
+        "type": "array"
+      },
+      "cpuFlavorIds": {
+        "enum": ["cpu3c", "cpu3g", "cpu5c", "cpu5g"],
+        "type": "array"
+      },
+      "dataCenterIds": {
+        "enum": [
+          "EU-RO-1",
+          "CA-MTL-1",
+          "EU-SE-1",
+          "US-IL-1",
+          "EUR-IS-1",
+          "EU-CZ-1",
+          "US-TX-3",
+          "EUR-IS-2",
+          "US-KS-2",
+          "US-GA-2",
+          "US-WA-1",
+          "US-TX-1",
+          "CA-MTL-3",
+          "EU-NL-1",
+          "US-TX-4",
+          "US-CA-2",
+          "US-NC-1",
+          "OC-AU-1",
+          "US-DE-1",
+          "EUR-IS-3",
+          "CA-MTL-2",
+          "AP-JP-1",
+          "EUR-NO-1",
+          "EU-FR-1",
+          "US-KS-3",
+          "US-GA-1",
+          "AP-IN-1",
+          "US-MD-1"
+        ],
+        "type": "array"
+      },
+      "executionTimeoutMs": {
+        "type": "integer"
+      },
+      "flashboot": {
+        "type": "boolean"
+      },
+      "gpuCount": {
+        "type": "integer"
+      },
+      "gpuTypeIds": {
+        "enum": [
+          "AMD Instinct MI300X OAM",
+          "NVIDIA A100 80GB PCIe",
+          "NVIDIA A100-SXM4-40GB",
+          "NVIDIA A100-SXM4-80GB",
+          "NVIDIA A40",
+          "NVIDIA B200",
+          "NVIDIA B300 SXM6 AC",
+          "NVIDIA B300 SXM6 AC MIG 1g.34gb",
+          "NVIDIA GeForce RTX 3070",
+          "NVIDIA GeForce RTX 3080",
+          "NVIDIA GeForce RTX 3080 Ti",
+          "NVIDIA GeForce RTX 3090",
+          "NVIDIA GeForce RTX 3090 Ti",
+          "NVIDIA GeForce RTX 4070 Ti",
+          "NVIDIA GeForce RTX 4080",
+          "NVIDIA GeForce RTX 4080 SUPER",
+          "NVIDIA GeForce RTX 4090",
+          "NVIDIA GeForce RTX 5080",
+          "NVIDIA GeForce RTX 5090",
+          "NVIDIA H100 80GB HBM3",
+          "NVIDIA H100 NVL",
+          "NVIDIA H100 PCIe",
+          "NVIDIA H200",
+          "NVIDIA H200 NVL",
+          "NVIDIA L4",
+          "NVIDIA L40",
+          "NVIDIA L40S",
+          "NVIDIA RTX 2000 Ada Generation",
+          "NVIDIA RTX 4000 Ada Generation",
+          "NVIDIA RTX 4000 SFF Ada Generation",
+          "NVIDIA RTX 5000 Ada Generation",
+          "NVIDIA RTX 6000 Ada Generation",
+          "NVIDIA RTX A2000",
+          "NVIDIA RTX A4000",
+          "NVIDIA RTX A4500",
+          "NVIDIA RTX A5000",
+          "NVIDIA RTX A6000",
+          "NVIDIA RTX PRO 4000 Blackwell",
+          "NVIDIA RTX PRO 4500 Blackwell",
+          "NVIDIA RTX PRO 5000 Blackwell",
+          "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+          "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+          "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+          "Tesla V100-PCIE-16GB",
+          "Tesla V100-SXM2-16GB"
+        ],
+        "type": "array"
+      },
+      "idleTimeout": {
+        "type": "integer"
+      },
+      "minCudaVersion": {
+        "enum": ["13.0", "12.9", "12.8", "12.7", "12.6", "12.5", "12.4", "12.3", "12.2", "12.1", "12.0", "11.8"],
+        "type": "string"
+      },
+      "name": {
+        "type": "string"
+      },
+      "networkVolumeId": {
+        "type": "string"
+      },
+      "networkVolumeIds": {
+        "type": "array"
+      },
+      "scalerType": {
+        "enum": ["QUEUE_DELAY", "REQUEST_COUNT"],
+        "type": "string"
+      },
+      "scalerValue": {
+        "type": "number"
+      },
+      "templateId": {
+        "type": "string"
+      },
+      "vcpuCount": {
+        "type": "integer"
+      },
+      "workersMax": {
+        "type": "integer"
+      },
+      "workersMin": {
+        "type": "integer"
+      }
+    },
+    "pod_create": {
+      "allowedCudaVersions": {
+        "enum": ["13.0", "12.9", "12.8", "12.7", "12.6", "12.5", "12.4", "12.3", "12.2", "12.1", "12.0", "11.8"],
+        "type": "array"
+      },
+      "cloudType": {
+        "enum": ["SECURE", "COMMUNITY"],
+        "type": "string"
+      },
+      "computeType": {
+        "enum": ["GPU", "CPU"],
+        "type": "string"
+      },
+      "containerDiskInGb": {
+        "type": "integer"
+      },
+      "containerRegistryAuthId": {
+        "type": "string"
+      },
+      "countryCodes": {
+        "type": "array"
+      },
+      "cpuFlavorIds": {
+        "enum": ["cpu3c", "cpu3g", "cpu3m", "cpu5c", "cpu5g", "cpu5m"],
+        "type": "array"
+      },
+      "cpuFlavorPriority": {
+        "enum": ["availability", "custom"],
+        "type": "string"
+      },
+      "dataCenterIds": {
+        "enum": [
+          "EU-RO-1",
+          "CA-MTL-1",
+          "EU-SE-1",
+          "US-IL-1",
+          "EUR-IS-1",
+          "EU-CZ-1",
+          "US-TX-3",
+          "EUR-IS-2",
+          "US-KS-2",
+          "US-GA-2",
+          "US-WA-1",
+          "US-TX-1",
+          "CA-MTL-3",
+          "EU-NL-1",
+          "US-TX-4",
+          "US-CA-2",
+          "US-NC-1",
+          "OC-AU-1",
+          "US-DE-1",
+          "EUR-IS-3",
+          "CA-MTL-2",
+          "AP-JP-1",
+          "EUR-NO-1",
+          "EU-FR-1",
+          "US-KS-3",
+          "US-GA-1",
+          "AP-IN-1",
+          "US-MD-1"
+        ],
+        "type": "array"
+      },
+      "dataCenterPriority": {
+        "enum": ["availability", "custom"],
+        "type": "string"
+      },
+      "dockerEntrypoint": {
+        "type": "array"
+      },
+      "dockerStartCmd": {
+        "type": "array"
+      },
+      "env": {
+        "type": "object"
+      },
+      "globalNetworking": {
+        "type": "boolean"
+      },
+      "gpuCount": {
+        "type": "integer"
+      },
+      "gpuTypeIds": {
+        "enum": [
+          "AMD Instinct MI300X OAM",
+          "NVIDIA A100 80GB PCIe",
+          "NVIDIA A100-SXM4-40GB",
+          "NVIDIA A100-SXM4-80GB",
+          "NVIDIA A40",
+          "NVIDIA B200",
+          "NVIDIA B300 SXM6 AC",
+          "NVIDIA B300 SXM6 AC MIG 1g.34gb",
+          "NVIDIA GeForce RTX 3070",
+          "NVIDIA GeForce RTX 3080",
+          "NVIDIA GeForce RTX 3080 Ti",
+          "NVIDIA GeForce RTX 3090",
+          "NVIDIA GeForce RTX 3090 Ti",
+          "NVIDIA GeForce RTX 4070 Ti",
+          "NVIDIA GeForce RTX 4080",
+          "NVIDIA GeForce RTX 4080 SUPER",
+          "NVIDIA GeForce RTX 4090",
+          "NVIDIA GeForce RTX 5080",
+          "NVIDIA GeForce RTX 5090",
+          "NVIDIA H100 80GB HBM3",
+          "NVIDIA H100 NVL",
+          "NVIDIA H100 PCIe",
+          "NVIDIA H200",
+          "NVIDIA H200 NVL",
+          "NVIDIA L4",
+          "NVIDIA L40",
+          "NVIDIA L40S",
+          "NVIDIA RTX 2000 Ada Generation",
+          "NVIDIA RTX 4000 Ada Generation",
+          "NVIDIA RTX 4000 SFF Ada Generation",
+          "NVIDIA RTX 5000 Ada Generation",
+          "NVIDIA RTX 6000 Ada Generation",
+          "NVIDIA RTX A2000",
+          "NVIDIA RTX A4000",
+          "NVIDIA RTX A4500",
+          "NVIDIA RTX A5000",
+          "NVIDIA RTX A6000",
+          "NVIDIA RTX PRO 4000 Blackwell",
+          "NVIDIA RTX PRO 4500 Blackwell",
+          "NVIDIA RTX PRO 5000 Blackwell",
+          "NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition",
+          "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+          "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+          "Tesla V100-PCIE-16GB",
+          "Tesla V100-SXM2-16GB"
+        ],
+        "type": "array"
+      },
+      "gpuTypePriority": {
+        "enum": ["availability", "custom"],
+        "type": "string"
+      },
+      "imageName": {
+        "type": "string"
+      },
+      "interruptible": {
+        "type": "boolean"
+      },
+      "locked": {
+        "type": "boolean"
+      },
+      "minDiskBandwidthMBps": {
+        "type": "number"
+      },
+      "minDownloadMbps": {
+        "type": "number"
+      },
+      "minRAMPerGPU": {
+        "type": "integer"
+      },
+      "minUploadMbps": {
+        "type": "number"
+      },
+      "minVCPUPerGPU": {
+        "type": "integer"
+      },
+      "name": {
+        "type": "string"
+      },
+      "networkVolumeId": {
+        "type": "string"
+      },
+      "ports": {
+        "type": "array"
+      },
+      "supportPublicIp": {
+        "type": "boolean"
+      },
+      "templateId": {
+        "type": "string"
+      },
+      "vcpuCount": {
+        "type": "integer"
+      },
+      "volumeInGb": {
+        "type": "integer"
+      },
+      "volumeMountPath": {
+        "type": "string"
+      }
+    }
+  },
+  "source": "https://rest.runpod.io/v1/openapi.json"
+}

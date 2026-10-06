@@ -1,0 +1,15 @@
+# Camera profile (§22). Deterministic camera and realism post use these values (ADR 0009).
+id: dslr
+label: DSLR on a tripod
+maturity: production
+prompt_hints: ["DSLR video, shallow depth of field"]
+subject_distance_m: 2.0
+sensor: { fps: 25, noise_luma: 0.004, noise_chroma: 0.002, rolling_shutter: 0.0 }
+lens: { focal_equiv_mm: 50, distortion_k1: 0.005, vignette: 0.1, dof: shallow }
+framing: { default: medium, headroom: 0.12, eye_line: 0.36, overscan: 0.1 }
+motion: { type: tripod, amplitude_px: 1, freq_hz: [0.1, 0.3], rotation_deg: 0.05, breathing_sway: false, stabilization: 1.0 }
+focus: { autofocus_hunts_per_min: 0.0 }
+exposure: { auto_exposure_drift: 0.01 }
+color: { lut: luts/mirrorless_neutral.cube, saturation: 1.0 }
+compression: { codec: h264, bitrate_kbps: 20000 }
+audio: { mic_profile: lavalier, distance_m: 0.2 }

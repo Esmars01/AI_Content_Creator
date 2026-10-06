@@ -1,0 +1,17 @@
+# Video mode template (§13). Effective maturity in the UI is capped by route validation (§10.4).
+id: car_vlog
+label: Car vlog
+maturity: experimental
+roadmap: V1
+description: "Talking in a parked or moving car (stub)."
+allowed_shot_types: [talking_head]
+default_camera_profiles: [car_vlog]
+default_world_kinds: [car_interior]
+duration_s: {min: 15, max: 180, default: 60}
+aspects: ["9:16", "16:9", "1:1", "4:5"]
+edit_grammar: {max_shot_s: 8, cutaway_every_s: 0, punch_in_on_emphasis: false, beat_snap: false}
+acting_density: medium
+editorial_methods: [editorial_punch, caption_emphasis]
+strategy_packs: [story_arc]
+requires: []
+prompt_fragment: null

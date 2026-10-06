@@ -1,0 +1,99 @@
+# CI skeleton (MASTER_BUILD_PROMPT §36). Jobs for later layers call Makefile targets that exist
+# now and grow phase by phase. GPU smoke tests are manual workflows on a GPU runner (Phase 8).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-typecheck-unit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg libegl1 libgles2 fonts-dejavu-core
+      - run: cp .env.example .env
+      - run: uv sync
+      - run: pnpm install --frozen-lockfile
+      - run: make lint
+      - run: make typecheck
+      - run: make verify-spec
+      - run: make verify-config
+      - name: schemas and generated types are fresh
+        run: make gen-schema gen-client && git diff --exit-code packages/ts/api-client
+      - run: make test-unit
+      - run: make test-invariants
+      - run: make test-behavior
+      - run: make test-web
+
+  web-e2e:
+    # Phase 5 DoD: create → previz → approve → progress → play through the web app in mock mode.
+    # Ubuntu runners ship Google Chrome, which decodes the H.264 renders (Playwright's Chromium cannot).
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: free runner disk (images, volumes and build cache need it; SeaweedFS refuses writes near full)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune -af > /dev/null
+          df -h /
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: cp .env.example .env
+      - run: uv sync
+      - run: pnpm install --frozen-lockfile
+      - run: make dev
+      - run: make test-e2e
+      - if: always()
+        run: docker compose -f infra/compose/docker-compose.yml --env-file .env --profile core --profile mock-gpu logs --no-color | tail -300
+
+  cpu-engines-smoke:
+    # Phase 7 (ADR 0042): the real CPU engines run the adapter contract suite on their pinned weights
+    # (what backs `validation: smoke_passed`), plus the analyzer, render-golden and screen tests.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg libegl1 libgles2 fonts-dejavu-core
+      - run: cp .env.example .env
+      - run: uv sync
+      - uses: actions/cache@v4
+        with:
+          path: .cache/models
+          key: cpu-assets-${{ hashFiles('scripts/cpu_assets.yaml') }}
+      - run: make fetch-cpu-assets
+      - run: >-
+          CE_REQUIRE_CPU_ASSETS=1 uv run pytest -q plugins/mock/tests/test_mock_contract.py plugins/analysis
+          packages/py/ce_render/tests/test_render_golden.py packages/py/ce_render/tests/test_screen.py
+
+  infra-integration:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: free runner disk (images, volumes and build cache need it; SeaweedFS refuses writes near full)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune -af > /dev/null
+          df -h /
+      - uses: astral-sh/setup-uv@v6
+      # the e2e tests run orchestrator and render workers in-process: they need FFmpeg on the runner
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg libegl1 libgles2 fonts-dejavu-core
+      - run: cp .env.example .env
+      - run: uv sync
+      - run: make infra-up
+      - run: make test-infra
+      - if: always()
+        run: docker compose -f infra/compose/docker-compose.yml --env-file .env --profile core logs --no-color | tail -200

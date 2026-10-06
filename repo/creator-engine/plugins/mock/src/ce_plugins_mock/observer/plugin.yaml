@@ -1,0 +1,53 @@
+# Reads behavior_track.json sidecars with noise (§16.7); no sidecar means nothing measurable.
+# Mock: registered only when MOCK_GPU=true; never routed in production (§10.6, §24).
+id: mock_observer
+name: Mock observer (face, body, audio analyzers)
+version: 0.1.0
+kind: analyzer
+entrypoint: ce_plugins_mock.observer.adapter:MockObserver
+mock: true
+capabilities:
+  - id: face.detect
+    features: [boxes]
+  - id: face.landmarks
+    features: [blendshapes, iris]
+  - id: face.embed
+    features: [identity]
+  - id: body.landmarks
+    features: [pose, hands]
+  - id: audio.prosody
+    features: [pitch, energy]
+  - id: audio.emotion
+    features: [classes]
+  - id: voice.embed
+    features: [speaker]
+  - id: image.embed
+    features: [masked]
+runtime:
+  {
+    family: cpu_inproc,
+    python: "3.12",
+    requires_gpu: false,
+    min_vram_gb: 0,
+    recommended_vram_gb: 0,
+    supports_cpu: true,
+  }
+models:
+  - key: mock-observer
+    display_name: mock-observer (procedural mock, no weights)
+    source: { type: builtin, revision: "1" }
+    license:
+      {
+        name: LicenseRef-CreatorEngine-FirstParty,
+        url: "plugins/mock/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-03,
+        verified_by: claude-code,
+      }
+pricing: { seconds_per_unit: 0.02 }
+defaults: { noise_ms: 60, noise_level: 0.05 }
+allowed_envs: [dev, test]
+status: production
+validation: untested_on_gpu
+maturity_notes: "Mock engine; outputs are labelled and not model output."

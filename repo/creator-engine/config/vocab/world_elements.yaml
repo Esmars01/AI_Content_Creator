@@ -1,0 +1,10 @@
+# World DNA vocabulary (§19.1).
+vocab_version: "2026.10.1"
+world_kinds: [home_office, bedroom, studio, kitchen, living_room, cafe, car_interior, outdoor_location, office, podcast_studio, classroom, workshop]
+element_kinds: [furniture, prop, fixture, window, light, screen, plant, decor]
+standard_states: [on, off, open, closed, lit, unlit, tidy, messy, empty, full]
+hand_spaces: [desk_surface, table, lap, counter, none]
+ambient_profiles: [room_tone_light_hvac, room_tone_quiet, street_distant, cafe_murmur, birds_outside, rain_on_window, car_cabin, kitchen_appliances]
+continuity_ref_kinds: [world_plate, shot, asset]
+reference_roles: [establishing, position, element]
+migrations: []

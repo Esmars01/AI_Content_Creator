@@ -1,0 +1,22 @@
+# A third-party GPU provider stub (§25, §39.5; Phase 9: "the provider-plugin path proven with a third-party
+# stub"). It stands in for a vendor package such as a Vast.ai or SkyPilot provider (V1): a separate
+# distribution with its own entry point and manifest that core code never imports. Its "cloud" is an
+# in-memory simulation of a vendor API with quotas, per-class prices and region availability; it never
+# contacts a network and is registered only with MOCK_GPU=true (dev and test).
+id: gpu.example_cloud
+name: Example Cloud (third-party provider stub)
+version: 0.1.0
+kind: provider
+mock: true
+provider: { kind: gpu, key: example_cloud }
+entrypoint: ce_plugin_gpu_example_cloud.provider:create
+runtime: { family: cpu_inproc, python: "3.12", requires_gpu: false, supports_cpu: true }
+allowed_envs: [dev, test]
+status: production
+validation: untested_on_gpu
+defaults:
+  quota: 2
+  regions: { eu-west: [rtx_4090_24gb, rtx_pro_6000_96gb], us-east: [rtx_4090_24gb] }
+  prices: { rtx_4090_24gb: 0.5, rtx_pro_6000_96gb: 1.5 }
+  vram: { rtx_4090_24gb: 24, rtx_pro_6000_96gb: 96 }
+  driver_version: "575.57"

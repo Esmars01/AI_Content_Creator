@@ -1,0 +1,13 @@
+# Language support (§21). support: production | beta | unsupported. The router allows an
+# engine's unvalidated languages only for `beta` languages, and the UI shows a beta badge.
+# Azerbaijani is unsupported until a licensed engine with `az` is installed (§5, §41).
+languages:
+  en: {label: English, support: production, normalizer: en, aligner_preference: [qwen3_forced_aligner, faster_whisper_words], script: Latn, rtl: false}
+  de: {label: German, support: beta, normalizer: de, aligner_preference: [qwen3_forced_aligner, faster_whisper_words], script: Latn, rtl: false}
+  es: {label: Spanish, support: beta, normalizer: es, aligner_preference: [qwen3_forced_aligner, faster_whisper_words], script: Latn, rtl: false}
+  fr: {label: French, support: beta, normalizer: fr, aligner_preference: [qwen3_forced_aligner, faster_whisper_words], script: Latn, rtl: false}
+  it: {label: Italian, support: beta, normalizer: it, aligner_preference: [qwen3_forced_aligner, faster_whisper_words], script: Latn, rtl: false}
+  ru: {label: Russian, support: beta, normalizer: ru, aligner_preference: [qwen3_forced_aligner, faster_whisper_words], script: Cyrl, rtl: false}
+  tr: {label: Turkish, support: beta, normalizer: tr, aligner_preference: [ctc_aligner, faster_whisper_words], script: Latn, rtl: false}
+  ar: {label: Arabic, support: beta, normalizer: ar, aligner_preference: [ctc_aligner, faster_whisper_words], script: Arab, rtl: true}
+  az: {label: Azerbaijani, support: unsupported, normalizer: az, aligner_preference: [ctc_aligner, faster_whisper_words], script: Latn, rtl: false}

@@ -1,0 +1,17 @@
+[project]
+name = "ce-plugin-gpu-runpod"
+version = "0.1.0"
+description = "RunPod GPU providers: on-demand/spot pods and serverless endpoints (REST API v1)."
+requires-python = ">=3.12"
+dependencies = ["ce-contracts", "ce-gpu", "httpx>=0.27"]
+
+[project.entry-points."creator_engine.plugins"]
+"gpu.runpod_pod" = "ce_plugin_gpu_runpod.pod"
+"gpu.runpod_serverless" = "ce_plugin_gpu_runpod.serverless"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ce_plugin_gpu_runpod"]

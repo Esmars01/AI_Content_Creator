@@ -1,0 +1,184 @@
+# The smoke golden set (Phase 8, §24 "a minimal golden set and the smoke-promotion flow").
+#
+# One or more cases per capability. `scripts/smoke/run.py <adapter>` runs every case whose
+# capability the adapter declares (and whose language it supports), checks the outputs, and writes a
+# report; with `--record` the verdict becomes evidence in the registry (`smoke_passed` or `failed`).
+# `scripts/bench/run.py` runs the same cases over several seeds for timings, VRAM and the measured
+# behavior of the behavior fixtures. The full evaluation set and bench-based promotion are Phase 11.
+#
+# Requests are contract requests (`ce_contracts.models`); `$name` refers to a media file below and
+# `@file` to a behavior fixture (compiled directives, translated by the adapter's own translator).
+# `checks` must all pass; `measure` items are recorded, never pass/fail (behavior is measured, not
+# assumed: ADR 0027). Every media file is pinned by sha256 and verified before a run.
+version: smoke-v1
+reference_text:
+  en: "The quick brown fox jumps over the lazy dog, and then it takes a short nap."
+  tr: "Bugün size kısa bir hikâye anlatacağım ve sonra bir soru soracağım."
+  ar: "اليوم سأحكي لكم قصة قصيرة ثم أطرح عليكم سؤالا."
+media:
+  portrait: { path: media/portrait_keyframe.png, sha256: dde492f11ac1327ba392cb74cc52fb0b1653f8e1e6a98781841d5115077e3edd, kind: image }
+  speech_en: { path: media/speech_en_4s.wav, sha256: b27c6e2f75cc9f9930e6348eb5fb68d8af23c742feb9d5a5d260811c890038dd, kind: audio }
+  speech_ref_en:
+    { path: media/speech_ref_en.wav, sha256: f5233733885304d7ec11c6e593084c885bdc6328e383d79156151ee23ee7232c, kind: audio }
+  speech_ref_tr:
+    { path: media/speech_ref_tr.wav, sha256: 6448ae90474a93f6143ec844b56e268992eead35543220bdb8cf1563c7ae5f89, kind: audio }
+  speech_ref_ar:
+    { path: media/speech_ref_ar.wav, sha256: f6b77fb86930f5570420c5829cff825e5b16aa592d99bc38e301ae1c6163a82c, kind: audio }
+  clip_small: { path: media/clip_small.mp4, sha256: f45e17e2c2c118f0604a4f3cdd0db7e6d74e6dd9862d6f30c42638fc47369230, kind: video }
+  talking_still:
+    { path: media/talking_still_4s.mp4, sha256: 5f758c7558fc3c5faaacc32de52d2dd29045f472902bce75816c9a44d7c48f7f, kind: video }
+cases:
+  # ------------------------------------------------------------------ image
+  - id: image_portrait
+    capability: image.generate
+    request: { prompt: "studio portrait of a person in a grey hoodie, soft window light, plain wall", width: 576, height: 1024 }
+    checks: { image: { width: 576, height: 1024, min_luma_range: 40 } }
+  - id: image_edit_wardrobe
+    capability: image.edit
+    request:
+      { image: $portrait, prompt: "the same person, now wearing a dark blue denim jacket", references: [$portrait], width: 576, height: 1024 }
+    checks: { image: { width: 576, height: 1024, min_luma_range: 40 } }
+  # ------------------------------------------------------------------ talking head and B-roll
+  - id: avatar_en_trajectory
+    capability: avatar.a2v
+    language: en
+    request: { keyframe: $portrait, audio: $speech_en, behavior: "@behavior/avatar_emotion_glance.json", width: 480, height: 832, fps: 25 }
+    checks: { video: { min_duration_s: 3.5, max_duration_s: 4.6, width: 480, height: 832 } }
+    measure: [face, head_motion]
+  - id: broll_t2v
+    capability: video.t2v
+    request: { prompt: "slow push-in across a tidy desk with a laptop and a coffee mug, daylight", duration_s: 2.0, fps: 16, width: 832, height: 480 }
+    checks: { video: { min_duration_s: 1.5, max_duration_s: 3.0, width: 832, height: 480 } }
+  - id: broll_i2v
+    capability: video.i2v
+    request: { prompt: "the person nods slightly and smiles", first_frame: $portrait, duration_s: 2.0, fps: 16, width: 480, height: 832 }
+    checks: { video: { min_duration_s: 1.5, max_duration_s: 3.0, width: 480, height: 832 } }
+  - id: lipsync_patch
+    capability: lipsync.dub
+    request: { video: $talking_still, audio: $speech_en }
+    checks: { video: { min_duration_s: 3.5, max_duration_s: 4.6 } }
+    measure: [face]
+  # ------------------------------------------------------------------ voice
+  - id: tts_en
+    capability: voice.tts
+    language: en
+    request: { text: "$ref:en", language: en, behavior: "@behavior/tts_pause_rate.json" }
+    checks: { audio: { min_duration_s: 2.0, max_duration_s: 15.0, min_mean_volume_db: -45 } }
+    measure: [pauses]
+  - id: tts_de
+    capability: voice.tts
+    language: de
+    request: { text: "Heute zeige ich euch, warum die meisten Leute KI-Agenten falsch verstehen.", language: de }
+    checks: { audio: { min_duration_s: 1.5, max_duration_s: 15.0, min_mean_volume_db: -45 } }
+  - id: tts_tr
+    capability: voice.tts
+    language: tr
+    request: { text: "Bugün size çoğu insanın yapay zekâ ajanlarını neden yanlış anladığını göstereceğim.", language: tr }
+    checks: { audio: { min_duration_s: 1.5, max_duration_s: 15.0, min_mean_volume_db: -45 } }
+  - id: tts_ar
+    capability: voice.tts
+    language: ar
+    request: { text: "اليوم سأشرح لكم لماذا يسيء معظم الناس فهم وكلاء الذكاء الاصطناعي.", language: ar }
+    checks: { audio: { min_duration_s: 1.5, max_duration_s: 15.0, min_mean_volume_db: -45 } }
+  - id: voice_design
+    capability: voice.design
+    language: en
+    request: { description: "a warm, mid-pitched voice in her late twenties, relaxed pace", language: en, sample_text: "$ref:en", count: 2 }
+    checks: { candidates: { count: 2 } }
+  - id: voice_prepare
+    capability: voice.clone_prepare
+    request: { references: [{ audio: $speech_ref_en, transcript: "$ref:en", language: en }], description: "smoke reference voice" }
+    checks: { artifact: { field: conditioning } }
+  # ------------------------------------------------------------------ ASR and alignment
+  - id: asr_en
+    capability: asr.transcribe
+    language: en
+    request: { audio: $speech_ref_en, language: en }
+    checks: { transcript: { reference: "$ref:en", max_wer: 0.25 } }
+  - id: lid_en
+    capability: asr.lid
+    request: { audio: $speech_ref_en }
+    checks: { language: { expected: en } }
+  - id: align_en
+    capability: asr.align
+    language: en
+    request: { audio: $speech_ref_en, text: "$ref:en", language: en }
+    checks: { alignment: { monotonic: true, within_s: 4.6 } }
+  - id: align_tr
+    capability: asr.align
+    language: tr
+    request: { audio: $speech_ref_tr, text: "$ref:tr", language: tr }
+    checks: { alignment: { monotonic: true, within_s: 6.7 } }
+  - id: align_ar
+    capability: asr.align
+    language: ar
+    request: { audio: $speech_ref_ar, text: "$ref:ar", language: ar }
+    checks: { alignment: { monotonic: true, within_s: 6.1 } }
+  - id: asr_tr
+    capability: asr.transcribe
+    language: tr
+    # eSpeak NG's formant voice is harder to recognize than a person: characters, not words
+    request: { audio: $speech_ref_tr, language: tr }
+    checks: { transcript: { reference: "$ref:tr", max_cer: 0.4 } }
+  # ------------------------------------------------------------------ music and SFX
+  - id: music_instrumental
+    capability: audio.music
+    request: { description: "calm lo-fi instrumental with soft piano", duration_s: 8.0, bpm: 80, instrumental: true }
+    checks: { audio: { min_duration_s: 7.5, max_duration_s: 9.0, min_mean_volume_db: -45 } }
+  - id: sfx_typing
+    capability: audio.sfx
+    request: { description: "soft keyboard typing in a quiet room", duration_s: 3.0 }
+    checks: { audio: { min_duration_s: 2.5, max_duration_s: 4.0, min_mean_volume_db: -55 } }
+  # ------------------------------------------------------------------ post
+  - id: upscale_2x
+    capability: video.upscale
+    request: { video: $clip_small, target_width: 512, target_height: 896 }
+    checks: { video: { width: 512, height: 896, min_duration_s: 1.8, max_duration_s: 2.2 } }
+  - id: interpolate_24
+    capability: video.interpolate
+    request: { video: $clip_small, target_fps: 24 }
+    checks: { video: { min_fps: 23.5, max_fps: 24.5, min_duration_s: 1.8, max_duration_s: 2.2 } }
+  - id: watermark_video
+    capability: provenance.watermark_video
+    request: { media: $clip_small, payload_id: "smoke-0001" }
+    checks: { video: { field: media, min_duration_s: 1.8, max_duration_s: 2.2 }, watermark_roundtrip: { layer: watermark_video } }
+  - id: watermark_audio
+    capability: provenance.watermark_audio
+    request: { media: $speech_ref_en, payload_id: "smoke-0001" }
+    checks: { audio: { field: media, min_duration_s: 4.0, max_duration_s: 4.3 }, watermark_roundtrip: { layer: watermark_audio } }
+  # ------------------------------------------------------------------ vision and QC metrics
+  - id: vlm_image
+    capability: vision.image
+    request:
+      media: $portrait
+      question: "Is a person's face visible? Answer as JSON."
+      json_schema: { type: object, properties: { face_visible: { type: boolean } }, required: [face_visible] }
+    checks: { answer: { keys: [face_visible] } }
+  - id: vlm_video_window
+    capability: vision.video
+    request:
+      media: $talking_still
+      question: "Does the person look away from the camera in this window? Answer as JSON."
+      json_schema: { type: object, properties: { looks_away: { type: boolean } }, required: [looks_away] }
+      window_s: [1.0, 2.0]
+    checks: { answer: { keys: [looks_away] } }
+  - id: qc_lipsync
+    capability: qc.lipsync
+    request: { media: $talking_still }
+    checks: { score: { finite: true } }
+  - id: qc_vqa
+    capability: qc.vqa
+    request: { media: $clip_small }
+    checks: { score: { finite: true } }
+  - id: qc_speech
+    capability: qc.speech_quality
+    request: { media: $speech_ref_en }
+    checks: { score: { finite: true } }
+  - id: emotion_en
+    capability: audio.emotion
+    request: { audio: $speech_ref_en }
+    checks: { classes: { min: 2 } }
+  - id: speaker_embedding
+    capability: voice.embed
+    request: { audio: $speech_ref_en }
+    checks: { vectors: { min_dim: 64 } }

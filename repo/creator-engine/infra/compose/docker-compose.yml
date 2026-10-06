@@ -1,0 +1,417 @@
+# AI Creator Engine — local stack (MASTER_BUILD_PROMPT §36).
+#
+# Profiles:
+#   core           infrastructure (Phase 0): postgres+pgvector, redis (Valkey), temporal dev server, temporal-ui, seaweedfs;
+#                  api-migrate (one-shot: migrations + buckets) and api (Phase 1); orchestrator, scheduler and
+#                  render-worker (Phase 2). web joins in Phase 5.
+#   mock-gpu       worker-cpu loading the mock adapters            (Phase 2)
+#   cpu-real       worker-cpu also loading the CPU engines         (Phase 7)
+#   observability  otel-collector, prometheus, grafana, loki, tempo (Phase 14)
+#
+# Third-party images are pinned by digest. Versions at pin time are noted beside each image.
+# Our images are built from infra/docker (`make build-images`; compose builds them when missing).
+# Credentials come from .env (created from .env.example by `make infra-up`); they are dev-only values.
+
+name: creator-engine
+
+services:
+  postgres:
+    profiles: ["core"]
+    # PostgreSQL 18.6 + pgvector (pgvector/pgvector:pg18)
+    image: pgvector/pgvector@sha256:2358fcba361ed2233a5ed81b5fe4ca779ccb304120ce531a3bf51c0ed7e2bc11
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set in .env}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  redis:
+    profiles: ["core"]
+    # Valkey 8.1 (valkey/valkey:8-alpine): Redis-protocol server under BSD-3-Clause (ADR 0028).
+    # The service keeps the name "redis" so REDIS_URL and the spec's terminology stay unchanged.
+    image: valkey/valkey@sha256:081c2f5cb575efc901aa80ff9cdbd1ec6a301682fd35e1ebb4b0990a4a4a8507
+    command: ["valkey-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  temporal:
+    profiles: ["core"]
+    # Temporal CLI 1.9.1 dev server (Server 1.32.0) with a persistent SQLite file (ADR 0029).
+    image: temporalio/temporal@sha256:ad4c82c97bd12b417d1ea942610dbcd511afb250c4d5ed26c694009533df447e
+    command:
+      - server
+      - start-dev
+      - --ip
+      - 0.0.0.0
+      - --headless
+      - --db-filename
+      - /home/temporal/temporal.db
+      - --namespace
+      - ${TEMPORAL_NAMESPACE:-default}
+    ports:
+      - "${TEMPORAL_PORT:-7233}:7233"
+    volumes:
+      # Mounted on the image user's home so the non-root `temporal` user owns the volume.
+      - temporaldata:/home/temporal
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "127.0.0.1:7233"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+  temporal-ui:
+    profiles: ["core"]
+    # Temporal Web UI (temporalio/ui, 2.54-era)
+    image: temporalio/ui@sha256:3899d5cf749b5555c9f798d46f2423b1d6190ea391ca713db5d1bba961759e58
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:3000
+    ports:
+      - "${TEMPORAL_UI_PORT:-8080}:8080"
+    depends_on:
+      temporal:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  seaweedfs:
+    profiles: ["core"]
+    # SeaweedFS 4.48 (chrislusf/seaweedfs), single-node master+volume+filer+S3 gateway (ADR 0010, ADR 0029).
+    image: chrislusf/seaweedfs@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+    environment:
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:?set in .env}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:?set in .env}
+      # Each bucket is a collection that grows its own volumes. The defaults (7 volumes per growth,
+      # at most 8 per server, 30 GB each) run out after one bucket on a single node (Phase 1 finding).
+      WEED_MASTER_VOLUME_GROWTH_COPY_1: "2"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        cat > /tmp/s3.json <<JSON
+        {"identities":[{"name":"creator-engine","credentials":[{"accessKey":"$${S3_ACCESS_KEY_ID}","secretKey":"$${S3_SECRET_ACCESS_KEY}"}],"actions":["Admin","Read","Write","List","Tagging"]}]}
+        JSON
+        exec weed server -dir=/data -ip.bind=0.0.0.0 -volume.max=200 -master.volumeSizeLimitMB=512 -s3 -s3.port=8333 -s3.config=/tmp/s3.json
+    ports:
+      - "${S3_PORT:-8333}:8333"
+      - "${SEAWEED_MASTER_PORT:-9333}:9333"
+    volumes:
+      - seaweeddata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9333/cluster/status && wget -q -O /dev/null http://127.0.0.1:8333/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  # ------------------------------------------------------------------ application (Phase 1+)
+  api-migrate:
+    profiles: ["core"]
+    image: creator-engine/api:dev
+    build: &api-build
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+      secrets: [extra_ca]
+    env_file: [../../.env]
+    environment: &api-env
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      TEMPORAL_ADDRESS: temporal:7233
+      S3_ENDPOINT_URL: http://seaweedfs:8333
+      # Presigned URLs are opened by the browser on the host (ADR 0030).
+      S3_PUBLIC_ENDPOINT_URL: http://localhost:${S3_PORT:-8333}
+      API_BASE_URL: http://localhost:${API_PORT:-8000}
+      SCHEDULER_INTERNAL_URL: http://scheduler:8100
+    command: ["sh", "-c", "alembic -c /app/alembic.ini upgrade head && ce storage init"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      seaweedfs: {condition: service_healthy}
+    restart: "no"
+
+  api:
+    profiles: ["core"]
+    image: creator-engine/api:dev
+    build: *api-build
+    env_file: [../../.env]
+    environment:
+      <<: *api-env
+      METRICS_PORT: "9100"  # metrics on a side port inside the network, never on the published API port
+      # X-Forwarded-For is honoured only from these addresses (the web gateway's network; Docker's default
+      # range for Compose networks). The gateway forwards only the nearest hop (docs/SECURITY.md); in
+      # production set the gateway's exact address and do not publish the API port.
+      FORWARDED_ALLOW_IPS: ${API_FORWARDED_ALLOW_IPS:-172.16.0.0/12}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      api-migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=4).status == 200 else 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  # ------------------------------------------------------------------ web (Phase 5)
+  web:
+    profiles: ["core"]
+    image: creator-engine/web:dev
+    build:
+      context: ../..
+      dockerfile: infra/docker/web.Dockerfile
+      secrets: [extra_ca]
+    environment:
+      API_INTERNAL_URL: http://api:8000
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------ execution (Phase 2+)
+  # One image for the execution services (infra/docker/services.Dockerfile); the command picks the service.
+  orchestrator:
+    profiles: ["core"]
+    image: creator-engine/services:dev
+    build: &services-build
+      context: ../..
+      dockerfile: infra/docker/services.Dockerfile
+      secrets: [extra_ca]
+    env_file: [../../.env]
+    environment: &services-env
+      <<: *api-env
+      METRICS_PORT: "9100"
+      MODEL_CACHE_DIR: /models
+    # Real CPU engines (Phase 7): the in-process analyzers read the host's model cache read-only;
+    # an empty or missing cache means mocks (CPU_REAL_ENGINES=auto).
+    volumes: &model-cache ["../../.cache/models:/models:ro"]
+    command: ["python", "-m", "ce_orchestrator"]
+    depends_on:
+      api-migrate: {condition: service_completed_successfully}
+      temporal: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck: &metrics-health
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:9100/metrics', timeout=4).status == 200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  render-worker:
+    profiles: ["core"]
+    image: creator-engine/services:dev
+    build: *services-build
+    env_file: [../../.env]
+    environment: *services-env
+    volumes: *model-cache
+    command: ["python", "-m", "ce_render_worker"]
+    depends_on:
+      api-migrate: {condition: service_completed_successfully}
+      temporal: {condition: service_healthy}
+    healthcheck: *metrics-health
+    restart: unless-stopped
+
+  scheduler:
+    profiles: ["core"]
+    image: creator-engine/services:dev
+    build: *services-build
+    env_file: [../../.env]
+    environment:
+      <<: *api-env
+      SCHEDULER_PORT: "8100"
+      METRICS_PORT: "9100"  # side port: the worker API port faces remote workers, metrics stay internal
+    command: ["python", "-m", "ce_scheduler"]
+    ports:
+      - "${SCHEDULER_PORT:-8100}:8100"
+    depends_on:
+      api-migrate: {condition: service_completed_successfully}
+      temporal: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8100/healthz', timeout=4).status == 200 else 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
+  # The cpu_model worker on CPU: the mock adapters (MOCK_GPU=true) and the real CPU engines
+  # (Kokoro [dev only], faster-whisper) whose assets are in the model cache (CPU_REAL_ENGINES, §36
+  # profiles `mock-gpu` and `cpu-real`).
+  worker-cpu:
+    profiles: ["mock-gpu", "cpu-real"]
+    image: creator-engine/services:dev
+    build: *services-build
+    env_file: [../../.env]
+    environment:
+      <<: *api-env
+      SCHEDULER_URL: http://scheduler:8100
+      WORKER_RUNTIME_FAMILY: cpu_model
+      WORKER_NAME: worker-cpu
+      MODEL_CACHE_DIR: /models
+      METRICS_PORT: "9100"
+    volumes: *model-cache
+    command: ["python", "-m", "ce_gpu_worker"]
+    depends_on:
+      scheduler: {condition: service_healthy}
+    healthcheck: *metrics-health
+    restart: unless-stopped
+
+
+  # ------------------------------------------------------------------ observability (Phase 14, §34)
+  # `make obs-up` (or `docker compose --profile core --profile observability up`). Configuration as
+  # code in infra/observability; dashboards are generated by scripts/gen_dashboards.py. Services
+  # send traces when OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318 (set in .env).
+  otel-collector:
+    profiles: ["observability"]
+    # OpenTelemetry Collector Contrib 0.162.0 (otel/opentelemetry-collector-contrib)
+    image: otel/opentelemetry-collector-contrib@sha256:39923a8e431bd1f57be82411999d389fcfe40857492e4365456d97a4c1f74be6
+    command: ["--config=/etc/otelcol/config.yaml"]
+    user: "0"  # reads Docker's container logs (root-owned); the collector only reads them
+    volumes:
+      - ../observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    ports:
+      - "${OTEL_HTTP_PORT:-4318}:4318"
+    depends_on:
+      loki: {condition: service_started}
+      tempo: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "/otelcol-contrib", "components"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  prometheus:
+    profiles: ["observability"]
+    # Prometheus 3.15.0 (prom/prometheus)
+    image: prom/prometheus@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ../observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - promdata:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  alertmanager:
+    profiles: ["observability"]
+    # Alertmanager 0.34.1 (prom/alertmanager)
+    image: prom/alertmanager@sha256:e9733bafb1bdef9b00e25a21f8f99dc26a22224bf16641ad754d1649f4c3357a
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml", "--storage.path=/alertmanager"]
+    volumes:
+      - ../observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "${ALERTMANAGER_PORT:-9093}:9093"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9093/-/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  loki:
+    profiles: ["observability"]
+    # Loki 3.7.8 (grafana/loki)
+    image: grafana/loki@sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ../observability/loki.yaml:/etc/loki/config.yaml:ro
+      - lokidata:/loki
+    # No healthcheck: the image has no shell, no HTTP client and no health subcommand. Readiness is
+    # GET :3100/ready; the collector retries its exports until Loki answers.
+    restart: unless-stopped
+
+  tempo:
+    profiles: ["observability"]
+    # Tempo 3.0.0 (grafana/tempo)
+    image: grafana/tempo@sha256:1ce31d6d7ffab62189685e8c47881d4a561c5d38bd0dbd66e40ca83cef07923d
+    command: ["-config.file=/etc/tempo/config.yaml"]
+    volumes:
+      - ../observability/tempo.yaml:/etc/tempo/config.yaml:ro
+      - tempodata:/var/tempo
+    healthcheck:
+      test: ["CMD", "/tempo", "-health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+  grafana:
+    profiles: ["observability"]
+    # Grafana OSS 13.0.2 (grafana/grafana-oss)
+    image: grafana/grafana-oss@sha256:5dad0df181cb644a14e13617b913b261a54f7d4fd4510721dba420929f35bea2
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+    volumes:
+      - ../observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    depends_on:
+      prometheus: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+  temporaldata:
+  seaweeddata:
+  promdata:
+  lokidata:
+  tempodata:
+  grafanadata:
+
+secrets:
+  # Optional CA bundle for TLS-intercepting proxies during image builds (empty = not used).
+  extra_ca:
+    file: ${EXTRA_CA_BUNDLE:-/dev/null}

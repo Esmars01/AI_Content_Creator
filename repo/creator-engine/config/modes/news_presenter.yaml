@@ -1,0 +1,17 @@
+# Video mode template (§13). Effective maturity in the UI is capped by route validation (§10.4).
+id: news_presenter
+label: News presenter
+maturity: production
+roadmap: MVP
+description: "A presenter delivers news-style updates with lower thirds."
+allowed_shot_types: [talking_head, broll, insert, title_card]
+default_camera_profiles: [desk_mirrorless, dslr]
+default_world_kinds: [studio, office]
+duration_s: {min: 20, max: 120, default: 45}
+aspects: ["9:16", "16:9", "1:1", "4:5"]
+edit_grammar: {max_shot_s: 7, cutaway_every_s: 8, punch_in_on_emphasis: false, beat_snap: false}
+acting_density: low
+editorial_methods: [editorial_cutaway, caption_emphasis, music_cue]
+strategy_packs: [hook_problem_payoff_cta]
+requires: []
+prompt_fragment: null

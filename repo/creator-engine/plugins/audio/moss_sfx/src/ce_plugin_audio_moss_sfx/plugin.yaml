@@ -1,0 +1,86 @@
+# MOSS-SoundEffect v2.0 (§39.7: SFX and room tone [RV: room-tone suitability]). A 1.3B flow-matching
+# DiT with a Qwen3-1.7B text encoder and a 48 kHz DAC VAE; up to 30 s per call (longer ambiences are
+# looped with crossfades by the adapter). English and Chinese prompts.
+id: moss_sfx_v2
+name: MOSS-SoundEffect v2.0
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_audio_moss_sfx.adapter:MossSfxAdapter
+test_backend: ce_plugin_audio_moss_sfx.testing:fake_backend
+capabilities:
+  - id: audio.sfx
+    features: [ambience, one_shot]
+runtime:
+  {
+    family: audio,
+    python: "3.12",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 10,
+    recommended_vram_gb: 24,
+    supports_cpu: false,
+  }
+models:
+  - key: moss-soundeffect-v2
+    size_gb: 10.46 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: OpenMOSS-Team/MOSS-SoundEffect-v2.0
+    source:
+      {
+        type: huggingface,
+        repo: OpenMOSS-Team/MOSS-SoundEffect-v2.0,
+        revision: e35df4d82fbe87fcd5d14e5d100e349c0c3c076d,
+      }
+    files: [model_index.json, "scheduler/*", "text_encoder/*", "tokenizer/*", "transformer/*", "vae/*"]
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/OpenMOSS-Team/MOSS-SoundEffect-v2.0/blob/e35df4d82fbe87fcd5d14e5d100e349c0c3c076d/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license apache-2.0 at the pinned revision",
+      }
+    dependencies:
+      - ref: "github:OpenMOSS/MOSS-TTS@934d6826b084c46a0d033402174d5f8ac4ed2519 (moss_soundeffect_v2)"
+        role: code
+        source:
+          {
+            type: git,
+            repo: "https://github.com/OpenMOSS/MOSS-TTS",
+            revision: 934d6826b084c46a0d033402174d5f8ac4ed2519,
+          }
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/OpenMOSS/MOSS-TTS/blob/934d6826b084c46a0d033402174d5f8ac4ed2519/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: e83b87b4c86fc39a3e3278705e02f3599d63b0a9fd006a6ec7aa721d38d4086d,
+            evidence: license_file,
+          }
+      - ref: "Qwen/Qwen3-1.7B@70d244cc86ccca08cf5af4e1e306ecf908b1ad5e (text encoder, bundled in the snapshot)"
+        role: text_encoder
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://huggingface.co/Qwen/Qwen3-1.7B/blob/70d244cc86ccca08cf5af4e1e306ecf908b1ad5e/README.md",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "model_card of the base model (cardData.base_model of the snapshot): license apache-2.0",
+          }
+defaults:
+  inference_steps: 100
+  cfg_scale: 4.0
+  sigma_shift: 5.0
+  loop_crossfade_s: 1.5
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 0.4, load_seconds: 40.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. Model card: up to 30 s at 48 kHz; defaults 100 steps, CFG 4.0, sigma shift 5.0."

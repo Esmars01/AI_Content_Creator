@@ -1,0 +1,156 @@
+# LongCat-Video-Avatar 1.5 (§39.7: the talking-head alternate; production fallback once
+# smoke-validated). Audio-image-to-video with a Whisper-large-v3 audio encoder, 8-step DMD
+# distillation and an INT8-quantized DiT; long clips grow by native video continuation (93-frame
+# windows with 13 conditioning frames at 25 fps).
+#
+# The pipeline's vocal separator (Kim_Vocal_2.onnx, shipped in the weights repository) is not used:
+# the adapter's input is the synthesized dialogue stem, not a mixed recording, so the separator is
+# neither fetched nor part of the license closure (DECISIONS D91). Behavior values are model-card
+# claims [RV] until smoke runs and benchmarks measure them (ADR 0027).
+id: longcat_avatar
+name: LongCat-Video-Avatar 1.5 (8-step distilled, INT8)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_avatar_longcat.adapter:LongCatAvatarAdapter
+behavior_translator: ce_plugin_avatar_longcat.translator:LongCatAvatarTranslator
+test_backend: ce_plugin_avatar_longcat.testing:fake_backend
+capabilities:
+  - id: avatar.a2v
+    features: [i2v, long_form_streaming]
+    languages: { mode: audio_driven, validated: [en, zh], unvalidated: [de, es, fr, it, ru, tr, ar] }
+    resolutions: ["480p", "720p"]
+    max_duration_s: 60
+    fps: 25
+behavior_matrix:
+  emotion_visual: { control: text_global, temporal_precision: clip, vocabulary: any_text }
+  facial_expression: { control: emergent }
+  reaction: { control: emergent }
+  listening: { control: emergent }
+  gaze: { control: emergent }
+  blink: { control: emergent }
+  # distillation fixes both guidance scales at 1.0 (run_demo_avatar_single_audio_to_video.py), so
+  # there is no motion knob in the default configuration
+  head_motion: { control: emergent }
+  gesture: { control: text_global, temporal_precision: clip, vocabulary: any_text }
+  posture: { control: text_global, temporal_precision: clip }
+  camera_awareness: { control: text_global, temporal_precision: clip }
+  segment_control: { supported: false }
+  prosody_coupling: { lip_sync_from_audio: strong, expression_from_audio: strong }
+  continuity:
+    {
+      first_frame_conditioning: true,
+      chunk_continuation: true,
+      reference_identity: strong,
+      background_preservation: medium,
+    }
+  object_interaction: { control: none }
+  multi_person: { max_persons: 1 } # the multi-audio pipeline is a separate adapter (V2)
+  temporal_control: { max_clip_s: 60, recommended_chunk_s: 25 }
+runtime:
+  {
+    family: wan,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 32,
+    recommended_vram_gb: 80,
+    supports_cpu: false,
+  }
+models:
+  - key: longcat-video-avatar-1.5
+    size_gb: 41.67 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: meituan-longcat/LongCat-Video-Avatar-1.5 (INT8 DiT, DMD LoRA, Whisper-large-v3)
+    source:
+      {
+        type: huggingface,
+        repo: meituan-longcat/LongCat-Video-Avatar-1.5,
+        revision: 92016c71d5d318d0f5d84e4db30015a571484ab6,
+      }
+    files:
+      - config.json
+      - model_index.json
+      - scheduler/*
+      - base_model_int8/*
+      - lora/dmd_lora.safetensors
+      - whisper-large-v3/*.json
+      - whisper-large-v3/*.txt
+      - whisper-large-v3/model.safetensors
+    license:
+      {
+        name: MIT,
+        url: "https://huggingface.co/meituan-longcat/LongCat-Video-Avatar-1.5/blob/92016c71d5d318d0f5d84e4db30015a571484ab6/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license mit at the pinned revision",
+      }
+    dependencies:
+      - ref: "meituan-longcat/LongCat-Video@03b55529b1d1d4045f5fbe14d65c8c6e8116b278"
+        role: base_weights # tokenizer, UMT5 text encoder, Wan VAE (the demo reads them from ../LongCat-Video)
+        source:
+          { type: huggingface, repo: meituan-longcat/LongCat-Video, revision: 03b55529b1d1d4045f5fbe14d65c8c6e8116b278 }
+        files: [model_index.json, "tokenizer/*", "text_encoder/*", "vae/*", "scheduler/*"]
+        license:
+          {
+            name: MIT,
+            url: "https://huggingface.co/meituan-longcat/LongCat-Video/blob/03b55529b1d1d4045f5fbe14d65c8c6e8116b278/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "license_file (LICENSE in the weights repository) and model_card mit",
+          }
+      - ref: "openai/whisper-large-v3@06f233fe06e710322aca913c1bc4249a0d71fce1 (bundled copy in whisper-large-v3/)"
+        role: audio_encoder
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://huggingface.co/openai/whisper-large-v3/blob/06f233fe06e710322aca913c1bc4249a0d71fce1/README.md",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "model_card: license apache-2.0 at the pinned revision of the original",
+          }
+      - ref: "github:meituan-longcat/LongCat-Video@6b3f4b8582a8bc3f20f795735f5383716c4ba794"
+        role: code
+        source:
+          {
+            type: git,
+            repo: "https://github.com/meituan-longcat/LongCat-Video",
+            revision: 6b3f4b8582a8bc3f20f795735f5383716c4ba794,
+          }
+        license:
+          {
+            name: MIT,
+            url: "https://github.com/meituan-longcat/LongCat-Video/blob/6b3f4b8582a8bc3f20f795735f5383716c4ba794/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: dfdbf36556065706ef8b26e5866acb85209b6465af0395578d38b63470e0bed0,
+            evidence: license_file,
+          }
+defaults:
+  model_type: avatar-v1.5
+  use_distill: true # required by 1.5; 8 steps with text and audio guidance fixed at 1.0
+  use_int8: true
+  steps: 8
+  text_guidance_scale: 1.0
+  audio_guidance_scale: 1.0
+  window_frames: 93
+  cond_frames: 13
+  fps: 25
+  ref_img_index: 10 # README: 0–24 for consistency, ~30 against repeated actions
+  mask_frame_range: 3
+  resolutions: { "480": [480, 832], "720": [768, 1280] } # (short, long) side of the 480p/720p buckets
+  # upstream negative prompt of run_demo_avatar_single_audio_to_video.py at the pinned commit
+  negative: "Close-up, Bright tones, overexposed, static, blurred details, subtitles, style, works, paintings, images, static, overall gray, worst quality, low quality, JPEG compression residue, ugly, incomplete, extra fingers, poorly drawn hands, poorly drawn faces, deformed, disfigured, misshapen limbs, fused fingers, still picture, messy background, three legs, many people in the background, walking backwards"
+  verbal_cue: "A person is speaking." # README tip: include verbal-action cues
+  reference_gpu: rtx_pro_6000_96gb
+pricing: { seconds_per_unit: 20.0, load_seconds: 240.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. Model card: robust long-video generation, stylized domains, 8-step distilled inference; lip sync validated by the authors for en/zh."

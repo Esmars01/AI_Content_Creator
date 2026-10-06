@@ -1,0 +1,15 @@
+# Camera profile (§22). Deterministic camera and realism post use these values (ADR 0009).
+id: car_vlog
+label: Car vlog
+maturity: experimental
+prompt_hints: ["phone mounted on a car dashboard"]
+subject_distance_m: 0.6
+sensor: { fps: 30, noise_luma: 0.01, noise_chroma: 0.005, rolling_shutter: 0.002 }
+lens: { focal_equiv_mm: 20, distortion_k1: 0.05, vignette: 0.2, dof: deep }
+framing: { default: medium_close_up, headroom: 0.08, eye_line: 0.4, overscan: 0.12 }
+motion: { type: vehicle, amplitude_px: 4, freq_hz: [2.0, 6.0], rotation_deg: 0.3, breathing_sway: false, stabilization: 0.7 }
+focus: { autofocus_hunts_per_min: 0.3 }
+exposure: { auto_exposure_drift: 0.05 }
+color: { lut: luts/phone_natural.cube, saturation: 1.02 }
+compression: { codec: h264, bitrate_kbps: 10000 }
+audio: { mic_profile: phone_front_mic, distance_m: 0.6 }

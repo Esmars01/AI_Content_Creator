@@ -1,0 +1,14 @@
+# Caption style (§27). Fonts fall back through font_fallbacks for Latin Extended, Cyrillic and Arabic.
+id: clean_subtitle
+label: Clean subtitle
+font_family: Inter
+font_fallbacks: [Noto Sans, Noto Sans Arabic, DejaVu Sans]
+font_size_px: 54
+primary_color: "#FFFFFF"
+stroke_color: "#000000"
+stroke_width_px: 3
+highlight_color: "#FFFFFF"
+highlight: none
+max_words_per_line: 3
+animation: none
+rtl_highlight: line   # RTL tracks fall back to line-level highlight (§27)

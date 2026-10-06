@@ -1,0 +1,17 @@
+# Video mode template (§13). Effective maturity in the UI is capped by route validation (§10.4).
+id: vlog
+label: Vlog
+maturity: experimental
+roadmap: V1
+description: "Day-in-the-life vlog (stub)."
+allowed_shot_types: [talking_head, broll]
+default_camera_profiles: [phone_rear_handheld, phone_front_selfie]
+default_world_kinds: [home_office, kitchen, living_room]
+duration_s: {min: 30, max: 300, default: 90}
+aspects: ["9:16", "16:9", "1:1", "4:5"]
+edit_grammar: {max_shot_s: 6, cutaway_every_s: 6, punch_in_on_emphasis: true, beat_snap: false}
+acting_density: medium
+editorial_methods: [editorial_cutaway, editorial_punch, caption_emphasis, music_cue, sfx_cue]
+strategy_packs: [story_arc]
+requires: []
+prompt_fragment: null

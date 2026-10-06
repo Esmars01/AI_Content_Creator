@@ -1,0 +1,54 @@
+{
+  "additionalProperties": false,
+  "description": "Visual identity (§17.2). `age_appearance` must be at least 18 (§17.3).",
+  "properties": {
+    "age_appearance": {
+      "maximum": 100,
+      "minimum": 18,
+      "title": "Age Appearance",
+      "type": "integer"
+    },
+    "body_type": {
+      "default": "",
+      "title": "Body Type",
+      "type": "string"
+    },
+    "distinctive_features": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Distinctive Features",
+      "type": "array"
+    },
+    "eyes": {
+      "default": "",
+      "title": "Eyes",
+      "type": "string"
+    },
+    "face_shape": {
+      "default": "",
+      "title": "Face Shape",
+      "type": "string"
+    },
+    "grooming_style": {
+      "default": "",
+      "title": "Grooming Style",
+      "type": "string"
+    },
+    "hair": {
+      "default": "",
+      "title": "Hair",
+      "type": "string"
+    },
+    "skin": {
+      "default": "",
+      "title": "Skin",
+      "type": "string"
+    }
+  },
+  "required": [
+    "age_appearance"
+  ],
+  "title": "AppearanceDNA",
+  "type": "object"
+}

@@ -1,0 +1,20 @@
+# Authored LLM fixture (hand-written, not recorded from a provider; §37). Edit acceptance (§2, §28 example).
+id: edit_more_skeptical
+kind: authored
+inputs:
+- "edit: make him more skeptical"
+responses:
+  edit:
+    operations:
+    - op: set_acting
+      scope: {ref: "@selection"}
+      changes:
+        emotion: {displayed: {label: skeptical, intensity_delta: 0.2}}
+        strategies: {prosody: slow_measured, gaze: side_glance}
+      reason: displayed skepticism up, measured delivery, side glances
+    - op: add_behavior_event
+      scope: {ref: "@selection"}
+      event: {type: eyebrow_raise, at_ref: "@emphasis", intensity: 0.5, purpose: doubt}
+      reason: an eyebrow raise on the claim word
+    assumptions:
+    - "Applied to the selected scene; “him” is the host."

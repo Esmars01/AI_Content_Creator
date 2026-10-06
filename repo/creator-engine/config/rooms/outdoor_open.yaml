@@ -1,0 +1,7 @@
+# Room acoustics (§19.7, §22). The impulse response is synthetic (scripts/gen_synthetic_assets.py).
+id: outdoor_open
+label: Outdoors, open space
+rt60_s: 0.05
+impulse_response: impulse_responses/outdoor_open.wav
+default_ambient: street_distant
+wet_mix: 0.02

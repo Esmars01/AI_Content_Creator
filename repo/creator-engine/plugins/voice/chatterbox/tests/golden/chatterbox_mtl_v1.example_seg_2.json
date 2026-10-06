@@ -1,0 +1,53 @@
+{
+  "engine": {
+    "calibrated": false,
+    "cfg_weight": 0.5,
+    "encoded": [
+      {
+        "clamped": false,
+        "control": "time_stretch",
+        "dimension": "prosody_rate",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/prosody",
+        "method": "native_parametric",
+        "tempo": 0.9
+      },
+      {
+        "control": "exaggeration_cfg",
+        "dimension": "prosody_energy",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/prosody",
+        "method": "native_parametric"
+      },
+      {
+        "control": "inserted_silence",
+        "dimension": "prosody_pause",
+        "item_ref": "/script/segments[seg_2]/annotations[an_2]",
+        "method": "native_parametric"
+      }
+    ],
+    "exaggeration": 0.63,
+    "pauses_ms": {
+      "3": 350
+    },
+    "syntax": "chatterbox_params",
+    "tags": {},
+    "tempo": 0.9,
+    "unsupported": [
+      {
+        "dimension": "emotion_vocal",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/emotion",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "prosody_pitch",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/prosody",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "prosody_emphasis",
+        "item_ref": "/script/segments[seg_2]/annotations[an_3]",
+        "reason": "realized_elsewhere:caption_emphasis"
+      }
+    ]
+  },
+  "translator": "chatterbox_mtl_v1"
+}

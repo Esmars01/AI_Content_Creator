@@ -1,0 +1,38 @@
+# Prefixes each line with the target language; the real adapter is captions_llm (Phase 12).
+# Mock: registered only when MOCK_GPU=true; never routed in production (§10.6, §24).
+id: mock_caption_translate
+name: Mock caption translation
+version: 0.1.0
+kind: code
+entrypoint: ce_plugins_mock.caption_translate.adapter:MockCaptionTranslate
+mock: true
+capabilities:
+  - id: captions.translate
+    features: [review_state]
+runtime:
+  {
+    family: cpu_inproc,
+    python: "3.12",
+    requires_gpu: false,
+    min_vram_gb: 0,
+    recommended_vram_gb: 0,
+    supports_cpu: true,
+  }
+models:
+  - key: mock-caption-translate
+    display_name: mock-caption-translate (procedural mock, no weights)
+    source: { type: builtin, revision: "1" }
+    license:
+      {
+        name: LicenseRef-CreatorEngine-FirstParty,
+        url: "plugins/mock/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-03,
+        verified_by: claude-code,
+      }
+pricing: { seconds_per_unit: 0.01 }
+allowed_envs: [dev, test]
+status: production
+validation: untested_on_gpu
+maturity_notes: "Mock engine; outputs are labelled and not model output."

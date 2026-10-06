@@ -1,0 +1,6 @@
+# Development overrides. PROVENANCE_MODE and COOKIE_SECURE resolve from here when the
+# environment variables are empty (section 35).
+security:
+  cookie_secure: false
+provenance:
+  mode: mock_dev   # until Phase 7 makes real watermarking and C2PA available

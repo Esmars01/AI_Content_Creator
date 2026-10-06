@@ -1,0 +1,17 @@
+# Video mode template (§13). Effective maturity in the UI is capped by route validation (§10.4).
+id: product_review_cutaways
+label: Product review with cutaways
+maturity: production
+roadmap: MVP
+description: "Reviews a product with cutaways to product inserts; nothing is held in hand in the MVP."
+allowed_shot_types: [talking_head, product, broll, insert]
+default_camera_profiles: [desk_mirrorless, phone_front_selfie]
+default_world_kinds: [home_office, studio, kitchen]
+duration_s: {min: 20, max: 120, default: 45}
+aspects: ["9:16", "16:9", "1:1", "4:5"]
+edit_grammar: {max_shot_s: 6, cutaway_every_s: 6, punch_in_on_emphasis: true, beat_snap: false}
+acting_density: medium
+editorial_methods: [editorial_cutaway, editorial_punch, caption_emphasis, music_cue, sfx_cue]
+strategy_packs: [hook_problem_payoff_cta, listicle]
+requires: [product]
+prompt_fragment: null

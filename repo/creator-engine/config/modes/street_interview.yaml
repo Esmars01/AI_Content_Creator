@@ -1,0 +1,17 @@
+# Video mode template (§13). Effective maturity in the UI is capped by route validation (§10.4).
+id: street_interview
+label: Street interview
+maturity: experimental
+roadmap: V2
+description: "Handheld street interview (stub)."
+allowed_shot_types: [talking_head, two_shot]
+default_camera_profiles: [street_interview]
+default_world_kinds: [outdoor_location]
+duration_s: {min: 30, max: 300, default: 90}
+aspects: ["9:16", "16:9", "1:1", "4:5"]
+edit_grammar: {max_shot_s: 6, cutaway_every_s: 0, punch_in_on_emphasis: false, beat_snap: false}
+acting_density: medium
+editorial_methods: [editorial_cutaway, editorial_punch, caption_emphasis, music_cue, sfx_cue]
+strategy_packs: [story_arc]
+requires: []
+prompt_fragment: null

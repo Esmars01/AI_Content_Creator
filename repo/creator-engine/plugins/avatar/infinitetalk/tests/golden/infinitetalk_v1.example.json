@@ -1,0 +1,86 @@
+{
+  "engine": {
+    "audio_guide_scale": null,
+    "encoded": [
+      {
+        "control": "keyframe",
+        "dimension": "emotion_visual",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/emotion",
+        "method": "keyframe_conditioning"
+      },
+      {
+        "control": "keyframe",
+        "dimension": "posture",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/posture",
+        "method": "keyframe_conditioning"
+      },
+      {
+        "control": "keyframe",
+        "dimension": "camera_awareness",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/camera_awareness",
+        "method": "keyframe_conditioning"
+      },
+      {
+        "control": "audio",
+        "dimension": "emotion_visual",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/emotion",
+        "method": "prosody_transfer"
+      }
+    ],
+    "prompt": "A person is talking. shot on a phone front camera.",
+    "syntax": "infinitetalk_global_prompt",
+    "unsupported": [
+      {
+        "dimension": "gaze",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/gaze",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "gesture",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/gesture",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "reaction",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_1]/strategies/reaction",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "gaze",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/gaze",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "gesture",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/gesture",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "posture",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/posture",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "reaction",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/reaction",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "camera_awareness",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/camera_awareness",
+        "reason": "unsupported"
+      },
+      {
+        "dimension": "gaze",
+        "item_ref": "/scenes[scn_hook]/acting/events[ev_1]",
+        "reason": "realized_elsewhere:editorial_cutaway"
+      },
+      {
+        "dimension": "facial_expression",
+        "item_ref": "/scenes[scn_hook]/acting/events[ev_2]",
+        "reason": "unsupported"
+      }
+    ]
+  },
+  "translator": "infinitetalk_v1"
+}

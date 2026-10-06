@@ -1,0 +1,52 @@
+# The golden evaluation set (§24, §37; Phase 11): the smoke set plus the cases below, run by the
+# benchmark runner (`POST /v1/admin/models/{id}:benchmark`, BenchmarkWorkflow) over
+# `qc.benchmark.seeds` seeds per case, next to the production default of the same capability.
+#
+# `extends` loads the smoke set first (its media and cases). Outputs of the `pairwise`
+# capabilities become blind A/B pairs for human rating; the others are judged by their checks.
+# Checks must pass; `measure` items feed the bench behavior profile and are never pass/fail.
+version: eval-v1
+extends: smoke/cases.yaml
+pairwise: [image.generate, image.edit, avatar.a2v, video.t2v, video.i2v, lipsync.dub, voice.tts, audio.music, audio.sfx, video.upscale]
+cases:
+  # ------------------------------------------------------------------ image
+  - id: image_portrait_window
+    capability: image.generate
+    request: { prompt: "a person in their thirties at a desk by a window, morning light, phone photo", width: 576, height: 1024 }
+    checks: { image: { width: 576, height: 1024, min_luma_range: 40 } }
+  - id: image_edit_expression
+    capability: image.edit
+    request: { image: $portrait, prompt: "the same person, smiling slightly, same clothes and background", references: [$portrait], width: 576, height: 1024 }
+    checks: { image: { width: 576, height: 1024, min_luma_range: 40 } }
+  # ------------------------------------------------------------------ talking head and B-roll
+  - id: avatar_en_plain
+    capability: avatar.a2v
+    language: en
+    request: { keyframe: $portrait, audio: $speech_en, width: 480, height: 832, fps: 25 }
+    checks: { video: { min_duration_s: 3.5, max_duration_s: 4.6, width: 480, height: 832 } }
+    measure: [face, head_motion]
+  - id: broll_t2v_street
+    capability: video.t2v
+    request: { prompt: "a quiet street with parked bicycles at golden hour, slow pan", duration_s: 2.0, fps: 16, width: 832, height: 480 }
+    checks: { video: { min_duration_s: 1.5, max_duration_s: 3.0, width: 832, height: 480 } }
+  # ------------------------------------------------------------------ voice
+  - id: tts_es
+    capability: voice.tts
+    language: es
+    request: { text: "Hoy os voy a enseñar por qué casi todo el mundo entiende mal a los agentes de IA.", language: es }
+    checks: { audio: { min_duration_s: 1.5, max_duration_s: 15.0, min_mean_volume_db: -45 } }
+  - id: tts_fr
+    capability: voice.tts
+    language: fr
+    request: { text: "Aujourd'hui, je vais vous montrer pourquoi la plupart des gens comprennent mal les agents d'IA.", language: fr }
+    checks: { audio: { min_duration_s: 1.5, max_duration_s: 15.0, min_mean_volume_db: -45 } }
+  - id: tts_ru
+    capability: voice.tts
+    language: ru
+    request: { text: "Сегодня я покажу, почему большинство людей неправильно понимают ИИ-агентов.", language: ru }
+    checks: { audio: { min_duration_s: 1.5, max_duration_s: 15.0, min_mean_volume_db: -45 } }
+  # ------------------------------------------------------------------ music
+  - id: music_upbeat
+    capability: audio.music
+    request: { description: "upbeat acoustic guitar with light percussion", duration_s: 8.0, bpm: 110, instrumental: true }
+    checks: { audio: { min_duration_s: 7.5, max_duration_s: 9.0, min_mean_volume_db: -45 } }

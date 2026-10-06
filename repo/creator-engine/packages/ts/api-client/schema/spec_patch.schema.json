@@ -1,0 +1,57 @@
+{
+  "$defs": {
+    "PatchOp": {
+      "additionalProperties": false,
+      "properties": {
+        "after": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "add: insert after the sibling with this key",
+          "title": "After"
+        },
+        "op": {
+          "enum": [
+            "set",
+            "add",
+            "remove"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "value": {
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "op",
+        "path"
+      ],
+      "title": "PatchOp",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "ops": {
+      "items": {
+        "$ref": "#/$defs/PatchOp"
+      },
+      "title": "Ops",
+      "type": "array"
+    }
+  },
+  "title": "SpecPatch",
+  "type": "object"
+}

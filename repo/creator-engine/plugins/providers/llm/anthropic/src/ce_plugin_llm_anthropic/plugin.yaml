@@ -1,0 +1,16 @@
+# Hosted LLM through the Anthropic Messages API. ANTHROPIC_API_KEY and LLM_MODEL come from the
+# environment (§35); the structured output is a forced tool call whose input schema is the stage's.
+id: llm.anthropic
+name: Anthropic LLM provider
+version: 0.1.0
+kind: provider
+provider: { kind: llm, key: anthropic }
+entrypoint: ce_plugin_llm_anthropic.provider:create
+runtime: { family: cpu_inproc, python: "3.12", requires_gpu: false, supports_cpu: true }
+allowed_envs: [dev, test, prod]
+status: production
+validation: untested_on_gpu # exercised with recorded HTTP exchanges until a key is configured
+defaults:
+  base_url: https://api.anthropic.com
+  api_version: "2023-06-01"
+  timeout_s: 120

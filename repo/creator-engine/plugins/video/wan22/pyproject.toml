@@ -1,0 +1,23 @@
+[project]
+name = "ce-plugin-video-wan22"
+version = "0.1.0"
+description = "video.t2v / video.i2v with Wan 2.2: A14B through LightX2V's 4-step distillation LoRAs (default B-roll) and TI2V-5B through diffusers (draft/fallback), on the wan GPU family."
+requires-python = ">=3.10"
+# Light dependencies only; LightX2V / diffusers and torch come from the wan family image variants.
+dependencies = ["ce-contracts", "ce-plugin-kit"]
+
+[project.entry-points."creator_engine.plugins"]
+wan22_a14b_t2v = "ce_plugin_video_wan22.a14b_t2v"
+wan22_a14b_i2v = "ce_plugin_video_wan22.a14b_i2v"
+wan22_ti2v_5b = "ce_plugin_video_wan22.ti2v_5b"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ce_plugin_video_wan22"]
+
+[tool.ruff]
+extend = "../../../pyproject.toml"
+target-version = "py310"

@@ -1,0 +1,15 @@
+# Camera profile (§22). Deterministic camera and realism post use these values (ADR 0009).
+id: street_interview
+label: Street interview
+maturity: experimental
+prompt_hints: ["handheld street interview"]
+subject_distance_m: 1.2
+sensor: { fps: 30, noise_luma: 0.008, noise_chroma: 0.004, rolling_shutter: 0.002 }
+lens: { focal_equiv_mm: 28, distortion_k1: 0.02, vignette: 0.1, dof: deep }
+framing: { default: medium, headroom: 0.1, eye_line: 0.36, overscan: 0.12 }
+motion: { type: handheld, amplitude_px: 8, freq_hz: [0.3, 1.5], rotation_deg: 0.5, breathing_sway: true, stabilization: 0.7 }
+focus: { autofocus_hunts_per_min: 0.4 }
+exposure: { auto_exposure_drift: 0.04 }
+color: { lut: luts/phone_natural.cube, saturation: 1.02 }
+compression: { codec: h264, bitrate_kbps: 12000 }
+audio: { mic_profile: shotgun, distance_m: 0.6 }

@@ -1,0 +1,84 @@
+# ACE-Step 1.5 (§39.7: music beds, instrumental mode [RV: quality]). The turbo DiT (8 steps, shift 3)
+# with the 5 Hz planning LM; the Hugging Face snapshot bundles the DiT, the VAE, the Qwen3-Embedding
+# text encoder and the LM, all loaded from the local cache (no download at load).
+id: acestep_v15
+name: ACE-Step 1.5 (turbo, instrumental)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_audio_acestep.adapter:AceStepAdapter
+test_backend: ce_plugin_audio_acestep.testing:fake_backend
+capabilities:
+  - id: audio.music
+    features: [instrumental, bpm]
+runtime:
+  {
+    family: audio,
+    python: "3.11",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 12,
+    recommended_vram_gb: 24,
+    supports_cpu: false,
+  }
+models:
+  - key: acestep-v15
+    size_gb: 9.4 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: ACE-Step/Ace-Step1.5 (turbo DiT, VAE, text encoder, 1.7B LM)
+    source: { type: huggingface, repo: ACE-Step/Ace-Step1.5, revision: 19671f406d603126926c1b7e2adc169acbcade22 }
+    files: [config.json, "acestep-v15-turbo/*", "vae/*", "Qwen3-Embedding-0.6B/*", "acestep-5Hz-lm-1.7B/*"]
+    license:
+      {
+        name: MIT,
+        url: "https://huggingface.co/ACE-Step/Ace-Step1.5/blob/19671f406d603126926c1b7e2adc169acbcade22/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license mit at the pinned revision",
+      }
+    dependencies:
+      - ref: "github:ace-step/ACE-Step-1.5@ca1e85fe9430179831e6bc6be790c332190a3866"
+        role: code
+        source:
+          {
+            type: git,
+            repo: "https://github.com/ace-step/ACE-Step-1.5",
+            revision: ca1e85fe9430179831e6bc6be790c332190a3866,
+          }
+        license:
+          {
+            name: MIT,
+            url: "https://github.com/ace-step/ACE-Step-1.5/blob/ca1e85fe9430179831e6bc6be790c332190a3866/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: 05a6bce42a62636d2cfb24139cc008b6b899754e244175814bb5dd2f4a485357,
+            evidence: license_file,
+          }
+      - ref: "Qwen/Qwen3-Embedding-0.6B@97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3 (bundled in the snapshot)"
+        role: text_encoder
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B/blob/97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3/README.md",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "model_card of the upstream checkpoint: license apache-2.0 [RV: the bundled copy's identity]",
+          }
+defaults:
+  dit: acestep-v15-turbo
+  lm: acestep-5Hz-lm-1.7B
+  use_lm: true
+  lm_backend: pt
+  inference_steps: 8
+  shift: 3.0
+  offload_to_cpu: false
+  reference_gpu: rtx_4090_24gb
+pricing: { seconds_per_unit: 0.15, load_seconds: 60.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. README: full songs in seconds on an RTX 4090 with the turbo model (authors' benchmark)."

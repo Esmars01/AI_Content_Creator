@@ -1,0 +1,330 @@
+# Measurable proxies per requestable dimension and label (§16.2). Reliability classes are
+# initial hypotheses [RV]: Phase 7 calibrates them on fixture clips and Phase 11 against human
+# ratings; QC uses the measured value stored per analyzer revision.
+vocab_version: "2026.10.1"
+proxies:
+  look_away:
+    dimension: gaze
+    labels: [look_away, glance_away_and_return, side_glance, avoid_camera, look_down, look_down_thinking]
+    analyzer: face.landmarks
+    measure: "gaze deviation above theta for at least d ms"
+    thresholds: {gaze_deviation_deg: 12, min_duration_ms: 250}
+    tolerance_ms: 300
+    reliability: high
+    min_confidence: 0.6
+  hold_camera:
+    dimension: gaze
+    labels: [hold_camera, glance_at_camera]
+    analyzer: face.landmarks
+    measure: "share of frames with gaze deviation below theta"
+    thresholds: {gaze_deviation_deg: 8, min_ratio: 0.7}
+    tolerance_ms: 300
+    reliability: high
+    min_confidence: 0.6
+  glance_at_element:
+    dimension: gaze
+    labels: [glance_at_element]
+    analyzer: vision.video
+    measure: "VLM window question: does the person look toward the named element?"
+    thresholds: {}
+    tolerance_ms: 500
+    reliability: low
+    min_confidence: 0.5
+  smile_score:
+    dimension: facial_expression
+    labels: [small_smile, broad_smile, smirk, amused, warm, playful]
+    analyzer: face.landmarks
+    measure: "smile blendshape score above theta"
+    thresholds: {smile: 0.35}
+    tolerance_ms: 300
+    reliability: high
+    min_confidence: 0.6
+  brow_raise_score:
+    dimension: facial_expression
+    labels: [eyebrow_raise, surprised, skeptical, confused]
+    analyzer: face.landmarks
+    measure: "brow-raise blendshape score above theta"
+    thresholds: {brow_raise: 0.4}
+    tolerance_ms: 300
+    reliability: medium
+    min_confidence: 0.6
+  jaw_open_score:
+    dimension: facial_expression
+    labels: [surprised, gasp]
+    analyzer: face.landmarks
+    measure: "jaw-open score outside speech"
+    thresholds: {jaw_open: 0.5}
+    tolerance_ms: 300
+    reliability: low
+    min_confidence: 0.6
+  frown_score:
+    dimension: facial_expression
+    labels: [frown, wince, lip_press, squint]
+    analyzer: face.landmarks
+    measure: "brow-down / lip-press blendshape scores above theta"
+    thresholds: {brow_down: 0.4}
+    tolerance_ms: 300
+    reliability: medium
+    min_confidence: 0.6
+  blink_event:
+    dimension: blink
+    labels: [slow_blink]
+    analyzer: face.landmarks
+    measure: "eye-closure event longer than d ms"
+    thresholds: {eye_closure: 0.6, min_duration_ms: 250}
+    tolerance_ms: 250
+    reliability: medium
+    min_confidence: 0.6
+  nod:
+    dimension: head_motion
+    labels: [nod]
+    analyzer: face.landmarks
+    measure: "head pitch oscillation"
+    thresholds: {pitch_amplitude_deg: 4}
+    tolerance_ms: 400
+    reliability: medium
+    min_confidence: 0.6
+  head_shake:
+    dimension: head_motion
+    labels: [head_shake]
+    analyzer: face.landmarks
+    measure: "head yaw oscillation"
+    thresholds: {yaw_amplitude_deg: 5}
+    tolerance_ms: 400
+    reliability: medium
+    min_confidence: 0.6
+  head_tilt:
+    dimension: head_motion
+    labels: [head_tilt]
+    analyzer: face.landmarks
+    measure: "head roll above theta"
+    thresholds: {roll_deg: 6}
+    tolerance_ms: 400
+    reliability: medium
+    min_confidence: 0.6
+  head_motion_low:
+    dimension: head_motion
+    labels: [calm, still]
+    analyzer: body.landmarks
+    measure: "head-motion energy below the creator baseline"
+    thresholds: {relative_energy: 0.8}
+    tolerance_ms: 0
+    reliability: medium
+    min_confidence: 0.6
+  gesture_energy_high:
+    dimension: gesture
+    labels: [illustrative_strong, emphatic_beats, excited]
+    analyzer: body.landmarks
+    measure: "per-hand motion energy above the creator baseline"
+    thresholds: {relative_energy: 1.3}
+    tolerance_ms: 0
+    reliability: medium
+    min_confidence: 0.6
+  gesture_energy_low:
+    dimension: gesture
+    labels: [still, self_soothing, illustrative_light]
+    analyzer: body.landmarks
+    measure: "per-hand motion energy at or below the creator baseline"
+    thresholds: {relative_energy: 1.0}
+    tolerance_ms: 0
+    reliability: medium
+    min_confidence: 0.6
+  gesture_vlm:
+    dimension: gesture
+    labels: [open_palms, count_on_fingers, shrug, point_offscreen, hand_to_chest, finger_steeple, wave, thumbs_up, finger_point_at_camera]
+    analyzer: vision.video
+    measure: "VLM window question: is this gesture visible?"
+    thresholds: {}
+    tolerance_ms: 500
+    reliability: low
+    min_confidence: 0.5
+  lean_in:
+    dimension: posture
+    labels: [seated_lean_in, standing_lean_in, lean_in]
+    analyzer: body.landmarks
+    measure: "shoulder-width ratio increase"
+    thresholds: {shoulder_width_ratio: 1.06}
+    tolerance_ms: 500
+    reliability: medium
+    min_confidence: 0.6
+  lean_back:
+    dimension: posture
+    labels: [seated_relaxed, seated_withdrawn, standing_withdrawn, lean_back, slump]
+    analyzer: body.landmarks
+    measure: "shoulder-width ratio decrease"
+    thresholds: {shoulder_width_ratio: 0.95}
+    tolerance_ms: 500
+    reliability: medium
+    min_confidence: 0.6
+  upright:
+    dimension: posture
+    labels: [seated_upright, standing_upright, standing_relaxed, sit_up, shift_weight]
+    analyzer: body.landmarks
+    measure: "nose-to-shoulder geometry within the upright band"
+    thresholds: {}
+    tolerance_ms: 500
+    reliability: low
+    min_confidence: 0.6
+  camera_awareness_vlm:
+    dimension: camera_awareness
+    labels: [direct_address, aside_to_camera, ignores_camera, breaks_fourth_wall]
+    analyzer: vision.video
+    measure: "VLM window question about address to camera, plus gaze-to-camera ratio"
+    thresholds: {}
+    tolerance_ms: 500
+    reliability: low
+    min_confidence: 0.5
+  reaction_vlm:
+    dimension: reaction
+    labels: [small_laugh, double_take, sigh, gasp, eye_roll, none, suppressed, open, slow_burn, exaggerated]
+    analyzer: vision.video
+    measure: "VLM window question about the reaction, plus audio events for laughs and sighs"
+    thresholds: {}
+    tolerance_ms: 500
+    reliability: low
+    min_confidence: 0.5
+  listening_vlm:
+    dimension: listening
+    labels: [attentive_listen]
+    analyzer: vision.video
+    measure: "VLM window question: does the person appear to listen?"
+    thresholds: {}
+    tolerance_ms: 500
+    reliability: low
+    min_confidence: 0.5
+  nonverbal_audio_event:
+    dimension: nonverbal_audio
+    labels: [laugh, light_laugh, chuckle, sigh, breath, gasp]
+    analyzer: audio.prosody
+    measure: "non-speech vocal event near the anchor (energy + voicing pattern)"
+    thresholds: {}
+    tolerance_ms: 300
+    reliability: medium
+    min_confidence: 0.6
+  delivery_whisper:
+    dimension: delivery
+    labels: [whisper, aside, softer, louder, whispered_aside, filler, false_start, repetition]
+    analyzer: audio.prosody
+    measure: "energy and voicing relative to neighbouring speech"
+    thresholds: {relative_energy_db: -8}
+    tolerance_ms: 300
+    reliability: medium
+    min_confidence: 0.6
+  speech_rate_slow:
+    dimension: prosody_rate
+    labels: [slow_measured, hesitant_with_pauses, controlled_even, deadpan]
+    analyzer: audio.prosody
+    measure: "speech rate below the creator baseline by x%"
+    thresholds: {relative_rate: 0.9}
+    tolerance_ms: 0
+    reliability: high
+    min_confidence: 0.6
+  speech_rate_fast:
+    dimension: prosody_rate
+    labels: [urgent_fast, playful_rising, assertive, assertive_light]
+    analyzer: audio.prosody
+    measure: "speech rate at or above the creator baseline"
+    thresholds: {relative_rate: 1.0}
+    tolerance_ms: 0
+    reliability: high
+    min_confidence: 0.6
+  pitch_range_wide:
+    dimension: prosody_pitch
+    labels: [playful_rising, excited, assertive]
+    analyzer: audio.prosody
+    measure: "pitch range above the creator baseline"
+    thresholds: {relative_range: 1.15}
+    tolerance_ms: 0
+    reliability: medium
+    min_confidence: 0.6
+  pitch_range_narrow:
+    dimension: prosody_pitch
+    labels: [deadpan, controlled_even, slow_measured, whispered_aside, hesitant_with_pauses, urgent_fast, assertive_light]
+    analyzer: audio.prosody
+    measure: "pitch range at or below the creator baseline"
+    thresholds: {relative_range: 1.0}
+    tolerance_ms: 0
+    reliability: medium
+    min_confidence: 0.6
+  energy_level:
+    dimension: prosody_energy
+    labels: [assertive, assertive_light, urgent_fast, playful_rising, controlled_even, slow_measured, deadpan, hesitant_with_pauses, whispered_aside]
+    analyzer: audio.prosody
+    measure: "RMS energy relative to the creator baseline"
+    thresholds: {}
+    tolerance_ms: 0
+    reliability: medium
+    min_confidence: 0.6
+  emphasis_word:
+    dimension: prosody_emphasis
+    labels: [emphasize, stress_strong, de_emphasize]
+    analyzer: audio.prosody
+    measure: "pitch/energy peak on the anchored word"
+    thresholds: {}
+    tolerance_ms: 200
+    reliability: medium
+    min_confidence: 0.6
+  pause_ratio_high:
+    dimension: prosody_pause
+    labels: [hesitant_with_pauses, uncertain, hesitant]
+    analyzer: audio.prosody
+    measure: "pause time share above the creator baseline"
+    thresholds: {relative_pause_share: 1.3}
+    tolerance_ms: 0
+    reliability: high
+    min_confidence: 0.6
+  pause_at_anchor:
+    dimension: prosody_pause
+    labels: [beat, short_pause, medium_pause, long_pause]
+    analyzer: asr.align
+    measure: "silence of the requested length after the anchored word"
+    thresholds: {min_ratio_of_requested: 0.7}
+    tolerance_ms: 150
+    reliability: high
+    min_confidence: 0.6
+  accent_rating:
+    dimension: accent
+    labels: [respell]
+    analyzer: asr.align
+    measure: "pronunciation match of the respelled term; accents themselves need human rating"
+    thresholds: {}
+    tolerance_ms: 0
+    reliability: low
+    min_confidence: 0.6
+  confident_composite:
+    dimension: emotion_visual
+    labels: [confident]
+    analyzer: face.landmarks
+    measure: "steady gaze ratio, moderate head motion, pitch stability"
+    thresholds: {}
+    tolerance_ms: 0
+    reliability: low
+    min_confidence: 0.6
+  gaze_down_ratio:
+    dimension: emotion_visual
+    labels: [embarrassed, sad]
+    analyzer: face.landmarks
+    measure: "share of frames with downward gaze"
+    thresholds: {min_ratio: 0.3}
+    tolerance_ms: 0
+    reliability: low
+    min_confidence: 0.6
+  emotion_vlm_window:
+    dimension: emotion_visual
+    labels: [neutral, confident, amused, curious, excited, serious, skeptical, uncertain, hesitant, confused, surprised, embarrassed, frustrated, angry, sad, calm, warm, sarcastic, determined, relieved, concerned, playful]
+    analyzer: vision.video
+    measure: "VLM window question: is the expression closer to A or B?"
+    thresholds: {}
+    tolerance_ms: 500
+    reliability: low
+    min_confidence: 0.5
+  vocal_emotion:
+    dimension: emotion_vocal
+    labels: [neutral, confident, amused, curious, excited, serious, skeptical, uncertain, hesitant, confused, surprised, embarrassed, frustrated, angry, sad, calm, warm, sarcastic, determined, relieved, concerned, playful]
+    analyzer: audio.emotion
+    measure: "coarse audio emotion class mapped to the label (sandbox until the license is verified)"
+    thresholds: {}
+    tolerance_ms: 0
+    reliability: low
+    min_confidence: 0.6
+migrations: []

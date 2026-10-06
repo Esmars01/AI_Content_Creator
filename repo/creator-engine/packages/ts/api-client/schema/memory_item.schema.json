@@ -1,0 +1,275 @@
+{
+  "$defs": {
+    "ConflictState": {
+      "enum": [
+        "none",
+        "unresolved",
+        "resolved"
+      ],
+      "title": "ConflictState",
+      "type": "string"
+    },
+    "MemorySource": {
+      "additionalProperties": false,
+      "properties": {
+        "edit_proposal_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Edit Proposal Id"
+        },
+        "element_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Element Key"
+        },
+        "type": {
+          "$ref": "#/$defs/MemorySourceType"
+        },
+        "version_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version Id"
+        },
+        "video_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Video Id"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "MemorySource",
+      "type": "object"
+    },
+    "MemorySourceType": {
+      "enum": [
+        "authored",
+        "plan",
+        "export",
+        "observation",
+        "user_edit",
+        "critique",
+        "import"
+      ],
+      "title": "MemorySourceType",
+      "type": "string"
+    },
+    "MemoryStatus": {
+      "enum": [
+        "proposed",
+        "active",
+        "forgotten",
+        "superseded"
+      ],
+      "title": "MemoryStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One `creator_memory_items` row as a domain object. `value` is typed by `kind` (see `validate_memory_item`).",
+  "properties": {
+    "category": {
+      "minLength": 1,
+      "title": "Category",
+      "type": "string"
+    },
+    "confidence": {
+      "default": 1.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "conflict_ids": {
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "title": "Conflict Ids",
+      "type": "array"
+    },
+    "conflict_state": {
+      "$ref": "#/$defs/ConflictState",
+      "default": "none"
+    },
+    "created_by": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Created By"
+    },
+    "creator_id": {
+      "format": "uuid",
+      "title": "Creator Id",
+      "type": "string"
+    },
+    "creator_version_from": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Creator Version From"
+    },
+    "creator_version_to": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Creator Version To"
+    },
+    "evidence_count": {
+      "default": 1,
+      "minimum": 0,
+      "title": "Evidence Count",
+      "type": "integer"
+    },
+    "first_seen_at": {
+      "format": "date-time",
+      "title": "First Seen At",
+      "type": "string"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "key": {
+      "description": "normalized dedup key from the kind's key fields",
+      "title": "Key",
+      "type": "string"
+    },
+    "kind": {
+      "minLength": 1,
+      "title": "Kind",
+      "type": "string"
+    },
+    "last_seen_at": {
+      "format": "date-time",
+      "title": "Last Seen At",
+      "type": "string"
+    },
+    "org_id": {
+      "format": "uuid",
+      "title": "Org Id",
+      "type": "string"
+    },
+    "pinned": {
+      "default": false,
+      "title": "Pinned",
+      "type": "boolean"
+    },
+    "source": {
+      "$ref": "#/$defs/MemorySource"
+    },
+    "status": {
+      "$ref": "#/$defs/MemoryStatus",
+      "default": "proposed"
+    },
+    "superseded_by_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Superseded By Id"
+    },
+    "text": {
+      "default": "",
+      "title": "Text",
+      "type": "string"
+    },
+    "updated_at": {
+      "format": "date-time",
+      "title": "Updated At",
+      "type": "string"
+    },
+    "value": {
+      "additionalProperties": true,
+      "title": "Value",
+      "type": "object"
+    },
+    "value_hash": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "title": "Value Hash",
+      "type": "string"
+    },
+    "vocab_version": {
+      "minLength": 1,
+      "title": "Vocab Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "org_id",
+    "creator_id",
+    "category",
+    "kind",
+    "key",
+    "value_hash",
+    "value",
+    "vocab_version",
+    "source",
+    "first_seen_at",
+    "last_seen_at",
+    "updated_at"
+  ],
+  "title": "MemoryItem",
+  "type": "object"
+}

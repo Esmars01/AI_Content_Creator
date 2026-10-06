@@ -1,0 +1,16 @@
+[project]
+name = "ce-plugin-storage-local-fs"
+version = "0.1.0"
+description = "Local-filesystem object storage provider (native fallback, dev and test only)."
+requires-python = ">=3.12"
+dependencies = ["ce-core", "ce-storage"]
+
+[project.entry-points."creator_engine.plugins"]
+"storage.local_fs" = "ce_plugin_storage_local_fs"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ce_plugin_storage_local_fs"]

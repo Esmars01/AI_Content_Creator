@@ -1,0 +1,7 @@
+# Strategy pack (§13 stage 4). Configurable, never hard-coded.
+id: myth_vs_reality
+label: "Myth vs reality"
+structure: [hook, setup, turn, explanation, cta]
+signature_format: false
+hook_count: 4
+guidance: "State the common belief as if agreeing, undercut it, explain the reality."

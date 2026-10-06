@@ -1,0 +1,1594 @@
+{
+  "$defs": {
+    "Baseline": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "energy": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Energy",
+          "type": "number"
+        },
+        "expressivity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Expressivity",
+          "type": "number"
+        },
+        "warmth": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Warmth",
+          "type": "number"
+        }
+      },
+      "required": [
+        "energy",
+        "confidence",
+        "warmth",
+        "expressivity"
+      ],
+      "title": "Baseline",
+      "type": "object"
+    },
+    "BehaviorProfile": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline": {
+          "$ref": "#/$defs/Baseline"
+        },
+        "emotion_ranges": {
+          "patternProperties": {
+            "^[a-z0-9]+(?:_[a-z0-9]+)*$": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "propertyNames": {
+            "maxLength": 64
+          },
+          "title": "Emotion Ranges",
+          "type": "object"
+        },
+        "habits": {
+          "items": {
+            "$ref": "#/$defs/Habit"
+          },
+          "title": "Habits",
+          "type": "array"
+        }
+      },
+      "required": [
+        "baseline"
+      ],
+      "title": "BehaviorProfile",
+      "type": "object"
+    },
+    "CBSCastMember": {
+      "additionalProperties": false,
+      "properties": {
+        "behavior_profile": {
+          "$ref": "#/$defs/BehaviorProfile"
+        },
+        "character_key": {
+          "title": "Character Key",
+          "type": "string"
+        },
+        "dna_behavior_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Dna Behavior Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "character_key",
+        "dna_behavior_digest",
+        "behavior_profile"
+      ],
+      "title": "CBSCastMember",
+      "type": "object"
+    },
+    "CBSContent": {
+      "additionalProperties": false,
+      "properties": {
+        "cast": {
+          "items": {
+            "$ref": "#/$defs/CBSCastMember"
+          },
+          "minItems": 1,
+          "title": "Cast",
+          "type": "array"
+        },
+        "constraints": {
+          "$ref": "#/$defs/Constraints"
+        },
+        "continuity": {
+          "$ref": "#/$defs/CBSContinuity"
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/CBSEvent"
+          },
+          "title": "Events",
+          "type": "array"
+        },
+        "intent": {
+          "$ref": "#/$defs/SceneIntent"
+        },
+        "prosody_directives": {
+          "items": {
+            "$ref": "#/$defs/ProsodyDirective"
+          },
+          "title": "Prosody Directives",
+          "type": "array"
+        },
+        "provenance": {
+          "items": {
+            "$ref": "#/$defs/ProvenanceEntry"
+          },
+          "title": "Provenance",
+          "type": "array"
+        },
+        "requested_controls": {
+          "items": {
+            "$ref": "#/$defs/RequestedControl"
+          },
+          "title": "Requested Controls",
+          "type": "array"
+        },
+        "situation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CBSSituation"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "trajectory": {
+          "items": {
+            "$ref": "#/$defs/TrajectoryState"
+          },
+          "title": "Trajectory",
+          "type": "array"
+        },
+        "world": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CBSWorld"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "cast",
+        "intent"
+      ],
+      "title": "CBSContent",
+      "type": "object"
+    },
+    "CBSContinuity": {
+      "additionalProperties": false,
+      "properties": {
+        "requirements": {
+          "items": {
+            "$ref": "#/$defs/ContinuityRequirement"
+          },
+          "title": "Requirements",
+          "type": "array"
+        }
+      },
+      "title": "CBSContinuity",
+      "type": "object"
+    },
+    "CBSEnvelope": {
+      "additionalProperties": false,
+      "properties": {
+        "cbs_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Cbs Version",
+          "type": "string"
+        },
+        "content_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Content Digest",
+          "type": "string"
+        },
+        "refs": {
+          "$ref": "#/$defs/EnvelopeRefs"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "vocab_version": {
+          "minLength": 1,
+          "title": "Vocab Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "vocab_version",
+        "scope",
+        "refs",
+        "content_digest"
+      ],
+      "title": "CBSEnvelope",
+      "type": "object"
+    },
+    "CBSEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "character_key": {
+          "title": "Character Key",
+          "type": "string"
+        },
+        "dimension": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Dimension",
+          "type": "string"
+        },
+        "direction": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Direction"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Ms"
+        },
+        "intensity": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intensity"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "priority": {
+          "$ref": "#/$defs/Priority"
+        },
+        "purpose": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Purpose"
+        },
+        "source": {
+          "$ref": "#/$defs/ElementSource"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target"
+        },
+        "type": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "character_key",
+        "type",
+        "dimension",
+        "priority",
+        "source"
+      ],
+      "title": "CBSEvent",
+      "type": "object"
+    },
+    "CBSInternalState": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "CBSInternalState",
+      "type": "object"
+    },
+    "CBSSituation": {
+      "additionalProperties": false,
+      "properties": {
+        "audience_stance": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Audience Stance",
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Kind",
+          "type": "string"
+        },
+        "stimulus": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CBSStimulus"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "kind",
+        "audience_stance"
+      ],
+      "title": "CBSSituation",
+      "type": "object"
+    },
+    "CBSStimulus": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Kind",
+          "type": "string"
+        },
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "ref"
+      ],
+      "title": "CBSStimulus",
+      "type": "object"
+    },
+    "CBSWorld": {
+      "additionalProperties": false,
+      "properties": {
+        "affordances": {
+          "$ref": "#/$defs/WorldAffordances"
+        },
+        "behavior_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Behavior Digest",
+          "type": "string"
+        }
+      },
+      "required": [
+        "behavior_digest",
+        "affordances"
+      ],
+      "title": "CBSWorld",
+      "type": "object"
+    },
+    "CastRefs": {
+      "additionalProperties": false,
+      "properties": {
+        "appearance_version_id": {
+          "format": "uuid",
+          "title": "Appearance Version Id",
+          "type": "string"
+        },
+        "character_key": {
+          "title": "Character Key",
+          "type": "string"
+        },
+        "creator_version_id": {
+          "format": "uuid",
+          "title": "Creator Version Id",
+          "type": "string"
+        },
+        "memory_snapshot_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Memory Snapshot Id"
+        },
+        "voice_version_id": {
+          "format": "uuid",
+          "title": "Voice Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "character_key",
+        "creator_version_id",
+        "appearance_version_id",
+        "voice_version_id"
+      ],
+      "title": "CastRefs",
+      "type": "object"
+    },
+    "Constraints": {
+      "additionalProperties": false,
+      "properties": {
+        "avoidances": {
+          "description": "dimension:token or dimension:label>cap",
+          "items": {
+            "type": "string"
+          },
+          "title": "Avoidances",
+          "type": "array"
+        },
+        "locks": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "title": "Locks",
+          "type": "array"
+        },
+        "max_intensity": {
+          "default": 1.0,
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Max Intensity",
+          "type": "number"
+        },
+        "out_of_character": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Out Of Character",
+          "type": "array"
+        }
+      },
+      "title": "Constraints",
+      "type": "object"
+    },
+    "ContinuityRequirement": {
+      "additionalProperties": false,
+      "description": "Behavioral continuity only (posture carry, attention targets); visual continuity is QC's job.\nAn attention target that is a world element carries its bound state and, when the scene moved\nit, its position (§19.5: a change to a targeted element changes the CBS).",
+      "properties": {
+        "character_key": {
+          "title": "Character Key",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "posture_carry",
+            "attention_target",
+            "affordance"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "position": {
+          "anyOf": [
+            {
+              "maxItems": 3,
+              "minItems": 3,
+              "prefixItems": [
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "maximum": 1.0,
+                  "minimum": 0.0,
+                  "type": "number"
+                },
+                {
+                  "minimum": 0.0,
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Position"
+        },
+        "ref": {
+          "title": "Ref",
+          "type": "string"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "State"
+        }
+      },
+      "required": [
+        "kind",
+        "character_key",
+        "ref"
+      ],
+      "title": "ContinuityRequirement",
+      "type": "object"
+    },
+    "DurationSpan": {
+      "additionalProperties": false,
+      "description": "A span of fixed length after a shot point or a segment edge (title cards, silent holds).",
+      "properties": {
+        "after": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ShotRef"
+            },
+            {
+              "$ref": "#/$defs/SegmentRef"
+            }
+          ],
+          "title": "After"
+        },
+        "duration_ms": {
+          "exclusiveMinimum": 0,
+          "title": "Duration Ms",
+          "type": "integer"
+        },
+        "kind": {
+          "const": "duration",
+          "default": "duration",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "after",
+        "duration_ms"
+      ],
+      "title": "DurationSpan",
+      "type": "object"
+    },
+    "ElementSource": {
+      "description": "Who wrote a state, event, annotation or derived element (§15.3).",
+      "enum": [
+        "director",
+        "user_tag",
+        "user_edit",
+        "intent_policy",
+        "compiler_approximation"
+      ],
+      "title": "ElementSource",
+      "type": "string"
+    },
+    "EmotionSpec": {
+      "additionalProperties": false,
+      "description": "`masking: true` = felt differs from displayed (\"pretending to stay calm while surprised\").",
+      "properties": {
+        "displayed": {
+          "$ref": "#/$defs/EmotionValue"
+        },
+        "felt": {
+          "$ref": "#/$defs/EmotionValue"
+        },
+        "masking": {
+          "default": false,
+          "title": "Masking",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "felt",
+        "displayed"
+      ],
+      "title": "EmotionSpec",
+      "type": "object"
+    },
+    "EmotionValue": {
+      "additionalProperties": false,
+      "properties": {
+        "intensity": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Intensity",
+          "type": "number"
+        },
+        "label": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "label",
+        "intensity"
+      ],
+      "title": "EmotionValue",
+      "type": "object"
+    },
+    "EnvelopeRefs": {
+      "additionalProperties": false,
+      "properties": {
+        "cast": {
+          "items": {
+            "$ref": "#/$defs/CastRefs"
+          },
+          "title": "Cast",
+          "type": "array"
+        },
+        "world": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorldRefs"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "EnvelopeRefs",
+      "type": "object"
+    },
+    "Habit": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "kind": {
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "memory_item_id": {
+          "format": "uuid",
+          "title": "Memory Item Id",
+          "type": "string"
+        },
+        "value": {
+          "additionalProperties": true,
+          "title": "Value",
+          "type": "object"
+        }
+      },
+      "required": [
+        "memory_item_id",
+        "kind",
+        "value",
+        "confidence"
+      ],
+      "title": "Habit",
+      "type": "object"
+    },
+    "Pause": {
+      "additionalProperties": false,
+      "properties": {
+        "after_word": {
+          "minimum": 0,
+          "title": "After Word",
+          "type": "integer"
+        },
+        "ms": {
+          "exclusiveMinimum": 0,
+          "title": "Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "after_word",
+        "ms"
+      ],
+      "title": "Pause",
+      "type": "object"
+    },
+    "Priority": {
+      "enum": [
+        "must",
+        "should",
+        "nice"
+      ],
+      "title": "Priority",
+      "type": "string"
+    },
+    "ProsodyDirective": {
+      "additionalProperties": false,
+      "properties": {
+        "character_key": {
+          "title": "Character Key",
+          "type": "string"
+        },
+        "delivery": {
+          "description": "[{tag, start_word, end_word}]",
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Delivery",
+          "type": "array"
+        },
+        "emphasis_words": {
+          "items": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "title": "Emphasis Words",
+          "type": "array"
+        },
+        "energy": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Energy",
+          "type": "number"
+        },
+        "nonverbal": {
+          "description": "[{tag, after_word}]",
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Nonverbal",
+          "type": "array"
+        },
+        "pauses": {
+          "items": {
+            "$ref": "#/$defs/Pause"
+          },
+          "title": "Pauses",
+          "type": "array"
+        },
+        "pitch_variation": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Pitch Variation",
+          "type": "number"
+        },
+        "rate": {
+          "exclusiveMaximum": 3.0,
+          "exclusiveMinimum": 0.3,
+          "title": "Rate",
+          "type": "number"
+        },
+        "segment_key": {
+          "title": "Segment Key",
+          "type": "string"
+        },
+        "strategy": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Strategy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "character_key",
+        "segment_key",
+        "strategy",
+        "rate",
+        "energy",
+        "pitch_variation"
+      ],
+      "title": "ProsodyDirective",
+      "type": "object"
+    },
+    "ProvenanceEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "item_ref": {
+          "title": "Item Ref",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "director",
+            "user_tag",
+            "user_edit",
+            "intent_policy",
+            "dna_default",
+            "memory_habit",
+            "compiler_approximation"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "supported_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supported By",
+          "type": "array"
+        }
+      },
+      "required": [
+        "item_ref",
+        "source"
+      ],
+      "title": "ProvenanceEntry",
+      "type": "object"
+    },
+    "ReliabilityClass": {
+      "description": "Observation proxy reliability (§16.2).",
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "ReliabilityClass",
+      "type": "string"
+    },
+    "RequestedControl": {
+      "additionalProperties": false,
+      "description": "One requested behavior item × channel: the unit coverage and observation evaluate (I4).\n\n`span` (and `duration_ms` for events) anchor the item in words, so the compiler and the\njudgement can place it without the spec.",
+      "properties": {
+        "character_key": {
+          "title": "Character Key",
+          "type": "string"
+        },
+        "dimension": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Dimension",
+          "type": "string"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Ms"
+        },
+        "item_ref": {
+          "title": "Item Ref",
+          "type": "string"
+        },
+        "observation_reliability": {
+          "$ref": "#/$defs/ReliabilityClass"
+        },
+        "planner_confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Planner Confidence",
+          "type": "number"
+        },
+        "priority": {
+          "$ref": "#/$defs/Priority"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "$ref": "#/$defs/DurationSpan"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Span"
+        },
+        "temporal_precision": {
+          "$ref": "#/$defs/TemporalPrecision"
+        },
+        "value": {
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "item_ref",
+        "character_key",
+        "dimension",
+        "value",
+        "temporal_precision",
+        "priority",
+        "planner_confidence",
+        "observation_reliability"
+      ],
+      "title": "RequestedControl",
+      "type": "object"
+    },
+    "SceneIntent": {
+      "additionalProperties": false,
+      "properties": {
+        "attention_goal": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Attention Goal"
+        },
+        "audience_effect": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Audience Effect"
+        },
+        "curiosity_level": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Curiosity Level"
+        },
+        "emotional_goal": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Emotional Goal"
+        },
+        "information_goal": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Information Goal"
+        },
+        "narrative_goal": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Narrative Goal"
+        },
+        "notes": {
+          "default": "",
+          "description": "free text; never drives control (I13)",
+          "title": "Notes",
+          "type": "string"
+        },
+        "performance_strategy": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Performance Strategy"
+        },
+        "persuasion_goal": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Persuasion Goal"
+        },
+        "reveal_strategy": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reveal Strategy"
+        },
+        "tension_level": {
+          "anyOf": [
+            {
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tension Level"
+        }
+      },
+      "title": "SceneIntent",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "scene_key": {
+          "title": "Scene Key",
+          "type": "string"
+        },
+        "version_id": {
+          "format": "uuid",
+          "title": "Version Id",
+          "type": "string"
+        },
+        "video_id": {
+          "format": "uuid",
+          "title": "Video Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "video_id",
+        "version_id",
+        "scene_key"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "SegmentRef": {
+      "additionalProperties": false,
+      "properties": {
+        "edge": {
+          "enum": [
+            "start",
+            "end"
+          ],
+          "title": "Edge",
+          "type": "string"
+        },
+        "segment_key": {
+          "title": "Segment Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "segment_key",
+        "edge"
+      ],
+      "title": "SegmentRef",
+      "type": "object"
+    },
+    "ShotRef": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "shot",
+          "default": "shot",
+          "title": "Kind",
+          "type": "string"
+        },
+        "offset_ms": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Offset Ms",
+          "type": "integer"
+        },
+        "shot_key": {
+          "title": "Shot Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shot_key"
+      ],
+      "title": "ShotRef",
+      "type": "object"
+    },
+    "Strategies": {
+      "additionalProperties": false,
+      "properties": {
+        "camera_awareness": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Camera Awareness",
+          "type": "string"
+        },
+        "gaze": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Gaze",
+          "type": "string"
+        },
+        "gesture": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Gesture",
+          "type": "string"
+        },
+        "posture": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Posture",
+          "type": "string"
+        },
+        "prosody": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Prosody",
+          "type": "string"
+        },
+        "reaction": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Reaction",
+          "type": "string"
+        }
+      },
+      "required": [
+        "prosody",
+        "gaze",
+        "gesture",
+        "posture",
+        "reaction",
+        "camera_awareness"
+      ],
+      "title": "Strategies",
+      "type": "object"
+    },
+    "TemporalPrecision": {
+      "description": "How precisely in time a requested control must be realized (CBS `requested_controls`).",
+      "enum": [
+        "word",
+        "segment",
+        "shot",
+        "scene"
+      ],
+      "title": "TemporalPrecision",
+      "type": "string"
+    },
+    "TimeOfDay": {
+      "description": "World `time_of_day` values (§19.1).",
+      "enum": [
+        "morning",
+        "midday",
+        "late_afternoon",
+        "golden_hour",
+        "evening",
+        "night"
+      ],
+      "title": "TimeOfDay",
+      "type": "string"
+    },
+    "TrajectoryState": {
+      "additionalProperties": false,
+      "description": "A resolved state: absolute confidence, clamped intensities, strategies for every channel.",
+      "properties": {
+        "attention_target": {
+          "title": "Attention Target",
+          "type": "string"
+        },
+        "audience_goal": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Audience Goal",
+          "type": "string"
+        },
+        "character_key": {
+          "title": "Character Key",
+          "type": "string"
+        },
+        "confidence": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Confidence",
+          "type": "number"
+        },
+        "emotion": {
+          "$ref": "#/$defs/EmotionSpec"
+        },
+        "internal_state": {
+          "$ref": "#/$defs/CBSInternalState"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "performance_intent": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Performance Intent",
+          "type": "string"
+        },
+        "priority": {
+          "$ref": "#/$defs/Priority"
+        },
+        "social_goal": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Social Goal",
+          "type": "string"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WordSpan"
+            },
+            {
+              "$ref": "#/$defs/DurationSpan"
+            }
+          ],
+          "title": "Span"
+        },
+        "strategies": {
+          "$ref": "#/$defs/Strategies"
+        },
+        "transition_in": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TransitionIn"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "key",
+        "character_key",
+        "span",
+        "internal_state",
+        "social_goal",
+        "audience_goal",
+        "performance_intent",
+        "emotion",
+        "confidence",
+        "attention_target",
+        "strategies",
+        "priority"
+      ],
+      "title": "TrajectoryState",
+      "type": "object"
+    },
+    "TransitionIn": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_words": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Duration Words",
+          "type": "integer"
+        },
+        "style": {
+          "description": "transition_style: sudden | gradual | lagged",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Style",
+          "type": "string"
+        },
+        "trigger": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Trigger"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "style"
+      ],
+      "title": "TransitionIn",
+      "type": "object"
+    },
+    "Trigger": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/WordRef"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "at"
+      ],
+      "title": "Trigger",
+      "type": "object"
+    },
+    "Weather": {
+      "enum": [
+        "clear",
+        "overcast",
+        "rain"
+      ],
+      "title": "Weather",
+      "type": "string"
+    },
+    "WordRef": {
+      "additionalProperties": false,
+      "description": "One word of a segment (index into the canonical tokenizer's output).",
+      "properties": {
+        "segment_key": {
+          "title": "Segment Key",
+          "type": "string"
+        },
+        "word": {
+          "minimum": 0,
+          "title": "Word",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "segment_key",
+        "word"
+      ],
+      "title": "WordRef",
+      "type": "object"
+    },
+    "WordSpan": {
+      "additionalProperties": false,
+      "description": "An inclusive word range. It may cross segments of the same scene, in order.",
+      "properties": {
+        "end": {
+          "$ref": "#/$defs/WordRef"
+        },
+        "kind": {
+          "const": "words",
+          "default": "words",
+          "title": "Kind",
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/WordRef"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "WordSpan",
+      "type": "object"
+    },
+    "WorldAffordances": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_postures": {
+          "items": {
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+            "type": "string"
+          },
+          "title": "Allowed Postures",
+          "type": "array"
+        },
+        "attention_targets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Attention Targets",
+          "type": "array"
+        },
+        "hand_space": {
+          "default": "none",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+          "title": "Hand Space",
+          "type": "string"
+        },
+        "seated": {
+          "default": false,
+          "title": "Seated",
+          "type": "boolean"
+        }
+      },
+      "title": "WorldAffordances",
+      "type": "object"
+    },
+    "WorldRefs": {
+      "additionalProperties": false,
+      "properties": {
+        "camera_position_key": {
+          "title": "Camera Position Key",
+          "type": "string"
+        },
+        "time_of_day": {
+          "$ref": "#/$defs/TimeOfDay"
+        },
+        "weather": {
+          "$ref": "#/$defs/Weather"
+        },
+        "world_version_id": {
+          "format": "uuid",
+          "title": "World Version Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "world_version_id",
+        "camera_position_key",
+        "time_of_day",
+        "weather"
+      ],
+      "title": "WorldRefs",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "content": {
+      "$ref": "#/$defs/CBSContent"
+    },
+    "envelope": {
+      "$ref": "#/$defs/CBSEnvelope"
+    }
+  },
+  "required": [
+    "envelope",
+    "content"
+  ],
+  "title": "CanonicalBehaviorSpec",
+  "type": "object"
+}

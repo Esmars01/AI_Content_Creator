@@ -1,0 +1,124 @@
+"""`python -m ce_worker`: the worker entrypoint of the GPU runtime-family images (§36, Phase 8).
+
+The control-plane worker app (`apps/gpu-worker`, Python 3.12) reads the layered config through
+`ce_config`; GPU family images run the upstream model code on its own Python (3.10–3.12) with only
+`ce_contracts`, `ce_plugin_kit`, `ce_worker` and the family's plugins installed (ADR 0032). This
+entrypoint therefore reads plain environment variables:
+
+- `SCHEDULER_URL`: the scheduler's public URL (workers dial out);
+- `WORKER_TOKEN`: the registration token (from an enrollment-token exchange on self-managed hosts, §30);
+- `WORKER_RUNTIME_FAMILY`: the family this image serves (`wan`, `tts`, …); `WORKER_ADAPTERS` narrows it
+  to one build variant's adapters;
+- `WORKER_NAME`, `WORKER_PROVIDER`, `WORKER_EXTERNAL_ID`, `WORKER_REGION`, `WORKER_GPU_TYPE`,
+  `WORKER_VRAM_GB`, `WORKER_PRICE_PER_HOUR_USD`: what the worker reports when it registers;
+- `APP_ENV`, `MODEL_CACHE_DIR`, `HF_TOKEN`, `CE_ADAPTER_DEFAULTS`: as in the control plane (§35).
+
+It refuses to start in production with mock adapters (`MOCK_GPU=true`) and when no plugin of the
+family is installed, so a misbuilt image fails loudly instead of registering with nothing to run.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import os
+import platform
+import sys
+from collections.abc import Mapping
+
+from ce_contracts.plugins import PluginRegistry, discover
+
+from ce_worker.runtime import WorkerConfig, WorkerRuntime
+
+__all__ = ["config_from_env", "main", "startup_errors"]
+
+_log = logging.getLogger("ce.worker")
+
+
+def _truthy(value: str | None) -> bool:
+    return (value or "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def config_from_env(env: Mapping[str, str]) -> WorkerConfig:
+    return WorkerConfig(
+        scheduler_url=env.get("SCHEDULER_URL", "http://localhost:8100"),
+        registration_token=env.get("WORKER_TOKEN", ""),
+        name=env.get("WORKER_NAME") or platform.node(),
+        runtime_family=env.get("WORKER_RUNTIME_FAMILY", "cpu_model"),
+        provider=env.get("WORKER_PROVIDER") or None,
+        external_id=env.get("WORKER_EXTERNAL_ID") or None,
+        region=env.get("WORKER_REGION") or None,
+        gpu_type=env.get("WORKER_GPU_TYPE", "cpu"),
+        vram_gb=float(env.get("WORKER_VRAM_GB", "0") or 0),
+        price_per_hour_usd=float(env.get("WORKER_PRICE_PER_HOUR_USD", "0") or 0),
+        app_env=env.get("APP_ENV", "prod"),
+        model_cache_dir=env.get("MODEL_CACHE_DIR", "/models"),
+        adapter_defaults=json.loads(env.get("CE_ADAPTER_DEFAULTS", "{}") or "{}"),
+    )
+
+
+def registry_from_env(env: Mapping[str, str]) -> PluginRegistry:
+    family = env.get("WORKER_RUNTIME_FAMILY", "cpu_model")
+    found = discover(app_env=env.get("APP_ENV", "prod"), include_mocks=_truthy(env.get("MOCK_GPU")), families=[family])
+    wanted = {a.strip() for a in env.get("WORKER_ADAPTERS", "").split(",") if a.strip()}
+    if not wanted:
+        return found
+    narrowed = PluginRegistry()
+    for plugin in found.plugins.values():
+        if plugin.id in wanted:
+            narrowed.add(plugin)
+    narrowed.rejected = list(found.rejected)
+    return narrowed
+
+
+def startup_errors(env: Mapping[str, str], registry: PluginRegistry) -> list[str]:
+    errors = []
+    app_env = env.get("APP_ENV", "prod")
+    if app_env == "prod" and _truthy(env.get("MOCK_GPU")):
+        errors.append("MOCK_GPU=true in production: GPU workers serve real adapters only")
+    if app_env == "prod" and not env.get("WORKER_TOKEN"):
+        errors.append("WORKER_TOKEN is required in production")
+    if not registry.plugins:
+        errors.append(f"no plugin of family {env.get('WORKER_RUNTIME_FAMILY', 'cpu_model')!r} is installed")
+    mocks = [p.id for p in registry.plugins.values() if p.manifest.mock]
+    if app_env == "prod" and mocks:
+        errors.append(f"mock adapters in production: {mocks}")
+    return errors
+
+
+async def _run(env: Mapping[str, str]) -> int:
+    registry = registry_from_env(env)
+    errors = startup_errors(env, registry)
+    if errors:
+        for error in errors:
+            _log.error("refusing to start: %s", error)
+        return 2
+    runtime = WorkerRuntime(config_from_env(env), registry)
+    runtime.install_signal_handlers()
+    while True:
+        try:
+            await runtime.register()
+            break
+        except Exception as exc:
+            _log.warning("registration failed; retrying: %s", str(exc)[:300])
+            await asyncio.sleep(2.0)
+            if runtime.stopping.is_set():
+                return 0
+    _log.info("worker ready: family %s, adapters %s", env.get("WORKER_RUNTIME_FAMILY"), runtime.adapters)
+    try:
+        await runtime.run_forever()
+    finally:
+        await runtime.aclose()
+    return 0
+
+
+def main() -> None:
+    logging.basicConfig(
+        level=os.environ.get("LOG_LEVEL", "INFO").upper(), format="%(asctime)s %(levelname)s %(message)s"
+    )
+    sys.exit(asyncio.run(_run(os.environ)))
+
+
+if __name__ == "__main__":
+    main()

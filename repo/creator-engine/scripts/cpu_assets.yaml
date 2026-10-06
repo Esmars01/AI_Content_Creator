@@ -1,0 +1,144 @@
+# CPU model assets fetched by `make fetch-cpu-assets` (MASTER_BUILD_PROMPT §35, Phase 7).
+# Each entry: name, url (pinned revision), sha256, dest (relative to MODEL_CACHE_DIR), license
+# (verified at the pin on 2026-10-04, see docs/adr/0042-real-cpu-engines.md) and the plugins
+# that list the file in their manifest `assets` (they are used only when every file is present,
+# or always with CPU_REAL_ENGINES=on).
+assets:
+  # Kokoro-82M v1.0 (weights Apache-2.0, hexgrad/Kokoro-82M) as ONNX int8 from kokoro-onnx
+  # (code MIT). Dev only: its phonemizer stack is GPL-3.0 (ADR 0043).
+  - name: kokoro-v1.0-int8
+    url: https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.int8.onnx
+    sha256: 6e742170d309016e5891a994e1ce1559c702a2ccd0075e67ef7157974f6406cb
+    bytes: 92361271
+    dest: kokoro/kokoro-v1.0.int8.onnx
+    license: Apache-2.0
+    plugins: [kokoro_cpu]
+  - name: kokoro-v1.0-voices
+    url: https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
+    sha256: bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d
+    bytes: 28214398
+    dest: kokoro/voices-v1.0.bin
+    license: Apache-2.0
+    plugins: [kokoro_cpu]
+  # faster-whisper "base" (CTranslate2 conversion of openai/whisper-base; MIT), Systran revision ebe41f70.
+  - name: faster-whisper-base-config
+    url: https://huggingface.co/Systran/faster-whisper-base/resolve/ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66/config.json
+    sha256: 56a6d8110d311f19c8f0471e562832c7527f146b567275bfca59fcf7c184da9a
+    bytes: 2309
+    dest: faster-whisper-base/config.json
+    license: MIT
+    plugins: [faster_whisper_cpu]
+  - name: faster-whisper-base-model
+    url: https://huggingface.co/Systran/faster-whisper-base/resolve/ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66/model.bin
+    sha256: d01c3014881c9c6f3133c182f3d2887eb6ca1c789a7538c5c007196857a0a6a9
+    bytes: 145217532
+    dest: faster-whisper-base/model.bin
+    license: MIT
+    plugins: [faster_whisper_cpu]
+  - name: faster-whisper-base-tokenizer
+    url: https://huggingface.co/Systran/faster-whisper-base/resolve/ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66/tokenizer.json
+    sha256: fb7b63191e9bb045082c79fd742a3106a12c99513ab30df4a0d47fa6cb6fd0ab
+    bytes: 2203239
+    dest: faster-whisper-base/tokenizer.json
+    license: MIT
+    plugins: [faster_whisper_cpu]
+  - name: faster-whisper-base-vocabulary
+    url: https://huggingface.co/Systran/faster-whisper-base/resolve/ebe41f70d5b6dfa9166e2c581c45c9c0cfc57b66/vocabulary.txt
+    sha256: 34ce3fe1c5041027b3f8d42912270993f986dbc4bb34cf27f951e34a1e453913
+    bytes: 459861
+    dest: faster-whisper-base/vocabulary.txt
+    license: MIT
+    plugins: [faster_whisper_cpu]
+  # MediaPipe task models (model cards: Apache License 2.0), float16 v1.
+  - name: mediapipe-face-detector
+    url: https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite
+    sha256: b4578f35940bf5a1a655214a1cce5cab13eba73c1297cd78e1a04c2380b0152f
+    bytes: 229746
+    dest: mediapipe/blaze_face_short_range.tflite
+    license: Apache-2.0
+    plugins: [mediapipe_face]
+  - name: mediapipe-face-landmarker
+    url: https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
+    sha256: 64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff
+    bytes: 3758596
+    dest: mediapipe/face_landmarker.task
+    license: Apache-2.0
+    plugins: [mediapipe_face, auraface]
+  - name: mediapipe-pose-landmarker-lite
+    url: https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task
+    sha256: 59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a
+    bytes: 5777746
+    dest: mediapipe/pose_landmarker_lite.task
+    license: Apache-2.0
+    plugins: [mediapipe_body]
+  - name: mediapipe-hand-landmarker
+    url: https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task
+    sha256: fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1
+    bytes: 7819105
+    dest: mediapipe/hand_landmarker.task
+    license: Apache-2.0
+    plugins: [mediapipe_body]
+  # AuraFace v1 recognition model only (Apache-2.0); its bundled detector/landmark files derive
+  # from insightface (non-commercial) and are deliberately not fetched — MediaPipe aligns faces.
+  - name: auraface-glintr100
+    url: https://huggingface.co/fal/AuraFace-v1/resolve/af6d057c9b0ec4071d4c49c80e3539258798b609/glintr100.onnx
+    sha256: a7933ea5330113b01c9b60351d8f4c33003f145d8470ac5f0e52ee2effe25c60
+    bytes: 260694151
+    dest: auraface/glintr100.onnx
+    license: Apache-2.0
+    plugins: [auraface]
+  # DINOv2 ViT-S/14 (facebook/dinov2-small, Apache-2.0) as quantized ONNX (Xenova/dinov2-small c2bb04a5).
+  - name: dinov2-small-onnx
+    url: https://huggingface.co/Xenova/dinov2-small/resolve/c2bb04a51fab207c420665f1946016107bffc701/onnx/model_quantized.onnx
+    sha256: 3afdc8bc63b50558d6e5770f5b799bb82455c2311183a2de43803f343a29d917
+    bytes: 24451943
+    dest: dinov2-small/model_quantized.onnx
+    license: Apache-2.0
+    plugins: [dinov2_embed]
+  - name: dinov2-small-preprocessor
+    url: https://huggingface.co/Xenova/dinov2-small/resolve/c2bb04a51fab207c420665f1946016107bffc701/preprocessor_config.json
+    sha256: 14e780d86fa1861f8751f868d7f45425b5feb55c38ca26f152ca5097ab30f828
+    bytes: 436
+    dest: dinov2-small/preprocessor_config.json
+    license: Apache-2.0
+    plugins: [dinov2_embed]
+  # DNSMOS P.835 (microsoft/DNS-Challenge 591184a9, CC-BY-4.0: attribution obligation).
+  - name: dnsmos-sig-bak-ovr
+    url: https://raw.githubusercontent.com/microsoft/DNS-Challenge/591184a9fcb2cbdec02520fed81a32bbbf9d73ff/DNSMOS/DNSMOS/sig_bak_ovr.onnx
+    sha256: 269fbebdb513aa23cddfbb593542ecc540284a91849ac50516870e1ac78f6edd
+    bytes: 1157965
+    dest: dnsmos/sig_bak_ovr.onnx
+    license: CC-BY-4.0
+    plugins: [dnsmos]
+  # PP-OCRv6 small detection and recognition (PaddlePaddle, Apache-2.0) as the official ONNX exports
+  # (PaddlePaddle/PP-OCRv6_small_{det,rec}_onnx at the pinned commits; Phase 8, replaces the PP-OCRv4
+  # models bundled in rapidocr-onnxruntime). `inference.yml` carries the recognition dictionary and the
+  # detector's post-processing thresholds.
+  - name: ppocrv6-small-det
+    url: https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx/resolve/28fe5895c24fd108c19eb3e8479f4ab385fbfc62/inference.onnx
+    sha256: d73e0058b7a8086bbd57f3d10b8bcd4ff95363f67e06e2762b5e814fe9c9410e
+    bytes: 9880512
+    dest: ppocrv6/det/inference.onnx
+    license: Apache-2.0
+    plugins: [ppocr]
+  - name: ppocrv6-small-det-config
+    url: https://huggingface.co/PaddlePaddle/PP-OCRv6_small_det_onnx/resolve/28fe5895c24fd108c19eb3e8479f4ab385fbfc62/inference.yml
+    sha256: 193f435274bf9f0b5f71a929bbfbcf148282df7e633b34e7c373e8f44741b516
+    bytes: 885
+    dest: ppocrv6/det/inference.yml
+    license: Apache-2.0
+    plugins: [ppocr]
+  - name: ppocrv6-small-rec
+    url: https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/b8f84f0b80c529de40b4fbb3544b84fa7233a513/inference.onnx
+    sha256: 5435fd747c9e0efe15a96d0b378d5bd157e9492ed8fd80edf08f30d02fa24634
+    bytes: 21159378
+    dest: ppocrv6/rec/inference.onnx
+    license: Apache-2.0
+    plugins: [ppocr]
+  - name: ppocrv6-small-rec-config
+    url: https://huggingface.co/PaddlePaddle/PP-OCRv6_small_rec_onnx/resolve/b8f84f0b80c529de40b4fbb3544b84fa7233a513/inference.yml
+    sha256: ab078671bb49f06228eadccd34f1bb501e157f7a047095ffb943ba81512c77d1
+    bytes: 150579
+    dest: ppocrv6/rec/inference.yml
+    license: Apache-2.0
+    plugins: [ppocr]

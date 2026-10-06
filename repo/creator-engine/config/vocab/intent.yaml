@@ -1,0 +1,14 @@
+# Director Intent vocabulary (§14). Each list is closed and versioned.
+vocab_version: "2026.10.1"
+narrative_goal: [challenge_common_belief, establish_credibility, explain_mechanism, tell_anecdote, show_example, contrast_options, reveal_payoff, call_to_action]
+emotional_goal: [create_doubt_then_reveal, build_excitement, reassure, provoke, amuse, inspire, sober_reflection]
+audience_effect: [curiosity, doubt, trust, amusement, urgency, surprise, insight, reassurance]
+persuasion_goal: [none, reframe_mental_model, build_trust, create_urgency, overcome_objection, social_proof]
+information_goal: [none, state_misconception, define_concept, explain_steps, give_example, compare, summarize]
+attention_goal: [pattern_interrupt, sustain, delay_payoff, build_suspense, re_engage, release]
+reveal_strategy: [immediate_answer, tease_then_reveal, open_loop, slow_build, callback]
+performance_strategy: [start_confident_then_lower_energy, build_from_calm_to_urgent, deadpan_then_crack, warm_confessional, skeptic_converted]
+cta_goal: [none, follow, follow_for_series, comment, save, share, click_link]
+# Scene purposes used by `scenes[].purpose` (§11 example: hook).
+scene_purpose: [hook, setup, context, problem, explanation, example, story, turn, reveal, payoff, summary, cta, outro]
+migrations: []

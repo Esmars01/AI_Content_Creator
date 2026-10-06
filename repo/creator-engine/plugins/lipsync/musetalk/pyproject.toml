@@ -1,0 +1,21 @@
+[project]
+name = "ce-plugin-lipsync-musetalk"
+version = "0.1.0"
+description = "lipsync.dub with MuseTalk 1.5 (mouth-region patch at 25 fps) on the lipsync GPU family."
+requires-python = ">=3.10"
+# Light dependencies only; torch, diffusers, mediapipe and the MuseTalk code come from the lipsync family image.
+dependencies = ["ce-contracts", "ce-plugin-kit"]
+
+[project.entry-points."creator_engine.plugins"]
+musetalk_v15 = "ce_plugin_lipsync_musetalk"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ce_plugin_lipsync_musetalk"]
+
+[tool.ruff]
+extend = "../../../pyproject.toml"
+target-version = "py310"

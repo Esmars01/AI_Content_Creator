@@ -1,0 +1,7 @@
+# Strategy pack (§13 stage 4). Configurable, never hard-coded.
+id: tutorial_steps
+label: "Tutorial steps"
+structure: [hook, setup, explanation, example, summary, cta]
+signature_format: true
+hook_count: 4
+guidance: "Promise the outcome, then walk through steps in order."

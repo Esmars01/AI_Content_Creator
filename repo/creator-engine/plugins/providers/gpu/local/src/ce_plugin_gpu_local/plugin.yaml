@@ -1,0 +1,17 @@
+# Local provider (§25): workers started outside the fleet manager — compose `worker-cpu` running the
+# real CPU engines (Phase 7) or a self-managed GPU host. It never provisions or bills; pools that
+# use it set `autoscale: false`.
+id: gpu.local
+name: Local (statically started) workers
+version: 0.1.0
+kind: provider
+provider: { kind: gpu, key: local }
+entrypoint: ce_plugin_gpu_local.provider:create
+runtime: { family: cpu_inproc, python: "3.12", requires_gpu: false, supports_cpu: true }
+allowed_envs: [dev, test, prod]
+status: production
+validation: smoke_passed
+defaults:
+  classes:
+    cpu: { vram_gb: 0, price_per_hour_usd: 0.0 }
+  regions: [local]

@@ -1,0 +1,16 @@
+[project]
+name = "ce-plugin-gpu-example-cloud"
+version = "0.1.0"
+description = "A third-party GPU provider stub: proves that a provider shipped as its own package plugs in through entry points alone (§25, Phase 9)."
+requires-python = ">=3.12"
+dependencies = ["ce-contracts", "ce-gpu"]
+
+[project.entry-points."creator_engine.plugins"]
+"gpu.example_cloud" = "ce_plugin_gpu_example_cloud"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ce_plugin_gpu_example_cloud"]

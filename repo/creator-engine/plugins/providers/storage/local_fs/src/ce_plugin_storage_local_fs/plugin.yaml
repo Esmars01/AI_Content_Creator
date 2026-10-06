@@ -1,0 +1,12 @@
+# Local-filesystem object storage: the native fallback for machines without Docker (ADR 0030).
+# Production refuses it at startup (ADR 0010); it is not loaded outside dev and test.
+id: storage.local_fs
+name: Local-filesystem object storage
+version: 0.1.0
+kind: provider
+provider: { kind: storage, key: local_fs }
+entrypoint: ce_plugin_storage_local_fs.provider:create
+runtime: { family: cpu_inproc, python: "3.12", requires_gpu: false, supports_cpu: true }
+allowed_envs: [dev, test]
+status: production
+validation: smoke_passed # shared contract suite (plugins/providers/storage/local_fs/tests)

@@ -1,0 +1,15 @@
+# Camera profile (§22). Deterministic camera and realism post use these values (ADR 0009).
+id: pov
+label: Point-of-view camera
+maturity: production
+prompt_hints: ["first-person point of view"]
+subject_distance_m: 0.4
+sensor: { fps: 30, noise_luma: 0.01, noise_chroma: 0.005, rolling_shutter: 0.003 }
+lens: { focal_equiv_mm: 16, distortion_k1: 0.06, vignette: 0.2, dof: deep }
+framing: { default: wide, headroom: 0.0, eye_line: 0.5, overscan: 0.15 }
+motion: { type: handheld, amplitude_px: 12, freq_hz: [0.5, 2.0], rotation_deg: 1.0, breathing_sway: false, stabilization: 0.5 }
+focus: { autofocus_hunts_per_min: 0.3 }
+exposure: { auto_exposure_drift: 0.04 }
+color: { lut: luts/phone_natural.cube, saturation: 1.05 }
+compression: { codec: h264, bitrate_kbps: 12000 }
+audio: { mic_profile: phone_rear_mic, distance_m: 0.3 }

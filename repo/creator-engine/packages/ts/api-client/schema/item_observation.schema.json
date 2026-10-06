@@ -1,0 +1,67 @@
+{
+  "$defs": {
+    "ObservationVerdict": {
+      "description": "What the analyzers saw (§16.3).",
+      "enum": [
+        "CONFIRMED",
+        "PARTIAL",
+        "NOT_OBSERVED",
+        "CONTRADICTED",
+        "NOT_MEASURABLE",
+        "NOT_APPLICABLE"
+      ],
+      "title": "ObservationVerdict",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Judgement of one CBS item against measured tracks (written by qc.shot and behavior.coverage).",
+  "properties": {
+    "character_key": {
+      "title": "Character Key",
+      "type": "string"
+    },
+    "confidence": {
+      "default": 0.0,
+      "maximum": 1.0,
+      "minimum": 0.0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "dimension": {
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$",
+      "title": "Dimension",
+      "type": "string"
+    },
+    "item_ref": {
+      "title": "Item Ref",
+      "type": "string"
+    },
+    "measures": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Measures",
+      "type": "object"
+    },
+    "method": {
+      "description": "the proxy key or 'vlm_window' used",
+      "minLength": 1,
+      "title": "Method",
+      "type": "string"
+    },
+    "verdict": {
+      "$ref": "#/$defs/ObservationVerdict"
+    }
+  },
+  "required": [
+    "item_ref",
+    "character_key",
+    "dimension",
+    "verdict",
+    "method"
+  ],
+  "title": "ItemObservation",
+  "type": "object"
+}

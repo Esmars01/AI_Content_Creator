@@ -1,0 +1,70 @@
+# Creator Memory categories and kinds (§18.1). Each kind has a typed value; ce_core builds a
+# Pydantic discriminated union from these field specs at load time.
+# Field types: str (free text, never a control), unit (0..1), signed_unit (-1..1), float,
+# ms (int >= 0), int, bool, vocab:<category> (a token of that vocabulary category),
+# element_key, list[<type>], optional suffix `?`.
+# Kind ids are `category.kind`, or just `category` when the kind repeats the category name
+# (persona_fact, stance, preference, rejected_pattern).
+# `key` names the fields that form the normalized dedup key (empty = one item per kind).
+vocab_version: "2026.10.1"
+categories:
+  speech_habit:
+    vocabulary_level:      {fields: {level: "vocab:persona.vocabulary_level"}, key: []}
+    recurring_phrase:      {fields: {text: str, max_per_video: int, contexts: "list[str]"}, key: [text]}
+    sentence_structure:    {fields: {style: "vocab:persona.sentence_structure"}, key: []}
+    filler_tendency:       {fields: {fillers: "list[str]", rate: unit}, key: []}
+    transition_phrase:     {fields: {text: str}, key: [text]}
+    pronunciation_pattern: {fields: {term: str, respelling: str}, key: [term]}
+    humor_style:           {fields: {style: "vocab:persona.humor_style"}, key: []}
+  reaction_habit:
+    surprise:    {fields: {expression: "vocab:event_type", intensity: unit, frequency: "vocab:persona.frequency"}, key: []}
+    laughter:    {fields: {expression: "vocab:event_type", intensity: unit, frequency: "vocab:persona.frequency"}, key: []}
+    hesitation:  {fields: {expression: "vocab:event_type", intensity: unit, frequency: "vocab:persona.frequency"}, key: []}
+    skepticism:  {fields: {expression: "vocab:event_type", intensity: unit, frequency: "vocab:persona.frequency"}, key: []}
+    excitement:  {fields: {expression: "vocab:event_type", intensity: unit, frequency: "vocab:persona.frequency"}, key: []}
+    frustration: {fields: {expression: "vocab:event_type", intensity: unit, frequency: "vocab:persona.frequency"}, key: []}
+  gesture_habit:
+    common_gesture:  {fields: {gesture: "vocab:event_type", frequency: "vocab:persona.frequency"}, key: [gesture]}
+    gesture_density: {fields: {density: unit}, key: []}
+    preferred_hand:  {fields: {hand: "vocab:persona.hand"}, key: []}
+    head_movement:   {fields: {amplitude: unit}, key: []}
+    posture:         {fields: {posture: "vocab:strategy.posture"}, key: []}
+  emotional_tendency:
+    baseline_mood:      {fields: {label: "vocab:emotion", intensity: unit}, key: []}
+    emotional_range:    {fields: {label: "vocab:emotion", min: unit, max: unit}, key: [label]}
+    escalation:         {fields: {style: "vocab:persona.escalation_style"}, key: []}
+    deescalation:       {fields: {style: "vocab:persona.escalation_style"}, key: []}
+    confidence_pattern: {fields: {pattern: "vocab:persona.confidence_pattern"}, key: []}
+  gaze_habit:
+    eye_contact_ratio:   {fields: {ratio: unit}, key: []}
+    thinking_glance:     {fields: {direction: "vocab:direction", typical_ms: ms}, key: []}
+    look_away_frequency: {fields: {frequency: "vocab:persona.frequency"}, key: []}
+  camera_habit:
+    framing_preference:  {fields: {framing: "vocab:camera.framing"}, key: []}
+    camera_distance:     {fields: {distance: "vocab:persona.camera_distance"}, key: []}
+    selfie_behavior:     {fields: {style: "vocab:persona.selfie_behavior"}, key: []}
+    movement_preference: {fields: {movement: "vocab:persona.movement_preference"}, key: []}
+  social_behavior:
+    directness:           {fields: {level: unit}, key: []}
+    warmth:               {fields: {level: unit}, key: []}
+    sarcasm:              {fields: {level: unit}, key: []}
+    seriousness:          {fields: {level: unit}, key: []}
+    conversational_style: {fields: {style: "vocab:persona.conversational_style"}, key: []}
+  avoidance:
+    gesture:         {fields: {gesture: "vocab:event_type"}, key: [gesture]}
+    emotional_state: {fields: {label: "vocab:emotion", max_intensity: unit}, key: [label]}
+    camera_behavior: {fields: {behavior: str}, key: [behavior]}
+    wardrobe:        {fields: {description: str}, key: [description]}
+    world:           {fields: {description: str}, key: [description]}
+    phrase:          {fields: {text: str}, key: [text]}
+    topic:           {fields: {topic: str}, key: [topic]}
+  persona_fact:
+    persona_fact: {fields: {subject: str, predicate: str, object: str}, key: [subject, predicate]}
+  stance:
+    stance: {fields: {topic: str, position: str, strength: unit}, key: [topic]}
+  preference:
+    preference: {fields: {dimension: "vocab:dimension", label: "str?", delta: float, note: "str?"}, key: [dimension, label]}
+  rejected_pattern:
+    rejected_pattern: {fields: {pattern_kind: "vocab:rejected_pattern_kind", description: str, ref: "str?"}, key: [description]}
+rejected_pattern_kinds: [hook, phrase, take_behavior, visual, proposal]
+migrations: []

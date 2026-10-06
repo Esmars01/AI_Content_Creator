@@ -1,0 +1,82 @@
+# The single canonical dimension list (§15.2). Used by event types, adapter behavior matrices,
+# CBS requested_controls, observation proxies, behavior_observations, model_behavior_profiles
+# and metrics. method_preference is the compiler's realization order (§15.7); the first method
+# the routed engine supports wins, and `omit` (UNSUPPORTED) is always last.
+vocab_version: "2026.10.1"
+requestable:
+  emotion_visual:
+    channel: visual
+    method_preference: [native_segment, native_parametric, text_prompt_segment, shot_split, text_prompt_global, keyframe_conditioning, prosody_transfer, editorial_punch, caption_emphasis, omit]
+  emotion_vocal:
+    channel: audio
+    method_preference: [native_parametric, native_segment, text_prompt_segment, omit]
+  facial_expression:
+    channel: visual
+    method_preference: [native_parametric, native_segment, post_expression, text_prompt_segment, keyframe_conditioning, editorial_punch, omit]
+  gaze:
+    channel: visual
+    method_preference: [native_parametric, native_segment, post_expression, text_prompt_segment, editorial_cutaway, omit]
+  blink:
+    channel: visual
+    method_preference: [native_parametric, post_expression, omit]
+  head_motion:
+    channel: visual
+    method_preference: [native_parametric, native_segment, prosody_transfer, text_prompt_global, omit]
+  gesture:
+    channel: visual
+    method_preference: [pose_guided, native_segment, text_prompt_segment, text_prompt_global, editorial_cutaway, omit]
+  posture:
+    channel: visual
+    method_preference: [native_segment, keyframe_conditioning, shot_split, text_prompt_global, omit]
+  camera_awareness:
+    channel: visual
+    method_preference: [native_segment, keyframe_conditioning, text_prompt_global, omit]
+  reaction:
+    channel: visual
+    method_preference: [native_segment, text_prompt_segment, audio_nonverbal, editorial_cutaway, editorial_punch, sfx_cue, omit]
+  listening:
+    channel: visual
+    method_preference: [native_segment, editorial_cutaway, omit]
+  nonverbal_audio:
+    channel: audio
+    method_preference: [audio_nonverbal, native_parametric, sfx_cue, omit]
+  delivery:
+    channel: audio
+    method_preference: [native_parametric, text_prompt_segment, omit]
+  prosody_rate:
+    channel: audio
+    method_preference: [native_parametric, text_prompt_segment, omit]
+  prosody_pitch:
+    channel: audio
+    method_preference: [native_parametric, text_prompt_segment, omit]
+  prosody_energy:
+    channel: audio
+    method_preference: [native_parametric, text_prompt_segment, omit]
+  prosody_emphasis:
+    channel: audio
+    method_preference: [native_parametric, text_prompt_segment, caption_emphasis, editorial_punch, omit]
+  prosody_pause:
+    channel: audio
+    method_preference: [native_parametric, text_prompt_segment, omit]
+  accent:
+    channel: audio
+    method_preference: [native_parametric, text_prompt_global, omit]
+# Properties of an engine rather than requestable behavior; they appear in behavior matrices
+# and measured profiles, never in requested_controls.
+engine_properties: [segment_control, prosody_coupling, continuity, object_interaction, multi_person, temporal_control]
+# Which acting-plan field feeds which dimension when the CBS builds requested_controls.
+strategy_dimensions:
+  prosody: [prosody_rate, prosody_energy, prosody_pitch]
+  gaze: [gaze]
+  gesture: [gesture]
+  posture: [posture]
+  reaction: [reaction]
+  camera_awareness: [camera_awareness]
+annotation_dimensions:
+  pause: prosody_pause
+  emphasis: prosody_emphasis
+  nonverbal_audio: nonverbal_audio
+  delivery: delivery
+  pronunciation: accent
+  inserted_disfluency: delivery
+migrations: []

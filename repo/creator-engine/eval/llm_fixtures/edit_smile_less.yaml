@@ -1,0 +1,20 @@
+# Authored LLM fixture (hand-written, not recorded from a provider; §37). Edit acceptance (§2).
+id: edit_smile_less
+kind: authored
+inputs:
+- "edit: make her smile less"
+responses:
+  edit:
+    operations:
+    - op: set_behavior_event
+      scope: {ref: "@her"}
+      event_type: small_smile
+      changes: {intensity_delta: -0.2}
+      reason: smaller smiles
+    - op: set_acting
+      scope: {ref: "@her"}
+      changes:
+        strategies: {reaction: suppressed}
+      reason: reactions held back
+    assumptions:
+    - Smiles made smaller and reactions suppressed; no smile was removed.

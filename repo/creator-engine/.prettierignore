@@ -1,0 +1,28 @@
+# Prettier formats JS/TS/JSON/YAML/CSS in the JS workspace only.
+.venv/
+node_modules/
+**/node_modules/
+pnpm-lock.yaml
+uv.lock
+docs/
+*.md
+packages/py/
+apps/api/
+apps/orchestrator/
+apps/scheduler/
+apps/gpu-worker/
+apps/render-worker/
+config/
+infra/
+.github/
+# Generated (make gen-schema / make gen-client)
+packages/ts/api-client/schema/
+packages/ts/api-client/src/models.ts
+packages/ts/api-client/src/api.ts
+
+# Generated golden files (compared as JSON; regenerated with CE_UPDATE_GOLDEN=1)
+**/tests/golden/
+
+# LLM fixtures (written by scripts/fixtures/author_llm_fixtures.py, or recorded) and prompts
+eval/
+prompts/

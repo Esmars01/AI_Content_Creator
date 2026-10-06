@@ -1,0 +1,49 @@
+{
+  "engine": {
+    "emotion": "serious",
+    "emphasis": [
+      5
+    ],
+    "encoded": [
+      {
+        "dimension": "emotion_vocal",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/emotion",
+        "method": "text_prompt_segment"
+      },
+      {
+        "dimension": "prosody_rate",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/prosody",
+        "method": "native_parametric"
+      },
+      {
+        "dimension": "prosody_energy",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/prosody",
+        "method": "native_parametric"
+      },
+      {
+        "dimension": "prosody_pitch",
+        "item_ref": "/scenes[scn_hook]/acting/states[st_2]/strategies/prosody",
+        "method": "native_parametric"
+      },
+      {
+        "dimension": "prosody_pause",
+        "item_ref": "/script/segments[seg_2]/annotations[an_2]",
+        "method": "native_parametric"
+      },
+      {
+        "dimension": "prosody_emphasis",
+        "item_ref": "/script/segments[seg_2]/annotations[an_3]",
+        "method": "native_parametric"
+      }
+    ],
+    "energy": 0.55,
+    "pauses_ms": {
+      "3": 350
+    },
+    "pitch_variation": 0.35,
+    "rate": 0.9,
+    "syntax": "mock_voice_params",
+    "unsupported": []
+  },
+  "translator": "mock_voice_v2"
+}

@@ -1,0 +1,28 @@
+# Authored LLM fixture (hand-written, not recorded from a provider; §37). Edit acceptance (§2);
+# the accent comes from a fixture voice version until voice design lands (Phase 10).
+id: edit_change_accent
+kind: authored
+inputs:
+- "edit: keep everything the same but change the accent"
+responses:
+  edit:
+    operations:
+    - op: set_cast
+      voice_query: the same voice with a different accent
+      reason: another approved voice version with a different accent
+    - op: set_lock
+      add:
+      - {group: script, scope: {}, set_by: user}
+      - {group: appearance, scope: {}, set_by: user}
+      - {group: wardrobe, scope: {}, set_by: user}
+      - {group: world, scope: {}, set_by: user}
+      - {group: acting, scope: {}, set_by: user}
+      - {group: camera, scope: {}, set_by: user}
+      - {group: intent, scope: {}, set_by: user}
+      - {group: music, scope: {}, set_by: user}
+      - {group: sfx, scope: {}, set_by: user}
+      - {group: broll, scope: {}, set_by: user}
+      - {group: captions, scope: {}, set_by: user}
+      reason: keep everything else as it is
+    assumptions:
+    - Everything but the voice is locked; the voice switches to an approved version with another accent.

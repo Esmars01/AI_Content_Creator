@@ -1,0 +1,326 @@
+[project]
+name = "creator-engine"
+version = "0.0.0"
+description = "AI Creator Engine: workspace root (not a distributable package)."
+requires-python = ">=3.12"
+dependencies = [
+    "ce-behavior",
+    "ce-build",
+    "ce-camera",
+    "ce-config",
+    "ce-contracts",
+    "ce-core",
+    "ce-creator",
+    "ce-db",
+    "ce-director",
+    "ce-exec",
+    "ce-gpu",
+    "ce-llm",
+    "ce-memory",
+    "ce-obs",
+    "ce-policy",
+    "ce-qc",
+    "ce-realism",
+    "ce-render",
+    "ce-research",
+    "ce-router",
+    "ce-storage",
+    "ce-testing",
+    "ce-voice",
+    "ce-worker",
+    "ce-world",
+    "ce-api",
+    "ce-orchestrator",
+    "ce-scheduler",
+    "ce-gpu-worker",
+    "ce-render-worker",
+    "ce-plugin-storage-s3",
+    "ce-plugin-storage-local-fs",
+    "ce-plugin-gpu-mock",
+    "ce-plugin-llm-anthropic",
+    "ce-plugin-llm-fixture",
+    "ce-plugin-llm-openai-compatible",
+    "ce-plugins-mock",
+    "ce-plugin-captions-ass",
+    "ce-plugin-translate-captions-llm",
+    "ce-plugin-embed-text",
+    "ce-plugin-gpu-local",
+    "ce-plugin-gpu-local-docker",
+    "ce-plugin-gpu-runpod",
+    "ce-plugin-gpu-example-cloud",
+    "ce-plugin-voice-kokoro",
+    "ce-plugin-asr-faster-whisper",
+    "ce-plugin-analysis-mediapipe",
+    "ce-plugin-analysis-prosody",
+    "ce-plugin-analysis-image-embed",
+    "ce-plugin-vision-auraface",
+    "ce-plugin-vision-ppocr",
+    "ce-plugin-qc-dnsmos",
+    "ce-plugin-provenance-c2pa",
+    "ce-plugin-kit",
+    "ce-plugin-avatar-infinitetalk",
+    "ce-plugin-avatar-longcat",
+    "ce-plugin-image-z-image",
+    "ce-plugin-image-qwen-edit",
+    "ce-plugin-video-wan22",
+    "ce-plugin-voice-chatterbox",
+    "ce-plugin-voice-qwen3-tts",
+    "ce-plugin-voice-voxcpm2",
+    "ce-plugin-lipsync-musetalk",
+    "ce-plugin-asr-qwen3",
+    "ce-plugin-asr-ctc-aligner",
+    "ce-plugin-audio-acestep",
+    "ce-plugin-audio-moss-sfx",
+    "ce-plugin-vision-vllm",
+    "ce-plugin-video-seedvr2",
+    "ce-plugin-video-rife",
+    "ce-plugin-watermarks",
+    "ce-plugin-embed-speaker",
+    "ce-plugin-audio-emotion",
+    "ce-plugin-qc-gpu",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "hypothesis>=6",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "pre-commit>=3.8",
+    "pyyaml>=6",
+    "types-PyYAML",
+    # infra smoke tests (Phase 0); the same clients are runtime deps from Phase 1
+    "asyncpg>=0.29",
+    "redis>=5",
+    "temporalio>=1.7",
+    "boto3>=1.34",
+    "boto3-stubs[s3]>=1.34",
+    "pydantic>=2.9",
+    "httpx>=0.28",
+]
+
+[tool.uv]
+package = false
+# One OpenCV build for the whole workspace: mediapipe asks for opencv-contrib-python, rapidocr
+# for opencv-python; both ship the same `cv2` module and would overwrite each other. Services
+# are headless, so every OpenCV request resolves to opencv-python-headless (ADR 0042).
+override-dependencies = [
+    "opencv-python; sys_platform == 'never'",
+    "opencv-contrib-python; sys_platform == 'never'",
+]
+
+[tool.uv.workspace]
+members = [
+    "packages/py/ce_behavior",
+    "packages/py/ce_build",
+    "packages/py/ce_camera",
+    "packages/py/ce_config",
+    "packages/py/ce_contracts",
+    "packages/py/ce_core",
+    "packages/py/ce_creator",
+    "packages/py/ce_db",
+    "packages/py/ce_director",
+    "packages/py/ce_exec",
+    "packages/py/ce_gpu",
+    "packages/py/ce_llm",
+    "packages/py/ce_memory",
+    "packages/py/ce_obs",
+    "packages/py/ce_policy",
+    "packages/py/ce_qc",
+    "packages/py/ce_realism",
+    "packages/py/ce_render",
+    "packages/py/ce_research",
+    "packages/py/ce_router",
+    "packages/py/ce_storage",
+    "packages/py/ce_testing",
+    "packages/py/ce_voice",
+    "packages/py/ce_worker",
+    "packages/py/ce_world",
+    "apps/api",
+    "apps/orchestrator",
+    "apps/scheduler",
+    "apps/gpu-worker",
+    "apps/render-worker",
+    "plugins/providers/storage/s3",
+    "plugins/providers/storage/local_fs",
+    "plugins/providers/gpu/mock",
+    "plugins/providers/llm/fixture",
+    "plugins/providers/llm/openai_compatible",
+    "plugins/providers/llm/anthropic",
+    "plugins/mock",
+    "plugins/captions/ass_renderer",
+    "plugins/translate/captions_llm",
+    "plugins/embed/text_embed",
+    "plugins/providers/gpu/local",
+    "plugins/providers/gpu/local_docker",
+    "plugins/providers/gpu/runpod",
+    "plugins/providers/gpu/example_cloud",
+    "plugins/voice/kokoro_cpu",
+    "plugins/asr/faster_whisper_cpu",
+    "plugins/analysis/mediapipe",
+    "plugins/analysis/prosody_features",
+    "plugins/analysis/image_embed",
+    "plugins/vision/auraface",
+    "plugins/vision/ppocr",
+    "plugins/qc/dnsmos",
+    "plugins/provenance/c2pa",
+    "packages/py/ce_plugin_kit",
+    "plugins/avatar/infinitetalk",
+    "plugins/avatar/longcat_avatar",
+    "plugins/image/z_image",
+    "plugins/image/qwen_image_edit",
+    "plugins/video/wan22",
+    "plugins/voice/chatterbox",
+    "plugins/voice/qwen3_tts",
+    "plugins/voice/voxcpm2",
+    "plugins/lipsync/musetalk",
+    "plugins/asr/qwen3",
+    "plugins/asr/ctc_aligner",
+    "plugins/audio/acestep",
+    "plugins/audio/moss_sfx",
+    "plugins/vision/vllm_vlm",
+    "plugins/video/seedvr2",
+    "plugins/video/rife",
+    "plugins/provenance/neural_watermarks",
+    "plugins/embed/speaker_ecapa",
+    "plugins/qc/gpu_metrics",
+    "plugins/analysis/audio_emotion",
+]
+
+[tool.uv.sources]
+ce-behavior = { workspace = true }
+ce-build = { workspace = true }
+ce-camera = { workspace = true }
+ce-config = { workspace = true }
+ce-contracts = { workspace = true }
+ce-core = { workspace = true }
+ce-creator = { workspace = true }
+ce-db = { workspace = true }
+ce-director = { workspace = true }
+ce-exec = { workspace = true }
+ce-gpu = { workspace = true }
+ce-llm = { workspace = true }
+ce-memory = { workspace = true }
+ce-obs = { workspace = true }
+ce-policy = { workspace = true }
+ce-qc = { workspace = true }
+ce-realism = { workspace = true }
+ce-render = { workspace = true }
+ce-research = { workspace = true }
+ce-router = { workspace = true }
+ce-storage = { workspace = true }
+ce-testing = { workspace = true }
+ce-voice = { workspace = true }
+ce-worker = { workspace = true }
+ce-world = { workspace = true }
+ce-api = { workspace = true }
+ce-orchestrator = { workspace = true }
+ce-scheduler = { workspace = true }
+ce-gpu-worker = { workspace = true }
+ce-render-worker = { workspace = true }
+ce-plugin-storage-s3 = { workspace = true }
+ce-plugin-storage-local-fs = { workspace = true }
+ce-plugin-gpu-mock = { workspace = true }
+ce-plugin-llm-fixture = { workspace = true }
+ce-plugin-llm-openai-compatible = { workspace = true }
+ce-plugin-llm-anthropic = { workspace = true }
+ce-plugins-mock = { workspace = true }
+ce-plugin-captions-ass = { workspace = true }
+ce-plugin-translate-captions-llm = { workspace = true }
+ce-plugin-embed-text = { workspace = true }
+ce-plugin-gpu-local = { workspace = true }
+ce-plugin-gpu-local-docker = { workspace = true }
+ce-plugin-gpu-runpod = { workspace = true }
+ce-plugin-gpu-example-cloud = { workspace = true }
+ce-plugin-voice-kokoro = { workspace = true }
+ce-plugin-asr-faster-whisper = { workspace = true }
+ce-plugin-analysis-mediapipe = { workspace = true }
+ce-plugin-analysis-prosody = { workspace = true }
+ce-plugin-analysis-image-embed = { workspace = true }
+ce-plugin-vision-auraface = { workspace = true }
+ce-plugin-vision-ppocr = { workspace = true }
+ce-plugin-qc-dnsmos = { workspace = true }
+ce-plugin-provenance-c2pa = { workspace = true }
+ce-plugin-kit = { workspace = true }
+ce-plugin-avatar-infinitetalk = { workspace = true }
+ce-plugin-avatar-longcat = { workspace = true }
+ce-plugin-image-z-image = { workspace = true }
+ce-plugin-image-qwen-edit = { workspace = true }
+ce-plugin-video-wan22 = { workspace = true }
+ce-plugin-voice-chatterbox = { workspace = true }
+ce-plugin-voice-qwen3-tts = { workspace = true }
+ce-plugin-voice-voxcpm2 = { workspace = true }
+ce-plugin-lipsync-musetalk = { workspace = true }
+ce-plugin-asr-qwen3 = { workspace = true }
+ce-plugin-asr-ctc-aligner = { workspace = true }
+ce-plugin-audio-acestep = { workspace = true }
+ce-plugin-audio-moss-sfx = { workspace = true }
+ce-plugin-vision-vllm = { workspace = true }
+ce-plugin-video-seedvr2 = { workspace = true }
+ce-plugin-video-rife = { workspace = true }
+ce-plugin-watermarks = { workspace = true }
+ce-plugin-embed-speaker = { workspace = true }
+ce-plugin-audio-emotion = { workspace = true }
+ce-plugin-qc-gpu = { workspace = true }
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["infra", "apps/web", "packages/ts", "*.md"]  # markdown (incl. the spec) is never reformatted by ruff
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF"]
+# S101: assert is the pytest idiom. RUF001-003: multilingual text (tr, az, ru, ar) is intrinsic here.
+ignore = ["S101", "RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S"]
+"**/tests/**" = ["S"]
+"scripts/**" = ["S603", "S607"]
+"scripts/fixtures/author_llm_fixtures.py" = ["E501", "S105"]  # authored scripts: long natural-language strings
+"packages/py/ce_db/src/ce_db/migrations/versions/*" = ["E501"]  # autogenerated DDL
+"packages/py/ce_db/src/ce_db/rules.py" = ["S608"]  # SQL built from fixed table-name constants
+"packages/py/ce_testing/src/ce_testing/database.py" = ["S603"]  # runs alembic with a fixed argv
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_configs = true
+warn_redundant_casts = true
+ignore_missing_imports = true
+files = ["packages/py", "apps", "plugins", "scripts", "tests"]
+exclude = ["apps/web/", "scripts/(smoke|bench|calibrate)/run\\.py"]  # 6-line shims over ce_worker.validation_cli
+
+# Strict on the packages the spec names (section 7).
+[[tool.mypy.overrides]]
+module = ["ce_core.*", "ce_contracts.*", "ce_behavior.*"]  # "pkg.*" also matches "pkg" itself
+# The per-module equivalent of --strict. `strict = true` is not used here because mypy applies it globally
+# when set in an override (verified in Phase 0 with a probe module in ce_db).
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+warn_return_any = true
+warn_unused_ignores = true
+no_implicit_reexport = true
+strict_equality = true
+extra_checks = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "packages/py", "apps", "plugins"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "infra: needs the Compose core infrastructure (skipped with a reason when it is not running)",
+    "invariant: architecture invariant tests (section 4)",
+    "behavior: behavior/world/memory suites (section 37)",
+    "acceptance: Director acceptance fixtures in fixture mode (section 37)",
+    "slow: runs the real CPU engines (Kokoro, faster-whisper, MediaPipe); skipped without their assets",
+    "golden: render golden tests (section 37)",
+]
+addopts = "-ra --import-mode=importlib"
+# Package-qualified test helpers (`tests.phase0…`) import from the repository root.
+pythonpath = ["."]

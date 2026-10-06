@@ -1,0 +1,22 @@
+# Testimonial guard (§32, FTC 16 CFR 465): fabricated testimonials misrepresenting that a
+# reviewer exists are blocked; dramatizations need disclosure; real quotes need consent.
+# Detection = these rules + an `llm.structured` classification (prompts/testimonial_guard/).
+# The rules are English; other languages rely on the classifier. Exact-script mode cannot bypass.
+version: 1
+require_disclosure_for_dramatization: true
+require_consent_for_real_quotes: true
+disclosure_text: "Dramatization. Not an actual customer."
+classifier: {provider: llm, min_confidence: 0.7}
+# Modes where a synthetic creator talking about a product can read as a customer testimonial.
+applies_to_modes: [ugc_selfie, product_review_cutaways, product_demo_cutaways, social_ad, testimonial_dramatization]
+# Modes whose videos are dramatizations: a flagged claim passes with an on-screen `disclosure` effect.
+dramatization_modes: [testimonial_dramatization]
+# First-person experiential claims about a product ("I've used this for a month").
+experiential_patterns:
+  used_it: "\\bI(?:'ve| have)?\\s+(?:been\\s+)?(?:using|used|tried|trying|wearing|worn|taking|taken|drinking|drunk|had)\\s+(?:this|it|these|them|the\\s+\\w+|my\\s+\\w+)"
+  duration: "\\b(?:for|after|in)\\s+(?:a|one|two|three|four|five|six|\\d+)\\s+(?:day|week|month|year)s?\\b.*\\b(?:I|my)\\b|\\b(?:I|my)\\b.*\\b(?:for|after)\\s+(?:a|one|two|three|four|five|six|\\d+)\\s+(?:day|week|month|year)s?\\b"
+  since_started: "\\bsince\\s+I\\s+(?:started|began|switched)\\b"
+  bought: "\\bI\\s+(?:just\\s+)?(?:bought|ordered|purchased|got)\\s+(?:this|it|these|them|one|mine|two|three|a\\s+\\w+|\\d+)\\b"
+  results: "\\b(?:my|our)\\s+(?:skin|hair|sleep|energy|results?|routine|life|back|teeth|weight)\\s+(?:is|are|has|have|got|feels?|looks?)\\b"
+  changed_my: "\\b(?:changed|saved|transformed|fixed)\\s+my\\s+\\w+"
+  swear_by: "\\bI\\s+(?:swear\\s+by|can't\\s+live\\s+without|love\\s+(?:this|it|these))\\b"

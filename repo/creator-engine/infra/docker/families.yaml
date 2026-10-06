@@ -1,0 +1,161 @@
+# GPU runtime-family images (§36, ADR 0052). `scripts/gen_worker_dockerfiles.py` renders one
+# `worker-<family>.Dockerfile` per family with one build target per *variant*: a variant is one upstream
+# codebase with its own pinned torch stack (InfiniteTalk needs torch 2.4.1, LongCat-Video 2.6.0, ACE-Step
+# 2.10.0, … — they cannot share one environment). A worker built from a variant serves only that variant's
+# adapters (`WORKER_ADAPTERS`).
+#
+# What the generator takes from the plugin manifests, so it cannot drift from them:
+# - the revision of every `git` dependency (`repos[].url` must match one);
+# - every `pypi:<name>==<version>` dependency, installed at that pin;
+# - the Python version (`runtime.python`) and the family (`runtime.family`).
+# What lives here: the torch wheels (index and pins, from each upstream's install instructions at the pinned
+# commit, read 2026-10-04), extra packages upstream installs by hand, and how each repository is installed.
+#
+# Status: generated and lint-checked (`docker build --check`); **no image has been built with its CUDA stack
+# here (no GPU, rule 5)**. Versions marked [RV] are chosen where upstream gives a range; the first GPU smoke
+# run confirms or replaces them (docs/GPU_VALIDATION.md).
+uv: ghcr.io/astral-sh/uv@sha256:df4cae8f3a96d175e2e5f992e597550000edbe78fdc2594d5cd8de1a217f504c
+bases:
+  runtime: nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04@sha256:ac55d124da4882b497f732d8dfd9a702d5447a5f29d08d56da6f64f0a1eb34bc
+  # variants that compile CUDA extensions at build time (flash-attn wheels missing for their torch, apex)
+  devel: nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04@sha256:24c8e3581ea6330038b0d374920721983312627f8adbfcf390bdb4b399d280ed
+  # vLLM 0.30 wheels target CUDA 12.9
+  runtime_129: nvidia/cuda:12.9.1-cudnn-runtime-ubuntu24.04@sha256:d02c4310b6d57ca0b16cd80298bdb33a74187baafe2eccd8a6a16180ddc90802
+torch_default: &torch_default { index: cu128, packages: [torch==2.8.0, torchvision==0.23.0, torchaudio==2.8.0] } # [RV]
+variants:
+  # ------------------------------------------------------------------ wan
+  infinitetalk:
+    family: wan
+    adapters: [infinitetalk]
+    base: devel
+    torch: { index: cu121, packages: [torch==2.4.1, torchvision==0.19.1, torchaudio==2.4.1] } # upstream README
+    pip: [xformers==0.0.28, flash_attn==2.7.4.post1, "misaki[en]", librosa, pyloudnorm]
+    repos: [{ url: "https://github.com/MeiGen-AI/InfiniteTalk", install: requirements }]
+  longcat_avatar:
+    family: wan
+    adapters: [longcat_avatar]
+    base: devel
+    torch: { index: cu124, packages: [torch==2.6.0, torchvision==0.21.0, torchaudio==2.6.0] } # upstream README
+    pip: [flash_attn==2.7.4.post1, librosa]
+    repos:
+      - { url: "https://github.com/meituan-longcat/LongCat-Video", install: requirements, requirements: [requirements.txt, requirements_avatar.txt] }
+  lightx2v:
+    family: wan
+    adapters: [wan22_a14b_t2v, wan22_a14b_i2v]
+    torch: *torch_default # upstream: torch>=2.1 [RV]
+    repos: [{ url: "https://github.com/ModelTC/LightX2V", install: package }]
+  wan_diffusers:
+    family: wan
+    adapters: [wan22_ti2v_5b]
+    torch: *torch_default
+    pip: [transformers, accelerate, ftfy]
+  # ------------------------------------------------------------------ image
+  image_diffusers:
+    family: image
+    adapters: [z_image_turbo, qwen_image_edit]
+    torch: *torch_default
+    pip: [transformers, accelerate, sentencepiece]
+    # the pipelines run through diffusers; the upstream repositories are license evidence only
+    repos:
+      - { url: "https://github.com/Tongyi-MAI/Z-Image", install: reference }
+      - { url: "https://github.com/QwenLM/Qwen-Image", install: reference }
+  # ------------------------------------------------------------------ tts
+  chatterbox:
+    family: tts
+    adapters: [chatterbox, chatterbox_turbo, chatterbox_multilingual]
+    torch: { index: cu124, packages: [torch==2.6.0, torchaudio==2.6.0] } # pinned by chatterbox's pyproject
+    repos:
+      - { url: "https://github.com/resemble-ai/chatterbox", install: package }
+      - { url: "https://github.com/resemble-ai/Perth", install: package }
+  qwen_tts:
+    family: tts
+    adapters: [qwen3_tts]
+    torch: *torch_default
+  voxcpm:
+    family: tts
+    adapters: [voxcpm2]
+    torch: *torch_default
+  # ------------------------------------------------------------------ asr
+  qwen_asr:
+    family: asr
+    adapters: [qwen3_asr, qwen3_forced_aligner]
+    torch: *torch_default
+  omnilingual:
+    family: asr
+    adapters: [ctc_aligner]
+    torch: *torch_default # fairseq2 0.6 publishes per-torch wheels [RV]
+    apt: [libsndfile1]
+  speechbrain:
+    family: asr
+    adapters: [speaker_ecapa]
+    torch: *torch_default
+    repos: [{ url: "https://github.com/speechbrain/speechbrain", install: package }]
+  funasr:
+    family: asr
+    adapters: [audio_emotion]
+    torch: *torch_default # FunASR: torch>=1.13 [RV]
+    repos: [{ url: "https://github.com/modelscope/FunASR", install: package }]
+  utmos:
+    family: asr
+    adapters: [utmos_v2]
+    torch: *torch_default
+    repos: [{ url: "https://github.com/sarulab-speech/UTMOSv2", install: package }]
+  # ------------------------------------------------------------------ audio
+  acestep:
+    family: audio
+    adapters: [acestep_v15]
+    torch: { index: cu128, packages: [torch==2.10.0, torchvision==0.25.0, torchaudio==2.10.0] } # pinned by ACE-Step's pyproject
+    repos: [{ url: "https://github.com/ace-step/ACE-Step-1.5", install: package }]
+  moss_sfx:
+    family: audio
+    adapters: [moss_sfx_v2]
+    torch: { index: cu128, packages: [torch==2.9.1, torchaudio==2.9.1] } # MOSS-TTS `torch-runtime` extra
+    pip: [torchcodec==0.8.1]
+    repos: [{ url: "https://github.com/OpenMOSS/MOSS-TTS", install: package }]
+  # ------------------------------------------------------------------ post
+  watermarks:
+    family: post
+    adapters: [videoseal, audioseal]
+    torch: *torch_default
+  seedvr2:
+    family: post
+    adapters: [seedvr2_3b]
+    base: devel
+    torch: { index: cu121, packages: [torch==2.3.0, torchvision==0.18.0] } # SeedVR requirements.txt
+    pip: [flash_attn==2.5.9.post1]
+    repos:
+      - { url: "https://github.com/ByteDance-Seed/SeedVR", install: requirements }
+      - { url: "https://github.com/NVIDIA/apex", install: apex }
+  rife:
+    family: post
+    adapters: [rife_425]
+    torch: *torch_default
+    # Practical-RIFE 4.25 ships its model code (`train_log/`) inside the weights archive, which comes from
+    # the model cache (owner input: a mirror with a sha256 pin, docs/MODEL_INSTALLATION.md).
+  # ------------------------------------------------------------------ lipsync
+  musetalk:
+    family: lipsync
+    adapters: [musetalk_v15]
+    torch: { index: cu118, packages: [torch==2.0.1, torchvision==0.15.2, torchaudio==2.0.2] } # upstream README
+    apt: [libgl1, libglib2.0-0]
+    repos: [{ url: "https://github.com/TMElyralab/MuseTalk", install: requirements }]
+  syncnet:
+    family: lipsync
+    adapters: [syncnet_v1]
+    torch: *torch_default
+    pip: [python_speech_features, scenedetect, opencv-python-headless]
+    apt: [libgl1, libglib2.0-0]
+    repos: [{ url: "https://github.com/joonson/syncnet_python", install: path }]
+  # ------------------------------------------------------------------ vision
+  uvq:
+    family: vision
+    adapters: [uvq_15]
+    torch: *torch_default
+    pip: [timm]
+    repos: [{ url: "https://github.com/google/uvq", install: path }]
+  # ------------------------------------------------------------------ vllm
+  vllm:
+    family: vllm
+    adapters: [vlm_qwen36_35b_a3b, vlm_qwen38_27b]
+    base: runtime_129
+    torch: null # vLLM pins its own torch

@@ -1,0 +1,12 @@
+# Routing profile `final` (§22): if generation is below the preset after reframing,
+# video.upscale is mandatory; engine fps is converted with video.interpolate.
+id: final
+label: Final
+quality_tier: final
+allowed_statuses: [production]
+weights: {quality: 0.6, cost: 0.15, latency: 0.1, measured_behavior: 0.4}
+generation: {max_height: 1080, fps: 25}
+final_preset_height: 1920
+upscale_required: true
+interpolate: video.interpolate
+fallback_chain_depth: 3

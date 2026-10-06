@@ -1,0 +1,10 @@
+# Microphone profile (§22 realism post: mic EQ curve).
+id: phone_rear_mic
+label: Phone rear microphone
+eq:
+  - {type: highpass, freq_hz: 100}
+  - {type: peak, freq_hz: 2500, gain_db: 2, q: 1.0}
+  - {type: lowpass, freq_hz: 14000}
+noise_floor_db: -55
+distance_m: 1.2
+compression: {threshold_db: -20, ratio: 2.0}

@@ -1,0 +1,35 @@
+# Seeded answers with low confidence; OCR finds no text.
+# Mock: registered only when MOCK_GPU=true; never routed in production (§10.6, §24).
+id: mock_vision
+name: Mock VLM and OCR
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugins_mock.vision.adapter:MockVision
+mock: true
+capabilities:
+  - id: vision.image
+    features: [structured]
+  - id: vision.video
+    features: [structured, windowed]
+  - id: vision.ocr
+    features: [boxes]
+runtime:
+  { family: cpu_model, python: "3.12", requires_gpu: false, min_vram_gb: 0, recommended_vram_gb: 0, supports_cpu: true }
+models:
+  - key: mock-vision
+    display_name: mock-vision (procedural mock, no weights)
+    source: { type: builtin, revision: "1" }
+    license:
+      {
+        name: LicenseRef-CreatorEngine-FirstParty,
+        url: "plugins/mock/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-03,
+        verified_by: claude-code,
+      }
+pricing: { seconds_per_unit: 0.05 }
+allowed_envs: [dev, test]
+status: production
+validation: untested_on_gpu
+maturity_notes: "Mock engine; outputs are labelled and not model output."

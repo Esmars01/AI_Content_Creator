@@ -1,0 +1,110 @@
+# Kokoro-82M v1.0 (ONNX int8) on CPU (§21, §39.7: CPU TTS, dev only). Real engine behind
+# CPU_REAL_ENGINES: used when its assets are present (`make fetch-cpu-assets`). Kokoro cannot clone:
+# `voice.clone_prepare` selects a preset voice from the description. No word timestamps: alignment
+# comes from the coarse faster-whisper aligner. Dev/test only because the phonemizer stack is
+# GPL-3.0 (ADR 0043).
+id: kokoro_cpu
+name: Kokoro-82M (CPU, ONNX int8)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_voice_kokoro.adapter:KokoroCpu
+behavior_translator: ce_plugin_voice_kokoro.translator:KokoroTranslator
+capabilities:
+  - id: voice.tts
+    features: []
+    languages: { mode: any, validated: [en], unvalidated: [es, fr, it] }
+  - id: voice.clone_prepare
+    features: [preset]
+    languages: { mode: any, validated: [en], unvalidated: [es, fr, it] }
+behavior_matrix:
+  emotion_vocal: { control: none }
+  prosody_rate: { control: parametric, temporal_precision: segment }
+  prosody_pitch: { control: none }
+  prosody_energy: { control: none }
+  prosody_emphasis: { control: none }
+  prosody_pause: { control: parametric, temporal_precision: word }
+  nonverbal_audio: { control: none }
+  delivery: { control: none }
+  accent: { control: none }
+runtime:
+  { family: cpu_model, python: "3.12", requires_gpu: false, min_vram_gb: 0, recommended_vram_gb: 0, supports_cpu: true }
+models:
+  - key: kokoro-82m-v1.0-int8
+    display_name: Kokoro-82M v1.0 (ONNX int8, kokoro-onnx model-files-v1.0)
+    source:
+      {
+        type: url,
+        repo: "https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.0",
+        revision: "model-files-v1.0",
+      }
+    files: [kokoro/kokoro-v1.0.int8.onnx, kokoro/voices-v1.0.bin]
+    sha256:
+      kokoro/kokoro-v1.0.int8.onnx: 6e742170d309016e5891a994e1ce1559c702a2ccd0075e67ef7157974f6406cb
+      kokoro/voices-v1.0.bin: bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/hexgrad/Kokoro-82M/blob/f3ff3571791e39611d31c381e3a41a3af07b4987/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+      }
+    dependencies:
+      - ref: "pypi:kokoro-onnx==0.6.1"
+        license:
+          {
+            name: MIT,
+            url: "https://github.com/thewh1teagle/kokoro-onnx/blob/main/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+          }
+      - ref: "pypi:phonemizer==3.4.0"
+        license:
+          {
+            name: GPL-3.0-or-later,
+            url: "https://github.com/bootphon/phonemizer/blob/v3.4.0/LICENSE",
+            text_sha256: d62f065830aa3739cc031156b9690805c7b2e811b4a178c8b4acd8725d561c94,
+            commercial_use: true,
+            conditions: [{ copyleft: GPL-3.0-or-later }],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+          }
+      - ref: "pypi:espeakng-loader==0.2.4 (bundles libespeak-ng)"
+        license:
+          {
+            name: GPL-3.0-or-later,
+            url: "https://github.com/espeak-ng/espeak-ng/blob/master/COPYING",
+            commercial_use: true,
+            conditions: [{ copyleft: GPL-3.0-or-later }],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+          }
+assets:
+  - kokoro/kokoro-v1.0.int8.onnx
+  - kokoro/voices-v1.0.bin
+defaults:
+  model_file: kokoro/kokoro-v1.0.int8.onnx
+  voices_file: kokoro/voices-v1.0.bin
+  base_wpm: 160 # Kokoro's natural rate at speed 1.0 (measured on the golden sentences)
+  speed_range: [0.7, 1.4]
+  attempt_jitter: 0.04 # exact-script retries vary the speed by up to ±4% (seeded by the attempt)
+  sentence_pause_s: 0.25
+  languages:
+    en:
+      { lang: en-us, female: [af_heart, af_bella, af_sarah, af_nicole], male: [am_michael, am_adam, am_eric, am_liam] }
+    es: { lang: es, female: [ef_dora], male: [em_alex] }
+    fr: { lang: fr-fr, female: [ff_siwis], male: [ff_siwis] }
+    it: { lang: it, female: [if_sara], male: [im_nicola] }
+pricing: { seconds_per_unit: 2.5 }
+allowed_envs: [dev, test]
+status: production
+validation: smoke_passed
+maturity_notes: "Real CPU engine for development (2-3x slower than real time on 2 vCPU). Preset voices only."
+obligations:
+  - {
+      text: "Speech synthesized with Kokoro-82M (Apache-2.0); phonemization by espeak-ng and phonemizer (GPL-3.0-or-later).",
+      placement: [docs],
+    }

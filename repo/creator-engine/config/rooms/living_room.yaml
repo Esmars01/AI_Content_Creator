@@ -1,0 +1,7 @@
+# Room acoustics (§19.7, §22). The impulse response is synthetic (scripts/gen_synthetic_assets.py).
+id: living_room
+label: Living room
+rt60_s: 0.45
+impulse_response: impulse_responses/living_room.wav
+default_ambient: room_tone_quiet
+wet_mix: 0.14

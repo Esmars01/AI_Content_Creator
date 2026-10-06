@@ -1,0 +1,17 @@
+# Video mode template (§13). Effective maturity in the UI is capped by route validation (§10.4).
+id: cinematic_storytelling
+label: Cinematic storytelling
+maturity: beta
+roadmap: MVP
+description: "Story-driven video with cinematic framing and more B-roll."
+allowed_shot_types: [talking_head, broll, insert, silent_hold, title_card]
+default_camera_profiles: [cinematic, dslr]
+default_world_kinds: [living_room, studio, outdoor_location]
+duration_s: {min: 30, max: 180, default: 90}
+aspects: ["9:16", "16:9", "1:1", "4:5"]
+edit_grammar: {max_shot_s: 6, cutaway_every_s: 6, punch_in_on_emphasis: false, beat_snap: true}
+acting_density: high
+editorial_methods: [editorial_cutaway, editorial_punch, caption_emphasis, music_cue, sfx_cue]
+strategy_packs: [story_arc]
+requires: []
+prompt_fragment: null

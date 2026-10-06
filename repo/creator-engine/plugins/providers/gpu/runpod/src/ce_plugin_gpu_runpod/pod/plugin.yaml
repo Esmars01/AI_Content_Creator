@@ -1,0 +1,41 @@
+# RunPod pods (on-demand or spot) as a GPU provider (§25, Phase 9). Paid: inert until an
+# administrator enables paid provisioning (`allow_paid`) after the owner approved the spend (§41);
+# never exercised against the live API here (no key, no approved spend). Prices below are placeholder
+# estimates for budget projections, NOT read from RunPod [RV]; the charged price is captured from
+# the pod (`costPerHr`) at provision and is what the cost ledger uses.
+id: gpu.runpod_pod
+name: RunPod pods
+version: 0.1.0
+kind: provider
+provider: { kind: gpu, key: runpod_pod }
+entrypoint: ce_plugin_gpu_runpod.pod.provider:create
+runtime: { family: cpu_inproc, python: "3.12", requires_gpu: false, supports_cpu: true }
+allowed_envs: [dev, test, prod]
+status: production
+validation: untested_on_gpu
+maturity_notes: "Request shapes checked against RunPod's REST OpenAPI 0.1.0 (2026-10-04); no live call has been made."
+defaults:
+  allow_paid: false
+  max_price_per_hour_usd: 3.0
+  cloud_type: SECURE
+  container_disk_gb: 40
+  volume_mount_path: /models
+  network_volumes: {}
+  allowed_cuda_versions: ["12.8", "12.9", "13.0"]
+  image_template: ""
+  images: {}
+  endpoints: {}
+  regions:
+    eu: [EU-RO-1, EU-SE-1, EU-CZ-1, EUR-IS-1]
+    us: [US-IL-1, CA-MTL-1]
+  classes:
+    rtx_4090_24gb: { gpu_type_ids: ["NVIDIA GeForce RTX 4090"], vram_gb: 24, price_per_hour_usd: 0.69, spot: true }
+    rtx_5090_32gb: { gpu_type_ids: ["NVIDIA GeForce RTX 5090"], vram_gb: 32, price_per_hour_usd: 0.94, spot: true }
+    rtx_pro_6000_96gb:
+      {
+        gpu_type_ids:
+          ["NVIDIA RTX PRO 6000 Blackwell Server Edition", "NVIDIA RTX PRO 6000 Blackwell Workstation Edition"],
+        vram_gb: 96,
+        price_per_hour_usd: 1.89,
+        spot: false,
+      }

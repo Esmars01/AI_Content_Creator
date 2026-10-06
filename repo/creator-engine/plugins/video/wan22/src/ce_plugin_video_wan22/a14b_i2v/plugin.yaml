@@ -1,0 +1,98 @@
+# Wan 2.2 A14B i2v (§39.7: the default B-roll engine) through LightX2V with the 4-step
+# distillation LoRAs (high- and low-noise experts), CFG disabled. 16 fps, 4n+1 frames, 480p/720p
+# buckets. Clips longer than the 81 frames Wan was trained on are allowed up to 10 s but degrade
+# [RV]. Behavior and quality are model-card claims until smoke runs and benchmarks measure them.
+id: wan22_a14b_i2v
+name: Wan 2.2 A14B i2v (LightX2V 4-step)
+version: 0.1.0
+kind: model_adapter
+entrypoint: ce_plugin_video_wan22.adapters:Wan22A14BI2V
+test_backend: ce_plugin_video_wan22.testing:fake_backend
+capabilities:
+  - id: video.i2v
+    features: [i2v]
+    languages: { mode: text, validated: [en, zh], unvalidated: [de, es, fr, it, ru, tr, ar] }
+    resolutions: ["480p", "720p"]
+    max_duration_s: 10
+    fps: 16
+runtime:
+  {
+    family: wan,
+    python: "3.10",
+    cuda: "12.8",
+    requires_gpu: true,
+    min_vram_gb: 48,
+    recommended_vram_gb: 96,
+    supports_cpu: false,
+  }
+models:
+  - key: wan2.2-i2v-a14b
+    size_gb: 118.82 # weights at the pin + fetched dependencies (HF API, 2026-10-04)
+    display_name: Wan-AI/Wan2.2-I2V-A14B (MoE, two 14B experts)
+    source: { type: huggingface, repo: Wan-AI/Wan2.2-I2V-A14B, revision: 206a9ee1b7bfaaf8f7e4d81335650533490646a3 }
+    files: ["*.json", "*.pth", "google/umt5-xxl/*", "high_noise_model/*", "low_noise_model/*"]
+    license:
+      {
+        name: Apache-2.0,
+        url: "https://huggingface.co/Wan-AI/Wan2.2-I2V-A14B/blob/206a9ee1b7bfaaf8f7e4d81335650533490646a3/README.md",
+        commercial_use: true,
+        conditions: [],
+        verified_at: 2026-10-04,
+        verified_by: claude-code,
+        evidence: "model_card: license apache-2.0 at the pinned revision",
+      }
+    dependencies:
+      - ref: "lightx2v/Wan2.2-Distill-Loras@570044187a5219776ef30a5c60c6f76428a3a10a"
+        role: distill_lora
+        source:
+          { type: huggingface, repo: lightx2v/Wan2.2-Distill-Loras, revision: 570044187a5219776ef30a5c60c6f76428a3a10a }
+        files:
+          [
+            wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors,
+            wan2.2_i2v_A14b_low_noise_lora_rank64_lightx2v_4step_1022.safetensors,
+          ]
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://huggingface.co/lightx2v/Wan2.2-Distill-Loras/blob/570044187a5219776ef30a5c60c6f76428a3a10a/README.md",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            evidence: "model_card: license apache-2.0 at the pinned revision",
+          }
+      - ref: "github:ModelTC/LightX2V@8a97c7591d7252ef491392e83e1eb18617ac9368"
+        role: code
+        source:
+          { type: git, repo: "https://github.com/ModelTC/LightX2V", revision: 8a97c7591d7252ef491392e83e1eb18617ac9368 }
+        license:
+          {
+            name: Apache-2.0,
+            url: "https://github.com/ModelTC/LightX2V/blob/8a97c7591d7252ef491392e83e1eb18617ac9368/LICENSE",
+            commercial_use: true,
+            conditions: [],
+            verified_at: 2026-10-04,
+            verified_by: claude-code,
+            text_sha256: c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4,
+            evidence: license_file,
+          }
+defaults:
+  fps: 16
+  max_frames: 161 # 10 s; Wan 2.2 was trained on 81-frame clips [RV]
+  sizes: { "480": [480, 832], "720": [720, 1280] }
+  steps: 4
+  guidance_scale: 1.0 # distilled: CFG off
+  shift: 5.0
+  boundary_step_index: 2
+  denoising_step_list: [1000, 750, 500, 250]
+  attn_mode: flash_attn2
+  cpu_offload: false
+  lora_high: wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors
+  lora_low: wan2.2_i2v_A14b_low_noise_lora_rank64_lightx2v_4step_1022.safetensors
+  negative: ""
+  reference_gpu: rtx_pro_6000_96gb
+pricing: { seconds_per_unit: 12.0, load_seconds: 300.0 } # placeholders until smoke runs measure them [RV]
+allowed_envs: [dev, test, prod]
+status: sandbox
+validation: untested_on_gpu
+maturity_notes: "Not yet run on a GPU here. Model card: 5–10 s clips at 480–720p; no legible text in frame (§5)."

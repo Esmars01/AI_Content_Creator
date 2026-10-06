@@ -1,0 +1,25 @@
+# QC thresholds for the draft tier (§26). Metric thresholds are keyed by metric adapter id,
+# because scales differ between models. Mock checks return seeded values (MOCK_QC_FAIL_RATE).
+tier: draft
+checks:
+  lipsync:
+    advisory: true                 # until the SyncNet weights license is verified (§5, §26)
+    by_adapter: {syncnet_v1: {min_confidence: 3.0, good_confidence: 5.0}, mock_qc: {min_confidence: 3.0, good_confidence: 5.0}}
+    av_offset_max_frames: 1
+  identity: {margin_below_baseline: 0.08}
+  speech:
+    max_wer: {en: 0.05, default: 0.08}
+    max_cer: {default: 0.03}        # passes when WER or CER is within threshold (compounds, one misheard letter)
+    by_adapter: {dnsmos: {min_score: 3.0}, mock_qc: {min_score: 3.0}}
+  # UVQ / UTMOS scales are not calibrated yet [RV]: without thresholds an adapter only reports (advisory)
+  visual_quality: {by_adapter: {mock_qc: {min_score: 0.5}}}
+  mix: {integrated_lufs: -14.0, lufs_tolerance: 1.0, max_true_peak_dbtp: -1.0, music_under_speech_db: 15}
+  captions: {respect_safe_zone: true}
+  text_in_broll: {max_unintended_text_chars: 0}
+  vlm_judge: {critical_defects_fail: false, sampling_fps: 2.0, min_confidence: 0.5}
+  pacing: {use_mode_ranges: true}
+budgets:
+  retries_per_node: 1
+  retries_per_version: 6
+  usd_per_version: 2.0
+ladder: [attempt_seed, fallback_route, cheaper_fix, needs_review]

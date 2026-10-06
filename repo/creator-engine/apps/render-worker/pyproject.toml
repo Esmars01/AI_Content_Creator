@@ -1,0 +1,16 @@
+[project]
+name = "ce-render-worker"
+version = "0.1.0"
+description = "Temporal activity worker on queue render (FFmpeg/PyAV, cpu_inproc plugins)."
+requires-python = ">=3.12"
+dependencies = ["ce-config", "ce-exec", "ce-obs", "ce-orchestrator"]
+
+[project.scripts]
+ce-render-worker = "ce_render_worker.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ce_render_worker"]
