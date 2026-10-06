@@ -18,7 +18,7 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
-__all__ = ["Event", "EventBus", "EventType"]
+__all__ = ["Event", "EventBus", "EventType", "valid_stream_id"]
 
 
 class EventType(StrEnum):
@@ -56,7 +56,7 @@ def _decode(entry_id: str, fields: Mapping[str, str]) -> Event:
     )
 
 
-def _valid_id(value: str) -> bool:
+def valid_stream_id(value: str) -> bool:
     ms, sep, seq = value.partition("-")
     return ms.isdigit() and (not sep or seq.isdigit())
 
@@ -93,14 +93,27 @@ class EventBus:
 
     async def replay(self, org_id: UUID, after_id: str, *, limit: int) -> list[Event]:
         """Events strictly after `after_id`, oldest first."""
-        if not _valid_id(after_id):
+        if not valid_stream_id(after_id):
             return []
         entries: Any = await self.redis.xrange(self.stream_key(org_id), f"({after_id}", "+", count=limit)
         return [_decode(str(i), f) for i, f in entries]
 
+    def max_block_ms(self, block_ms: int) -> int:
+        """`block_ms`, shortened to stay below the client's socket timeout.
+
+        redis-py applies its socket timeout (5 s by default) to every read, including a blocking
+        XREAD; a block longer than it raises `TimeoutError` instead of returning empty.
+        """
+        timeout = self.redis.connection_pool.connection_kwargs.get("socket_timeout", 5.0)
+        if timeout is None:
+            return block_ms
+        return max(100, min(block_ms, int(float(timeout) * 1000) - 1000))
+
     async def wait(self, org_id: UUID, after_id: str, *, block_ms: int, count: int = 100) -> list[Event]:
-        """Block up to `block_ms` for events after `after_id`."""
-        result: Any = await self.redis.xread({self.stream_key(org_id): after_id}, block=block_ms, count=count)
+        """Block up to `block_ms` (at most just under the socket timeout) for events after `after_id`."""
+        result: Any = await self.redis.xread(
+            {self.stream_key(org_id): after_id}, block=self.max_block_ms(block_ms), count=count
+        )
         events: list[Event] = []
         for _stream, entries in result or []:
             events += [_decode(str(i), f) for i, f in entries]

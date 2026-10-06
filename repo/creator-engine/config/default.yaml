@@ -40,6 +40,7 @@ api:
   max_page_size: 200
   sse_keepalive_s: 15
   sse_replay_max: 1000             # events replayed after Last-Event-ID before streaming live
+  sse_max_stream_s: 900            # close a stream after this long; the reconnect re-authenticates
 render:
   proxy: {height: 540, fps: 30, video_codec: h264, crf: 28, audio_bitrate_kbps: 96}   # previews (§27)
   timeline: {lead_s: 0.2, segment_gap_s: 0.25, tail_s: 0.6, shot_pad_in_s: 0.2, shot_pad_out_s: 0.3}

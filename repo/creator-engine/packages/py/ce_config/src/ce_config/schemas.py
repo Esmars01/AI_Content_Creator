@@ -75,6 +75,9 @@ class ApiConfig(Strict):
     max_page_size: PositiveInt = 200
     sse_keepalive_s: PositiveInt = 15
     sse_replay_max: PositiveInt = 1000
+    # A stream is closed after this long; the browser reconnects with Last-Event-ID, which re-runs
+    # authentication, so a revoked session or removed member stops receiving events.
+    sse_max_stream_s: PositiveInt = 900
 
 
 class ProvenanceConfig(Strict):
