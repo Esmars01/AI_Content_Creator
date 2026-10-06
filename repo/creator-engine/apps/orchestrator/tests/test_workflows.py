@@ -43,6 +43,7 @@ from ce_orchestrator.workflows import (
     GenerateVersionWorkflow,
     PlanVideoWorkflow,
     ProposeEditWorkflow,
+    RenderWorkflow,
 )
 from temporalio import activity
 from temporalio.client import Client, WorkflowFailureError
@@ -98,8 +99,13 @@ class FakeActivities:
         flaky: dict[str, int] | None = None,
         block_first: set[str] | None = None,
         delay_s: float = 0.02,
+        broken_bookkeeping: bool = False,
+        slow: dict[str, float] | None = None,
     ) -> None:
+        self.slow = slow or {}
+        self.spans: dict[str, tuple[float, float]] = {}
         self.plan = plan
+        self.broken_bookkeeping = broken_bookkeeping
         self.cached = cached or set()
         self.fail = fail or set()
         self.flaky = flaky or {}
@@ -155,7 +161,9 @@ class FakeActivities:
                 except asyncio.CancelledError:
                     self.cancelled.append(key)
                     raise
-            await asyncio.sleep(self.delay_s)
+            started = asyncio.get_running_loop().time()
+            await asyncio.sleep(self.slow.get(key, self.delay_s))
+            self.spans[key] = (started, asyncio.get_running_loop().time())
         finally:
             self.running -= 1
 
@@ -185,6 +193,8 @@ class FakeActivities:
     @activity.defn(name="fail_node")
     async def fail_node(self, inp: FailInput) -> None:
         self.failed_nodes.append(inp)
+        if self.broken_bookkeeping:
+            raise ValueError("the error row cannot be written")  # non-retryable: fails at once
 
     @activity.defn(name="complete_build")
     async def complete_build(self, inp: CompleteInput) -> dict[str, Any]:
@@ -356,6 +366,55 @@ async def test_cpu_nodes_retry_transient_errors_but_not_invalid_input(env: Workf
     assert result.statuses[MIX] == "succeeded" and fake.attempts[MIX] == 3
     assert result.statuses[KEYFRAME] == "failed" and fake.attempts[KEYFRAME] == 1
     assert result.statuses[RENDER] == "skipped" and result.state == "failed"
+
+
+async def test_a_failing_bookkeeping_activity_still_closes_the_build(env: WorkflowEnvironment) -> None:
+    """Regression (audit C1): when `fail_node` itself failed, the exception escaped the DAG and the
+    workflow failed without `complete_build`, leaving the job "running" and the version "generating"
+    for good (nothing reconciles them)."""
+    queue = f"wf-{uuid.uuid4()}"
+    fake = FakeActivities(example_plan(), fail={AVATAR}, broken_bookkeeping=True)
+    workflow_id = f"wf-test-{uuid.uuid4()}"
+    async with _workers(env.client, fake, queue):
+        result = await env.client.execute_workflow(
+            GenerateVersionWorkflow.run, _build(queue), id=workflow_id, task_queue=queue
+        )
+    assert len(fake.completed) == 1  # the job and the version got their final state
+    assert result.state == "failed" and result.statuses[AVATAR] == "failed"
+    assert {result.statuses[k] for k in (CAMERA, RENDER, SIGN, QC)} == {"skipped"}
+    assert result.statuses[TTS2] == result.statuses[MIX] == "succeeded"  # independent branches finished
+    await _replay(env.client, f"{workflow_id}:scene:sc_1")
+
+
+async def test_a_render_whose_plan_fails_still_closes_its_job(env: WorkflowEnvironment) -> None:
+    """Regression (audit C2): RenderWorkflow called plan_build without handling its failure, so an
+    unknown preset failed the workflow and the render job never left "running"."""
+    queue = f"wf-{uuid.uuid4()}"
+    fake = FakeActivities(None)  # plan_build raises a non-retryable ValueError
+    async with _workers(env.client, fake, queue):
+        result = await env.client.execute_workflow(
+            RenderWorkflow.run, _build(queue), id=f"wf-test-{uuid.uuid4()}", task_queue=queue
+        )
+    assert result.state == "failed" and result.failed == ["plan"]
+    assert len(fake.completed) == 1 and fake.completed[0].render_only
+
+
+async def test_side_nodes_run_alongside_the_scenes(env: WorkflowEnvironment) -> None:
+    """Audit P4: a video-level node with no dependencies that no scene needs (SFX) ran before the
+    scenes, so no scene started until it finished; now it runs alongside them."""
+    sfx = "audio.sfx:boom"
+    plan = example_plan()
+    plan.nodes.append(_node(sfx, "gpu"))
+    mix = next(n for n in plan.nodes if n.key == MIX)
+    mix.deps.append(sfx)
+    plan.side = [sfx]
+    queue = f"wf-{uuid.uuid4()}"
+    fake = FakeActivities(plan, slow={sfx: 1.5})
+    async with _workers(env.client, fake, queue):
+        result = await _generate(env.client, _build(queue))
+    assert result.state == "ready" and result.statuses[sfx] == "succeeded"
+    assert fake.spans[TTS1][0] < fake.spans[sfx][1]  # a scene started before the SFX was done
+    assert fake.spans[MIX][0] >= fake.spans[sfx][1]  # and what needs the SFX still waited for it
 
 
 async def test_parallelism_is_bounded(env: WorkflowEnvironment) -> None:

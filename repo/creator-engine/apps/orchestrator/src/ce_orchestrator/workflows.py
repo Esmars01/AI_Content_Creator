@@ -107,10 +107,19 @@ CPU_RETRY = RetryPolicy(
         "AnchorError",
         "GraphError",
         "ValidationError",
+        # a failing filtergraph or a corrupt input fails the same way every time: re-running a render
+        # node five times (with backoff) only delays the failure (audit C6)
+        "FFmpegError",
     ],
 )
 NO_RETRY = RetryPolicy(maximum_attempts=1)
+LOCAL_HEARTBEAT_TIMEOUT_S = 60.0
 FAILED = ("failed", "skipped", "cancelled")
+
+
+def _is_cancel(exc: BaseException) -> bool:
+    cause = getattr(exc, "cause", None)
+    return isinstance(cause, asyncio.CancelledError) or type(cause).__name__ == "CancelledError"
 
 
 def _error(exc: BaseException) -> str:
@@ -150,13 +159,21 @@ class _Dag:
         )
 
     async def _cpu(
-        self, name: str, arg: Any, result_type: Any, *, queue: str | None = None, timeout_s: float | None = None
+        self,
+        name: str,
+        arg: Any,
+        result_type: Any,
+        *,
+        queue: str | None = None,
+        timeout_s: float | None = None,
+        heartbeat_s: float | None = None,
     ) -> Any:
         return await workflow.execute_activity(
             name,
             arg,
             task_queue=queue or self.build.queues.orchestrator,
             start_to_close_timeout=timedelta(seconds=timeout_s or self.build.cpu_timeout_s),
+            heartbeat_timeout=timedelta(seconds=heartbeat_s) if heartbeat_s else None,
             retry_policy=CPU_RETRY,
             result_type=result_type,
         )
@@ -185,6 +202,7 @@ class _Dag:
                     FinishResult,
                     queue=self.build.queues.render if render else self.build.queues.orchestrator,
                     timeout_s=self.build.render_timeout_s if render else self.build.cpu_timeout_s,
+                    heartbeat_s=LOCAL_HEARTBEAT_TIMEOUT_S,  # run_local_node heartbeats every 10 s
                 )
             else:
                 worker = await workflow.execute_activity(
@@ -207,11 +225,18 @@ class _Dag:
                 self.statuses[node.key] = "cancelled"
                 return None
             self.statuses[node.key] = "failed"
-            await self._cpu(
-                "fail_node",
-                FailInput(ref=ref, node_id=begin.node_id if begin else None, error=_error(exc)),
-                None,
-            )
+            try:
+                await self._cpu(
+                    "fail_node",
+                    FailInput(ref=ref, node_id=begin.node_id if begin else None, error=_error(exc)),
+                    None,
+                )
+            except ActivityError as bookkeeping:
+                # The node is failed either way; losing its error row must not abort the build
+                # (complete_build sweeps the row and the job still ends with a final state).
+                if _is_cancel(bookkeeping):
+                    raise
+                workflow.logger.warning("fail_node failed for %s: %s", node.key, _error(bookkeeping))
             return None
 
     async def _verified(self, tts: NodeInfo, verify: NodeInfo) -> None:
@@ -452,7 +477,21 @@ class _Dag:
                 raise
             for key in [k for k, t in running.items() if t in done]:
                 task = running.pop(key)
-                task.result()
+                try:
+                    task.result()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # a bookkeeping activity failed for good
+                    # Fail this node (or this shot's QC gate) and let its dependents skip, instead
+                    # of failing the workflow and leaving the job "running" with no final state.
+                    workflow.logger.error("build step %s failed: %s", key, _error(exc))
+                    if key.startswith("gate:"):
+                        failed = qc_by_shot.get(key.removeprefix("gate:"), [])
+                    else:
+                        failed = [key] + ([verify_for[key].key] if key in verify_for else [])
+                    for k in failed:
+                        self.statuses[k] = "failed"
+                        self.held.pop(k, None)
 
 
 async def _complete(
@@ -589,7 +628,13 @@ class GenerateVersionWorkflow:
                         id=f"{workflow.info().workflow_id}:scene:{scene_key}",
                     )
                 )
-            results = await asyncio.gather(*children, return_exceptions=True)
+            # `side` nodes (no dependencies, no scene needs them) run alongside the scenes. Histories
+            # from before `side` existed have it empty and take exactly the old path (determinism).
+            side = [dag.run([infos[k] for k in plan.side])] if plan.side else []
+            gathered = await asyncio.gather(*children, *side, return_exceptions=True)
+            results: list[Any] = list(gathered[: len(children)])
+            if side and isinstance(gathered[-1], BaseException):
+                raise gathered[-1]
             for (_, keys), result in zip(plan.scenes.items(), results, strict=True):
                 if isinstance(result, asyncio.CancelledError):
                     raise result
@@ -604,6 +649,9 @@ class GenerateVersionWorkflow:
             await dag.run([infos[k] for k in plan.post])
         except asyncio.CancelledError:
             cancelled = True
+        except Exception as exc:  # the build must still reach a final state
+            workflow.logger.error("build failed: %s", _error(exc))
+            statuses["build"] = "failed"
         summary = await _complete(build, statuses, cancelled=cancelled, render_only=False)
         if cancelled:
             raise asyncio.CancelledError("build cancelled")
@@ -623,16 +671,20 @@ class RenderWorkflow:
 
     @workflow.run
     async def run(self, build: BuildInput) -> BuildResult:
-        plan: PlanResult = await workflow.execute_activity(
-            "plan_build",
-            PlanInput(
-                org_id=build.org_id, job_id=build.job_id, version_id=build.version_id, preset_ids=build.preset_ids
-            ),
-            task_queue=build.queues.orchestrator,
-            start_to_close_timeout=timedelta(seconds=build.cpu_timeout_s),
-            retry_policy=CPU_RETRY,
-            result_type=PlanResult,
-        )
+        try:
+            plan: PlanResult = await workflow.execute_activity(
+                "plan_build",
+                PlanInput(
+                    org_id=build.org_id, job_id=build.job_id, version_id=build.version_id, preset_ids=build.preset_ids
+                ),
+                task_queue=build.queues.orchestrator,
+                start_to_close_timeout=timedelta(seconds=build.cpu_timeout_s),
+                retry_policy=CPU_RETRY,
+                result_type=PlanResult,
+            )
+        except ActivityError as exc:  # e.g. an unknown preset: the render job still ends "failed"
+            await _complete(build, {"plan": "failed"}, cancelled=False, render_only=True)
+            return BuildResult(state="failed", job_status="failed", failed=["plan"], statuses={"plan": _error(exc)})
         outputs: dict[str, str] = {}
         statuses: dict[str, str] = {}
         cancelled = False
@@ -646,6 +698,9 @@ class RenderWorkflow:
             ).run(plan.nodes)
         except asyncio.CancelledError:
             cancelled = True
+        except Exception as exc:  # the render job must still reach a final state
+            workflow.logger.error("render failed: %s", _error(exc))
+            statuses["build"] = "failed"
         summary = await _complete(build, statuses, cancelled=cancelled, render_only=True)
         if cancelled:
             raise asyncio.CancelledError("render cancelled")
@@ -691,6 +746,9 @@ class PrevizWorkflow:
             ).run(plan.nodes)
         except asyncio.CancelledError:
             cancelled = True
+        except Exception as exc:  # previz must still reach a final state
+            workflow.logger.error("previz failed: %s", _error(exc))
+            statuses["build"] = "failed"
         summary = await self._complete(build, statuses, outputs, cancelled=cancelled)
         if cancelled:
             raise asyncio.CancelledError("previz cancelled")

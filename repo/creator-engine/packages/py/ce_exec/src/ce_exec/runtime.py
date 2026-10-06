@@ -95,6 +95,11 @@ class PlanResult(BaseModel):
     pre: list[str] = Field(description="video-level nodes that run before the scenes")
     scenes: dict[str, list[str]]
     post: list[str]
+    side: list[str] = Field(
+        default_factory=list,
+        description="video-level nodes without dependencies that no scene needs (e.g. SFX): they run "
+        "alongside the scenes instead of holding every scene back",
+    )
     manifest: bool = True
 
 
@@ -170,7 +175,9 @@ def _queue(node: ExecutionNode, svc: ExecServices) -> Queue:
 
 def _partition(
     graph: ExecutionGraph, wanted: set[str] | None = None
-) -> tuple[list[str], dict[str, list[str]], list[str]]:
+) -> tuple[list[str], dict[str, list[str]], list[str], list[str]]:
+    """(pre, scenes, post, side): `pre` runs before the scenes because a scene needs it; `side` has
+    no dependencies and no scene needs it, so it runs alongside the scenes; `post` runs after them."""
     by_key = graph.by_key()
     keys = [n.key for n in graph.nodes if wanted is None or n.key in wanted]
     scene_nodes: dict[str, list[str]] = {}
@@ -181,6 +188,7 @@ def _partition(
     in_scene = {k for v in scene_nodes.values() for k in v}
     pre: list[str] = []
     pre_set: set[str] = set()
+    side: list[str] = []
     for key in keys:  # topological order
         node = by_key[key]
         if key in in_scene:
@@ -189,11 +197,16 @@ def _partition(
             d in in_scene for d in node.deps
         ):
             dependents_in_scene = any(key in by_key[s].deps for s in in_scene)
-            if dependents_in_scene or not node.deps:
+            if dependents_in_scene:
                 pre.append(key)
                 pre_set.add(key)
-    post = [k for k in keys if k not in in_scene and k not in pre_set]
-    return pre, scene_nodes, post
+            elif not node.deps:
+                # Audit P4: such a node used to be in `pre`, so no scene started (not even TTS) until
+                # it finished on the worker queue, though nothing in a scene waits for it.
+                side.append(key)
+    side_set = set(side)
+    post = [k for k in keys if k not in in_scene and k not in pre_set and k not in side_set]
+    return pre, scene_nodes, post, side
 
 
 def _ancestors(graph: ExecutionGraph, roots: set[str]) -> set[str]:
@@ -282,7 +295,7 @@ async def plan_version(
         wanted = _ancestors(graph, roots)
     elif previz:
         wanted = _ancestors(graph, {n.key for n in graph.nodes if n.kind in PREVIZ_KINDS})
-    pre, scenes, post = _partition(graph, wanted)
+    pre, scenes, post, side = _partition(graph, wanted)
     nodes = [
         NodeInfo(
             key=n.key,
@@ -351,6 +364,7 @@ async def plan_version(
         pre=pre,
         scenes=scenes,
         post=post,
+        side=side,
         manifest=not partial,
     )
 
