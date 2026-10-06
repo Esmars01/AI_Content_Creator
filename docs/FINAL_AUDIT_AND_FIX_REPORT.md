@@ -41,6 +41,11 @@ that the workspace layout itself broke the test suite:
 - **Bundles:** all 14 verify and reconstruct; their inconsistencies were investigated and explained
   (section 18); the bundles were regenerated with honest, unchanged history plus audit notes, and the Phase 14
   bundle carries the corrections. **No Phase 13 exists.**
+- **Validation (section 21):** from a fresh clone of the regenerated Phase 14 bundle on fresh volumes:
+  1 890 Python tests pass, 0 fail (14 skip for CPU-engine assets); lint, typecheck, spec and config checks
+  and 90 web tests pass; the demo flow passes end to end; 8 of 9 Playwright specs pass, and the ninth stops only at
+  H.264 playback, which this Chromium cannot decode. The clean run found two more defects (W-FE3, and B2 in
+  the audit's own new test); both are fixed.
 
 **Overall status:** the mock environment is now considerably more trustworthy, and the project is ready to
 *begin* real GPU testing (GPU readiness report, section 6). It is **not** GPU-validated and **not**
@@ -50,7 +55,7 @@ production-ready: see sections 19–20.
 
 | Area | Before | After |
 | --- | --- | --- |
-| Test suite in the workspace | aborts at collection; 1 745 pass / 12 fail / 2 error when forced | see section 21 |
+| Test suite in the workspace | aborts at collection; 1 745 pass / 12 fail / 2 error when forced | clean clone: 1 890 pass / 0 fail / 14 skip (CPU assets); 90 web tests pass |
 | Live progress (SSE) | stream crashes every 5 s of silence; events lost on reconnect | stable stream; resumable; UI reconciles with the API |
 | Stuck jobs | single activity failure ⇒ job `running` forever | every build workflow reaches a final state |
 | GPU control plane | 9 defects that would surface only with real GPU work | fixed, tested on stand-ins |
@@ -85,6 +90,7 @@ introduced (from `git log -S` over the history). All fixes are in `repo/creator-
 | --- | --- | --- | --- | --- |
 | B0 | H | `pytest` collected nothing (2 collection errors abort the run); `make verify-spec`/`make test` fail. Tests and scripts read `docs/MASTER_BUILD_PROMPT.md`, ADRs, OPERATIONS, API, MODELS… beside the sources; in the workspace those exist only in the phase bundles | `ce_testing.docs` resolves documents from `CE_DOCS_DIR`, then `repo/creator-engine/docs`, then the workspace's outer `docs/` (the spec there is `MASTER_BUILD_PROMPT_v2_private.md`, identical except erratum E1's rewording of I3). Checks whose document is bundle-only **skip with that reason** and run again with `CE_DOCS_DIR=<bundle checkout>/docs`. `gen_openapi`/`gen_models_doc` skip absent doc targets. No documentation tree was duplicated. | full suite runs; ce_core spec-example tests now run against the outer spec |
 | B1 | M | `tests/phase0/test_no_secrets.py` (credential scan, `.env` ignored) skipped "not a git checkout": it tested `.git` beside the sources, which the workspace's subdirectory lacks | detect the work tree with `git rev-parse --is-inside-work-tree` | both tests run and pass in the workspace |
+| B2 | L | *Introduced by this audit, found by its clean-environment run:* the new A4 regression test added a video to the seeded project and left it there, so `test_read_videos_and_versions` failed whenever it ran later in the same session (order-dependent) | the test creates a project of its own | the two files run in that order: fails before, passes after |
 
 ### 4.2 Real-time progress (SSE, Valkey) — Signals B and E
 
@@ -101,6 +107,7 @@ introduced (from `git log -S` over the history). All fixes are in `repo/creator-
 | S7 | M | 11 | QC report, critiques and consistency were keyed outside the version and never refreshed after `ready` | keyed under the version; the studio refreshes them on state change | `events.test.ts` |
 | W-FE1 | M | 11 | The critique panel invalidated `["edits", id]`, a key no query uses (the edit list never refreshed) | `keys.edits(id)` | — |
 | W-FE2 | H | 10 | `useStudioJob` (8 Studio panels) depended on an inline array: once a job finished, every render invalidated again and every refetch re-rendered — **an endless refetch loop** | invalidate once per finished job (refs) | `common.test.tsx` (old code: 6 invalidations, new: 1) |
+| W-FE3 | M | 10 | Approving a world version (Plates tab) refreshed the world but not the version the panel shows: it stayed "Draft" with the Approve button. The W-FE2 loop had hidden it; found by the world-studio Playwright spec on the clean-environment run | refresh the version too | `world-panels.test.tsx` (fails on the old code); world-studio E2E |
 
 ### 4.3 Orchestration and workflows
 
@@ -203,8 +210,8 @@ Findings:
   recovery (S3, S6).
 - **Stale copy removed:** "arrives in Phase 9/10/11" texts on the dashboard, creators and worlds pages
   (those phases shipped); the dashboard now links to the GPU and rating pages.
-- **Correctness:** live-update reconciliation (S4, S5, S7), the Studio refetch loop (W-FE2), the dead `edits`
-  key (W-FE1).
+- **Correctness:** live-update reconciliation (S4, S5, S7), the Studio refetch loop (W-FE2) and the stale
+  world-version status it had hidden (W-FE3), the dead `edits` key (W-FE1).
 
 ## 7. Backend fixes
 
@@ -253,7 +260,7 @@ New regression tests for every fix marked in section 4 (Python: API/SSE, workflo
 fleet, database concurrency, partition, events; TypeScript: events, Studio job hook, status messages), the
 image-plugin guard, and a stricter Playwright create-to-play spec (backend-ready → player ≤ 15 s, final
 render, media bytes, bounded `play()`, SSE reconnect budget). Several new tests were run against the old code
-to prove they catch the defect (C1, C2, A4, W-FE2, D6, W6).
+to prove they catch the defect (C1, C2, A4, W-FE2, W-FE3, D6, W6).
 
 ## 16. Docker and infrastructure fixes
 
@@ -285,7 +292,7 @@ D1, D4, D5, D6, D12, D14 (section 4.6); `CE_BIND_ADDRESS` and `WORKER_CPU_CONCUR
 | 7 | W12 (mock FFmpeg), D14 | in the final code | progress note | regenerated |
 | 8 | W8, D6 (GPU adapters absent from the services image) | in the final code | progress note | regenerated |
 | 9 | W5, W9 | in the final code | progress note | regenerated |
-| 10 | W-FE2 (Studio refetch loop), stale "arrives in Phase 10" copy | in the final code | progress note | regenerated |
+| 10 | W-FE2 (Studio refetch loop), W-FE3, stale "arrives in Phase 10" copy | in the final code | progress note | regenerated |
 | 11 | C3, S7, W-FE1 | in the final code | progress note | regenerated |
 | 12 | A7, A6 (the stricter `PlanRequest` limit) | in the final code | progress note | regenerated |
 | 13 | **does not exist** (intentionally skipped, ADR 0050) | — | — | **none** |
@@ -341,4 +348,78 @@ fixes them.
 
 ## 21. Validation results
 
-*(filled in by the final validation runs below)*
+All runs on the audit host (4 vCPU, 15 GiB, no GPU; Docker for the infrastructure only; services as host
+processes). The figures below are copied from the run logs, which are not committed.
+
+### 21.1 Test suite
+
+| Run | Tree | Result | Time |
+| --- | --- | --- | --- |
+| Baseline, as delivered (workspace) | `58c131e` | **aborted at collection, 0 tests ran**; forced with `--continue-on-collection-errors`: 1 745 passed, 12 failed, 2 errors, 16 skipped (11 failures + 2 errors from the docs layout, B0; 1 from the audit's own worktree lacking `pnpm install`; 2 security tests skipped "not a git checkout", B1) | 39:52 |
+| After the fixes (workspace, outer `docs/`) | before `2a9bec0` | 1 821 passed, 1 failed, 80 skipped. The failure was a defect in a new SSE test (it read the response stream twice), fixed in `2a9bec0`. Skips: 66 for documents that live only in the phase bundles (the workspace layout, B0), 14 for CPU-engine assets and owner fixture clips | 39:44 |
+| Clean environment, run 1 (fresh clone of the regenerated Phase 14 bundle) | `phase-14-audit` (first regeneration) | 1 889 passed, **1 failed**, 14 skipped. The failure was B2 (test isolation, introduced by this audit), fixed in `77bbc8b` | 37:28 |
+| Clean environment, final (fresh clone of the bundle regenerated from the final sources, `77bbc8b`) | `phase-14-audit` | **1 890 passed, 0 failed, 14 skipped**; 1 warning (Temporal SDK: a cancel arrived for an activity that had already finished, which is benign) | 36:39 |
+
+`CE_REQUIRE_INFRA=1` throughout, so no infrastructure test could skip silently. In a bundle checkout, `docs/` sits
+beside the sources, so the document checks that skip in the workspace run there (none of the 14 remaining skips
+is about documents). The bundle was regenerated once more after this section was written; that changed only
+`docs/`. On a clone of that bundle the document checks (`tests/phase0`) and the bundle validation were run
+again, and both passed. The 14 skips need `make fetch-cpu-assets` (Hugging Face and GitHub downloads, about
+0.57 GB) or owner-supplied analyzer fixture clips.
+
+| Check (clean clone) | Result |
+| --- | --- |
+| `make lint` (ruff, ruff format, ESLint, Prettier) | pass |
+| `make typecheck` (mypy, tsc for the API client and the web app) | pass |
+| `make verify-spec` | 0 errors, 0 warnings (43 sections, 14 phases, 14 invariants, 148 API paths) |
+| `make verify-config` | dev and prod: 114 files, 0 errors, 0 warnings |
+| `make test-web` (Vitest) | 18 files, 90 tests pass |
+| `docker compose config` (default, core, core + mock-gpu, obs) | valid; all 9 published ports bound to `127.0.0.1` |
+
+### 21.2 Clean-environment run
+
+A fresh `git clone` of `bundles/creator-engine-phase14.bundle` into an empty directory, `.env` copied from
+`.env.example`, `make infra-reset` (all Docker volumes deleted), then the documented steps. Not a fresh
+machine: the uv and pnpm caches were warm, and the host's Node is 22, so Node 24.21.0 LTS was downloaded from
+nodejs.org (SHA-256 verified) and put first on `PATH`. `make bootstrap` itself stopped at its prerequisite
+check, because `uv run` puts the interpreter's directory first on `PATH` and on this host that directory
+(`/usr/local/bin`) also holds Node 22. The bootstrap steps were run one by one instead (prerequisite check:
+pass; `uv sync`; `pnpm install --frozen-lockfile`; pre-commit hooks). This is specific to this host, not a
+project defect.
+
+| Step | Result |
+| --- | --- |
+| `make dev-native` (infra up, migrations from an empty database, seed, web build, six services) | all six ready in 50 s |
+| `make demo` (the whole mock flow through the HTTP API) | all 18 steps pass in 214.6 s: plan 2 s, previz 5 s, build to `ready` 131 s (first build on cold caches), final MP4 20.3 MB, edit applied (version 2), German captions, packaging; the mock export is refused (409, mock provenance) |
+| Second generation, measured (`measure.py`) | previz ready 5.9 s, approve → ready **110.7 s** (workspace: 108.9 s); `post.realism` 13 runs, 108 s of FFmpeg, 195 s waiting for a render slot: the critical path of section 5, unchanged |
+| Playwright, first run (9 specs) | 7 pass. `world-studio` failed: **found W-FE3** (fixed, section 4). `create-to-play` passed every step up to playback (backend `ready` → player within 15 s → final render → media bytes 206 with an `ftyp` box) and stopped at `play()`: this Chromium cannot decode H.264 (an environment limit) |
+| Playwright after the W-FE3 fix | 8 pass, including `world-studio` and the 4 responsive viewports; `create-to-play` stops at the same H.264 limit |
+
+Compose service images (`make dev`) still could not be built here (section 5, item 6); the clean run used
+native mode, which runs the same code.
+
+### 21.3 Bundles
+
+`validate_bundles` (a script kept with the audit's working notes) ran on `bundles/` after regeneration: **all
+222 checks pass**. For each of the 14 bundles it checks:
+- `git bundle verify` in an empty repository (a complete history, no prerequisites);
+- the bundle clones, and `git fsck --full` reports nothing;
+- `HEAD` is the original phase checkpoint commit (Phase 14: `HEAD` = `phase-14-audit`, with `phase-14` at
+  `64816c4` as its ancestor);
+- tags `phase-0` … `phase-N` point at the original checkpoint commits;
+- the commits up to the phase checkpoint are identical to those in the original bundle;
+- no `phase-13` ref and no remote-tracking refs;
+- the audit note is present.
+
+For Phase 14 it also checks that the final sources equal the workspace's `repo/creator-engine/`, that the
+reports are in `docs/` and that the in-tree `bundles/` is gone. There is no Phase 13 bundle. Checksums are in
+`docs/SHA256SUMS.txt` (`cd docs && sha256sum -c SHA256SUMS.txt`), with descriptions in `docs/MANIFEST.txt`.
+
+### 21.4 What is and is not validated
+
+- **Validated (mock mode, CPU):** the whole suite; the demo flow; generation timings; the browser flows up to
+  H.264 playback; responsive layout at four widths; the fixes in section 4, each with a regression test;
+  reconstruction of all 14 bundles.
+- **Not validated:** any GPU, GPU adapter, model download, paid provider or hosted LLM (see
+  `GPU_READINESS_REPORT.md`); the Compose service images; H.264 playback in a real Google Chrome; the
+  11-minute Compose generation (section 5, item 6).

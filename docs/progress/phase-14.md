@@ -89,5 +89,6 @@ Verified on 2026-10-06:
 
 - **D4/D5** — `make dev-native` left `make dev` containers on the same queues and ports (and reported them ready), and never rebuilt the web app.
 - The checkpoint verification text of commit `3f2d1e4` (the "Checkpoint" section above, present only in this workspace copy) is restored into the history by the audit commits.
+- **Validation of the corrected system** (report section 21): from a fresh clone of the regenerated Phase 14 bundle on fresh volumes, 1 890 Python tests pass, 0 fail, 14 skip (CPU-engine assets); 90 web tests, lint, typecheck, `verify-spec` and `verify-config` pass; `make demo` passes end to end; 8 of 9 Playwright specs pass, and `create-to-play` stops only at H.264 playback in Chromium. Mock mode only; nothing was validated on a GPU.
 
 The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-14`).
