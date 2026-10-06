@@ -176,10 +176,9 @@ async def test_malformed_last_event_id_reports_a_gap_and_keeps_streaming(
         stream_client(server, owner) as client,
         client.stream("GET", "/v1/events", headers={"Last-Event-ID": "not-an-id"}) as response,
     ):
-        [gap] = await read_events(response, 1)
-        assert gap["event"] == "stream.gap"
-        assert gap["data"]["reason"] == "invalid_last_event_id"
-        await asyncio.sleep(0.3)
+        reading = asyncio.create_task(read_events(response, 2))  # one iteration of the stream for both
+        await asyncio.sleep(0.5)
         sent = await bus.publish(owner.org_id, "job.updated", {"job_id": "after-gap"})
-        [event] = await read_events(response, 1)
+        gap, event = await reading
+    assert gap["event"] == "stream.gap" and gap["data"]["reason"] == "invalid_last_event_id"
     assert event["id"] == sent
