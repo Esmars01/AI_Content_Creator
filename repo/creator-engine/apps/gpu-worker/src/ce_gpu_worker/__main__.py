@@ -61,6 +61,8 @@ async def _run() -> int:
         app_env=settings.app_env,
         model_cache_dir=settings.model_cache_dir,
         adapter_defaults=json.loads(os.environ.get("CE_ADAPTER_DEFAULTS", "{}") or "{}"),
+        # tasks at once: 1 unless set (GPU workers); Compose and native mode set it for worker-cpu
+        concurrency=max(1, int(os.environ.get("WORKER_CONCURRENCY", "1") or 1)),
     )
     # tracing only once the startup checks passed (a refused start leaves no global state behind)
     configure_tracing("gpu-worker", settings.otel_exporter_otlp_endpoint, environment=settings.app_env)

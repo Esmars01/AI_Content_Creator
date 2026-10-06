@@ -122,6 +122,10 @@ async def _run(binary_name: str, args: Sequence[str], timeout_s: float = 120.0) 
         process.kill()
         await process.wait()
         raise FFmpegError(f"{binary_name} timed out") from None
+    except asyncio.CancelledError:  # a cancelled task must not leave the subprocess running
+        process.kill()
+        await process.wait()
+        raise
     if process.returncode != 0:
         raise FFmpegError(f"{binary_name} failed: {err.decode('utf-8', 'replace')[-500:]}")
     return out, err

@@ -24,6 +24,7 @@ class LeaderLoops:
         self.loops = loops
         self.is_leader = False
         self._tasks: list[asyncio.Task[None]] = []
+        self._loop_tasks: list[asyncio.Task[None]] = []
         self._conn: Any = None
         self._stop = asyncio.Event()
 
@@ -34,17 +35,32 @@ class LeaderLoops:
         await self._conn.commit()
         return bool(result.scalar_one())
 
+    async def _still_held(self) -> bool:
+        """The advisory lock lives as long as its session: a leader whose connection died (Postgres
+        restart, failover, an idle-connection kill) has lost the lock to whoever takes it next."""
+        try:
+            await asyncio.wait_for(self._conn.execute(sa.text("SELECT 1")), 5.0)
+            await self._conn.commit()
+        except Exception:
+            return False
+        return True
+
     async def _elect(self) -> None:
         while not self._stop.is_set():
             try:
+                if self.is_leader and not await self._still_held():
+                    # Audit W6: without this check the old leader kept running its loops next to the
+                    # new one (two fleet managers: double provisioning of paid GPU hosts).
+                    _log.warning("scheduler leadership lost: the lock's connection is gone")
+                    await self._step_down()
                 if not self.is_leader and await self._acquire():
                     self.is_leader = True
                     _log.info("scheduler leadership acquired")
                     for name, interval, fn in self.loops:
-                        self._tasks.append(asyncio.create_task(self._loop(name, interval, fn)))
+                        self._loop_tasks.append(asyncio.create_task(self._loop(name, interval, fn)))
             except Exception as exc:
                 _log.warning("leader election failed", error=str(exc)[:200])
-                await self._release_connection()
+                await self._step_down()
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self._stop.wait(), 5.0)
 
@@ -56,6 +72,15 @@ class LeaderLoops:
                 _log.warning("leader loop failed", loop=name, error=str(exc)[:300])
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self._stop.wait(), interval)
+
+    async def _step_down(self) -> None:
+        for task in self._loop_tasks:
+            task.cancel()
+        for task in self._loop_tasks:
+            with contextlib.suppress(BaseException):
+                await task
+        self._loop_tasks = []
+        await self._release_connection()
 
     async def _release_connection(self) -> None:
         if self._conn is not None:
@@ -71,9 +96,9 @@ class LeaderLoops:
 
     async def stop(self) -> None:
         self._stop.set()
-        for task in self._tasks:
+        for task in [*self._tasks, *self._loop_tasks]:
             task.cancel()
-        for task in self._tasks:
+        for task in [*self._tasks, *self._loop_tasks]:
             with contextlib.suppress(BaseException):
                 await task
         await self._release_connection()

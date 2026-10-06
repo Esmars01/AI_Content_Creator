@@ -35,6 +35,10 @@ def test_error_classes() -> None:
     assert classify(ArtifactIOError("gone")) == "retryable"
     assert classify(httpx.ConnectError("down")) == "retryable"
     assert classify(ValueError("bad request")) == "fatal"
+    # a 5xx from the scheduler or the store is infrastructure, not the adapter's fault (audit W7)
+    request = httpx.Request("POST", "http://scheduler/internal/v1/worker/complete")
+    assert classify(httpx.HTTPStatusError("x", request=request, response=httpx.Response(503))) == "retryable"
+    assert classify(httpx.HTTPStatusError("x", request=request, response=httpx.Response(400))) == "fatal"
 
 
 def _store() -> tuple[dict[str, bytes], httpx.AsyncClient]:
@@ -281,3 +285,118 @@ def test_model_fetch_errors_are_retryable() -> None:
     assert classify(ModelFetchError("HTTP 503")) == "retryable"
     assert classify(ModelCacheError("checksum")) == "fatal"
     assert classify(RuntimeError("CUDA out of memory. Tried to allocate 2.00 GiB")) == "oom"
+
+
+async def test_a_worker_shutdown_is_an_infrastructure_retry(tmp_path: Path) -> None:
+    """Regression (audit W3): SIGTERM cancelled the running task and reported it `cancelled`, which
+    the scheduler treats as final: a deploy or scale-down failed the user's node for good."""
+    registry = discover(app_env="test", include_mocks=True, families=["cpu_model"])
+    runtime = WorkerRuntime(
+        WorkerConfig(scheduler_url="http://x", registration_token="t", model_cache_dir=str(tmp_path)), registry
+    )
+    started = asyncio.Event()
+    reported: list[Any] = []
+
+    class Adapter:
+        async def run(self, capability: str, request: Any, ctx: Any) -> Any:
+            started.set()
+            await asyncio.sleep(3600)
+
+    class Client:
+        async def fail(self, body: Any) -> None:
+            reported.append(body)
+
+        async def heartbeat(self, body: Any) -> Any:
+            await asyncio.sleep(3600)
+
+    async def load(adapter_id: str, metrics: Any = None) -> Any:
+        return Adapter()
+
+    runtime._load = load  # type: ignore[method-assign]
+    runtime._typed_request = lambda task: None  # type: ignore[method-assign]
+    runtime.client = Client()  # type: ignore[assignment]
+    task = LeasedTask(
+        task_id="t-shutdown", attempt_id="a", capability="voice.tts", adapter_id="mock_voice", model_key="m",
+        seed=1, request={}, lease_expires_at="now",
+    )  # fmt: skip
+    running = asyncio.create_task(runtime.run_task(task))
+    await asyncio.wait_for(started.wait(), 5)
+    runtime._stop()  # what SIGTERM does
+    await asyncio.wait_for(running, 5)
+    assert [(b.task_id, b.error_class) for b in reported] == [("t-shutdown", "retryable")]
+
+
+async def test_a_worker_with_concurrency_runs_tasks_side_by_side_and_loads_once(tmp_path: Path) -> None:
+    """Audit P1: one task at a time per worker serialized every model node of a build behind a single
+    queue in dev; `concurrency` lanes run tasks at once, sharing each adapter's single load."""
+    registry = discover(app_env="test", include_mocks=True, families=["cpu_model"])
+    runtime = WorkerRuntime(
+        WorkerConfig(scheduler_url="http://x", registration_token="t", model_cache_dir=str(tmp_path), concurrency=2),
+        registry,
+    )
+    both_running = asyncio.Event()
+    active = 0
+    loads = 0
+    done: list[str] = []
+
+    class Adapter:
+        async def run(self, capability: str, request: Any, ctx: Any) -> Any:
+            nonlocal active
+            active += 1
+            if active == 2:
+                both_running.set()
+            await asyncio.wait_for(both_running.wait(), 5)  # each waits until the other runs too
+            active -= 1
+            from types import SimpleNamespace
+
+            return SimpleNamespace(model_dump=lambda mode: {})
+
+    adapter = Adapter()
+    queue = [f"t{i}" for i in range(2)]
+
+    class Client:
+        async def lease(self, body: Any) -> Any:
+            from types import SimpleNamespace
+
+            if not queue:
+                runtime.stopping.set()
+                return SimpleNamespace(tasks=[])
+            task_id = queue.pop(0)
+            return SimpleNamespace(
+                tasks=[
+                    LeasedTask(
+                        task_id=task_id,
+                        attempt_id="a",
+                        capability="voice.tts",
+                        adapter_id="mock_voice",
+                        model_key="m",
+                        seed=1,
+                        request={},
+                        lease_expires_at="now",
+                    )
+                ]
+            )
+
+        async def complete(self, body: Any) -> None:
+            done.append(body.task_id)
+
+        async def fail(self, body: Any) -> None:
+            raise AssertionError(f"task failed: {body}")
+
+        async def heartbeat(self, body: Any) -> Any:
+            await asyncio.sleep(3600)
+
+    async def load_locked(plugin: Any, adapter_: Any, adapter_id: str, metrics: Any) -> Any:
+        nonlocal loads
+        if adapter_id not in runtime.loaded:
+            loads += 1
+            await asyncio.sleep(0.05)
+            runtime.loaded.add(adapter_id)
+        return adapter
+
+    runtime._load_locked = load_locked  # type: ignore[method-assign,assignment]
+    runtime._typed_request = lambda task: None  # type: ignore[method-assign]
+    runtime.client = Client()  # type: ignore[assignment]
+    runtime.registered = object()  # type: ignore[assignment]
+    await asyncio.wait_for(runtime.run_forever(), 10)
+    assert sorted(done) == ["t0", "t1"] and loads == 1

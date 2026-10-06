@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import dataclasses
 import hashlib
 import hmac
 import secrets
@@ -31,6 +32,7 @@ from ce_db.session import Database
 from ce_obs import get_logger
 from ce_obs.metrics import (
     COLD_START_SECONDS,
+    GPU_COMPLETIONS_DEFERRED,
     GPU_LEASE_EXPIRED,
     GPU_LEASES,
     GPU_QUEUE,
@@ -68,8 +70,9 @@ from ce_worker.protocol import (
     UploadReply,
     UploadSlot,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 
-from ce_scheduler.completion import ActivityCompleter, Cancelled, Gone
+from ce_scheduler.completion import ActivityCompleter, Cancelled, Gone, Unavailable
 
 __all__ = ["AuthError", "Scheduler", "StaleTaskError", "WorkerIdentity", "hash_token"]
 
@@ -101,6 +104,18 @@ class WorkerIdentity:
     runtime_family: str
     price_per_hour_usd: float
     gpu_type: str = "cpu"
+
+
+def _busy_or_idle(worker_id: UUID) -> Any:
+    """`busy` while the worker still holds a leased or running task, else `idle` (SQL, evaluated in
+    the update): a worker running several tasks at once (`WORKER_CONCURRENCY`) stays busy until the
+    last one ends, so the fleet never sees it idle (and stops it) mid-task."""
+    active = (
+        sa.select(GpuTask.id)
+        .where(GpuTask.lease_worker_id == worker_id, GpuTask.state.in_(("leased", "running")))
+        .exists()
+    )
+    return sa.case((active, "busy"), else_="idle")
 
 
 @dataclass
@@ -285,11 +300,18 @@ class Scheduler:
                 sticky_models=self._sticky_models(worker.worker_id, now),
             )
             async with self.db.transaction() as session:
-                state = (
+                found = (
                     await session.execute(
-                        sa.select(GpuWorker.state).where(GpuWorker.id == worker.worker_id).with_for_update()
+                        sa.select(GpuWorker.state, GpuWorker.vram_gb)
+                        .where(GpuWorker.id == worker.worker_id)
+                        .with_for_update()
                     )
-                ).scalar_one_or_none()
+                ).first()
+                state, recorded_vram = (found[0], found[1]) if found is not None else (None, None)
+                if not body.free_vram_gb and recorded_vram:
+                    # A worker that reports no VRAM (e.g. provisioned without WORKER_VRAM_GB) could never
+                    # lease a GPU task; the VRAM recorded for its instance at provisioning is used instead.
+                    view = dataclasses.replace(view, free_vram_gb=float(recorded_vram))
                 if state is None or state in DEAD_STATES:
                     self.forget(worker.worker_id)  # stopped by the fleet or failed by the reaper
                     raise AuthError("this worker was stopped; register again")
@@ -307,7 +329,7 @@ class Scheduler:
                     .where(GpuWorker.id == worker.worker_id, GpuWorker.state.notin_(DEAD_STATES))
                     .values(
                         last_heartbeat_at=now,
-                        state="busy" if tasks else "idle",
+                        state="busy" if tasks else _busy_or_idle(worker.worker_id),
                         resident_models=list(body.resident_models),
                         cached_models=list(body.cached_models),
                     )
@@ -419,7 +441,7 @@ class Scheduler:
             await session.execute(
                 sa.update(GpuWorker)
                 .where(GpuWorker.id == worker.worker_id, GpuWorker.state.notin_(DEAD_STATES))
-                .values(state="idle")
+                .values(state=_busy_or_idle(worker.worker_id))
             )
             token = payload.get("task_token")
             capability = done.capability
@@ -440,10 +462,7 @@ class Scheduler:
                 "busy_seconds": body.busy_seconds,
                 "cost_usd": float(amount),
             }
-            try:
-                await self.completer.complete(token, result)
-            except Gone as exc:
-                _log.warning("activity already gone at completion", task_id=body.task_id, error=str(exc)[:200])
+            await self._deliver(task.id, token, {"kind": "complete", "result": result})
 
     def next_vram_class(self, failed_vram_gb: float) -> float | None:
         """The smallest configured VRAM class above the worker that ran out of memory (§25 OOM
@@ -496,14 +515,16 @@ class Scheduler:
                 await session.execute(
                     sa.update(GpuWorker)
                     .where(GpuWorker.id == worker.worker_id, GpuWorker.state.notin_(DEAD_STATES))
-                    .values(state="idle")
+                    .values(state=_busy_or_idle(worker.worker_id))
                 )
             token = (task.payload or {}).get("task_token")
             capability = task.capability
         GPU_TASKS_DONE.labels(capability, final or "requeued").inc()
         if final is not None and token:
-            with contextlib.suppress(Gone):
-                await self.completer.fail(token, body.error_class, body.message or body.error_class)
+            message = body.message or body.error_class
+            await self._deliver(
+                UUID(body.task_id), token, {"kind": "fail", "error_class": body.error_class, "message": message}
+            )
 
     # ------------------------------------------------------------------ background work (leader)
     async def reap_once(self) -> int:
@@ -514,10 +535,12 @@ class Scheduler:
             GPU_LEASE_EXPIRED.inc()
             _log.warning("lease expired", task_id=str(entry.task_id), requeued=entry.new_attempt_id is not None)
             if entry.new_attempt_id is None and entry.payload.get("task_token"):
-                with contextlib.suppress(Gone):
-                    await self.completer.fail(
-                        entry.payload["task_token"], "retryable", "infrastructure retries exhausted (lease expired)"
-                    )
+                message = "infrastructure retries exhausted (lease expired)"
+                await self._deliver(
+                    entry.task_id,
+                    entry.payload["task_token"],
+                    {"kind": "fail", "error_class": "retryable", "message": message},
+                )
         stale_before = now - timedelta(seconds=self.config.worker_stale_s)
         async with self.db.transaction() as session:
             stale = (
@@ -531,6 +554,65 @@ class Scheduler:
                 worker.state, worker.stopped_at = "failed", now
                 await record_fleet_cost(session, worker, end=now)  # its provisioned time ends here
         return len(reaped)
+
+    async def _deliver(self, task_id: UUID, token: str, completion: dict[str, Any]) -> bool:
+        """Reports a finished task to its dispatch activity. When Temporal cannot take it now, the
+        completion is kept on the task row (`payload.completion_pending`) and redelivered by the
+        leader (`deliver_pending_once`), so a Temporal outage delays a result instead of losing it
+        (the task is already terminal here, so nothing else would ever report it)."""
+        try:
+            if completion["kind"] == "complete":
+                await self.completer.complete(token, completion["result"])
+            else:
+                await self.completer.fail(token, completion["error_class"], completion["message"])
+        except Gone as exc:
+            _log.warning("activity already gone at completion", task_id=str(task_id), error=str(exc)[:200])
+        except Exception as exc:  # Unavailable, or anything unexpected: keep it and retry
+            _log.warning("completion deferred", task_id=str(task_id), error=str(exc)[:200])
+            pending = {**completion, "since": self.clock().isoformat(), "error": str(exc)[:300]}
+            async with self.db.transaction() as session:
+                await session.execute(
+                    sa.update(GpuTask)
+                    .where(GpuTask.id == task_id)
+                    .values(payload=GpuTask.payload.op("||")(sa.cast({"completion_pending": pending}, JSONB)))
+                )
+            GPU_COMPLETIONS_DEFERRED.inc()
+            return False
+        return True
+
+    async def deliver_pending_once(self) -> int:
+        """Redelivers completions deferred by `_deliver` (leader loop); returns how many went through."""
+        async with self.db.session() as session:
+            rows = (
+                await session.execute(
+                    sa.select(GpuTask.id, GpuTask.payload)
+                    .where(GpuTask.payload.has_key("completion_pending"))
+                    .order_by(GpuTask.created_at)
+                    .limit(200)
+                )
+            ).all()
+        delivered = 0
+        for task_id, payload in rows:
+            completion, token = payload["completion_pending"], payload.get("task_token")
+            try:
+                if token:
+                    if completion["kind"] == "complete":
+                        await self.completer.complete(token, completion["result"])
+                    else:
+                        await self.completer.fail(token, completion["error_class"], completion["message"])
+            except Gone as exc:
+                _log.warning("deferred completion: activity gone", task_id=str(task_id), error=str(exc)[:200])
+            except Exception as exc:
+                _log.warning("deferred completion still undeliverable", task_id=str(task_id), error=str(exc)[:200])
+                break  # Temporal is still unavailable: the rest waits for the next cycle
+            async with self.db.transaction() as session:
+                await session.execute(
+                    sa.update(GpuTask)
+                    .where(GpuTask.id == task_id)
+                    .values(payload=GpuTask.payload.op("-")(sa.literal("completion_pending", sa.Text)))
+                )
+            delivered += 1
+        return delivered
 
     async def probe_cancellations_once(self) -> int:
         """Heartbeats every live task's activity; a cancelled or vanished activity cancels the task."""
@@ -549,10 +631,15 @@ class Scheduler:
                 await self.completer.heartbeat(token)
             except Cancelled:
                 cancelled.append(task_id)
-                with contextlib.suppress(Gone):
+                with contextlib.suppress(Gone, Unavailable):
                     await self.completer.report_cancellation(token)
             except Gone:
                 cancelled.append(task_id)
+            except Unavailable as exc:
+                # Temporal is down or slow: that says nothing about any activity. Cancelling here
+                # would abort every task in the queue on a Temporal restart; try again next cycle.
+                _log.warning("cancellation probe skipped: Temporal unavailable", error=str(exc)[:200])
+                break
         if cancelled:
             async with self.db.transaction() as session:
                 await queue.cancel_tasks(session, cancelled)

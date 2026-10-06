@@ -83,6 +83,10 @@ class WorkerConfig:
     app_env: str = "dev"
     model_cache_dir: str = "/models"
     scratch_root: str | None = None
+    # Tasks run at once (`WORKER_CONCURRENCY`). 1 for GPU workers: the scheduler places by the VRAM a
+    # worker reports, and one model per GPU is the safe default. CPU workers running small mock or CPU
+    # engines set more, or every model node of a build queues behind one task at a time.
+    concurrency: int = 1
     request_timeout_s: float = 30.0
     # per-adapter manifest default overrides (`CE_ADAPTER_DEFAULTS`, JSON): low-memory switches on
     # small GPUs, smoke settings — reach the adapter as `LoadContext.config["defaults"]`
@@ -102,9 +106,12 @@ class SchedulerClient:
         value = token or self.token
         return {"Authorization": f"Bearer {value}"} if value else {}
 
-    async def _post(self, path: str, body: Any, *, token: str | None = None) -> dict[str, Any]:
+    async def _post(
+        self, path: str, body: Any, *, token: str | None = None, timeout: httpx.Timeout | None = None
+    ) -> dict[str, Any]:
+        extra: dict[str, Any] = {"timeout": timeout} if timeout is not None else {}
         response = await self.http.post(
-            f"{self.base}/{path}", json=body.model_dump(mode="json"), headers=self._headers(token)
+            f"{self.base}/{path}", json=body.model_dump(mode="json"), headers=self._headers(token), **extra
         )
         if response.status_code == 204:
             return {}
@@ -130,7 +137,7 @@ class SchedulerClient:
         return UploadReply.model_validate(await self._post("upload", UploadBody(task_id=task_id, count=count))).uploads
 
     async def complete(self, body: CompleteBody) -> None:
-        await self._post("complete", body)
+        await self._post("complete", body, timeout=httpx.Timeout(30.0, read=COMPLETE_READ_TIMEOUT_S))
 
     async def fail(self, body: FailBody) -> None:
         await self._post("fail", body)
@@ -191,7 +198,15 @@ def classify(exc: BaseException) -> str:
         return "timeout"
     if isinstance(exc, (ArtifactIOError, ModelFetchError, httpx.TransportError, ConnectionError, OSError)):
         return "retryable"
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code >= 500:
+        return "retryable"  # the scheduler or the store had a transient problem, not the adapter
     return "fatal"
+
+
+# The scheduler answers /complete only after it re-downloaded and re-hashed every output, which
+# for large video outputs takes far longer than an ordinary request.
+COMPLETE_READ_TIMEOUT_S = 900.0
+SHUTDOWN_REASON = "worker shutting down"
 
 
 class WorkerRuntime:
@@ -211,7 +226,8 @@ class WorkerRuntime:
         self.stopping = asyncio.Event()
         self.registered: RegisterReply | None = None
         self.loaded: set[str] = set()
-        self.current: CancellationToken | None = None
+        self._loading: dict[str, asyncio.Lock] = {}
+        self.running: set[CancellationToken] = set()
         self.completed = 0
         # (capability, outcome) after each task; the service sets it to its metrics (this package
         # stays free of the metrics stack: GPU images import it on Python 3.10)
@@ -253,6 +269,11 @@ class WorkerRuntime:
         `load_seconds` (the adapter's own load) when this call loaded it (Phase 9 load-time metrics)."""
         plugin = self.registry.get(adapter_id)
         adapter = plugin.adapter()
+        lock = self._loading.setdefault(adapter_id, asyncio.Lock())
+        async with lock:  # two tasks of one adapter (concurrency > 1) load it once
+            return await self._load_locked(plugin, adapter, adapter_id, metrics)
+
+    async def _load_locked(self, plugin: Any, adapter: Any, adapter_id: str, metrics: dict[str, Any] | None) -> Any:
         if adapter_id not in self.loaded:
             scratch = Path(self.config.scratch_root or tempfile.gettempdir()) / "ce-worker" / adapter_id
             config: dict[str, Any] = {}
@@ -291,7 +312,7 @@ class WorkerRuntime:
 
     async def run_task(self, task: LeasedTask) -> None:
         cancel = CancellationToken()
-        self.current = cancel
+        self.running.add(cancel)
         started = time.monotonic()
         started_at = _now()
         scratch = Path(tempfile.mkdtemp(prefix=f"ce-task-{task.task_id[:8]}-", dir=self.config.scratch_root))
@@ -341,6 +362,10 @@ class WorkerRuntime:
             self._observe(task.capability, "succeeded")
         except BaseException as exc:
             error_class = classify(exc)
+            if error_class == "cancelled" and cancel.reason == SHUTDOWN_REASON:
+                # A deploy, a scale-down or a preemption stopped this worker: infrastructure, so the
+                # scheduler re-runs the task (same seed) elsewhere instead of failing the user's node.
+                error_class = "retryable"
             self._observe(task.capability, error_class)
             _log.warning("task %s failed (%s): %s", task.task_id, error_class, exc)
             with contextlib.suppress(Exception):
@@ -351,7 +376,7 @@ class WorkerRuntime:
             beat.cancel()
             with contextlib.suppress(BaseException):
                 await beat
-            self.current = None
+            self.running.discard(cancel)
             ctx.cleanup()
 
     def _observe(self, capability: str, outcome: str) -> None:
@@ -383,9 +408,19 @@ class WorkerRuntime:
                 cancel.cancel("cancelled by the scheduler")
                 return
 
+    @property
+    def current(self) -> CancellationToken | None:
+        """One running task's cancellation token (None when idle)."""
+        return next(iter(self.running), None)
+
     async def run_forever(self, *, max_tasks: int | None = None) -> None:
         if self.registered is None:
             await self.register()
+        lanes = max(1, self.config.concurrency)
+        await asyncio.gather(*(self._lane(max_tasks) for _ in range(lanes)))
+
+    async def _lane(self, max_tasks: int | None) -> None:
+        """One lease → run loop; `concurrency` of them run side by side."""
         backoff = 1.0
         while not self.stopping.is_set():
             if max_tasks is not None and self.completed >= max_tasks:
@@ -424,8 +459,8 @@ class WorkerRuntime:
 
     def _stop(self) -> None:
         self.stopping.set()
-        if self.current is not None:
-            self.current.cancel("worker shutting down")
+        for cancel in list(self.running):
+            cancel.cancel(SHUTDOWN_REASON)
 
     async def aclose(self) -> None:
         for adapter_id in list(self.loaded):

@@ -23,7 +23,7 @@ from ce_core.enums import RuntimeFamily
 from ce_db import queue
 from ce_db.models.assets import ExecutionNode, GenerationJob, GpuTask, JobAttempt
 from ce_db.session import Database
-from ce_scheduler.completion import Cancelled, Gone
+from ce_scheduler.completion import Cancelled, Gone, Unavailable
 from ce_scheduler.fleet import desired_workers
 from ce_scheduler.service import AuthError, Scheduler, StaleTaskError
 from ce_storage import content_key, create_storage
@@ -108,14 +108,22 @@ class FakeCompleter:
         self.cancel_tokens: set[str] = set()
         self.gone_tokens: set[str] = set()
         self.reported: list[str] = []
+        self.down = False  # Temporal unreachable: every call raises Unavailable
+
+    def _check(self) -> None:
+        if self.down:
+            raise Unavailable("UNAVAILABLE: connection refused")
 
     async def complete(self, token: str, result: dict[str, Any]) -> None:
+        self._check()
         self.completed.append((token, result))
 
     async def fail(self, token: str, error_class: str, message: str) -> None:
+        self._check()
         self.failed.append((token, error_class))
 
     async def heartbeat(self, token: str, details: dict[str, Any] | None = None) -> None:
+        self._check()
         if token in self.cancel_tokens:
             raise Cancelled(token)
         if token in self.gone_tokens:
@@ -388,3 +396,109 @@ async def test_cancelled_workflows_cancel_their_tasks(sched: tuple[Scheduler, Fa
     beat = await s.heartbeat(worker, HeartbeatBody(task_id=leased.task_id)) if leased.task_id == str(task_id) else None
     if beat is not None:
         assert beat.cancel
+
+
+@pytest.mark.infra
+async def test_a_temporal_outage_delays_results_instead_of_losing_them(sched: tuple[Scheduler, FakeCompleter]) -> None:
+    """Regression (audit W1): every RPC error counted as "activity gone", so a result reported while
+    Temporal was down was dropped after the task row was already terminal; the node then hung until
+    its 2-hour dispatch timeout. Now the result is kept on the task and redelivered by the leader."""
+    s, completer = sched
+    worker = await _worker(s)
+    done_id, _ = await _task(s, token="tok-outage-ok")
+    failed_id, _ = await _task(s, token="tok-outage-fatal")
+    leased = {
+        t.task_id for t in (await s.lease(worker, LeaseBody(adapters=["mock_voice"], wait_s=0, max_tasks=2))).tasks
+    }
+    assert {str(done_id), str(failed_id)} <= leased
+    completer.down = True
+    await s.complete(worker, CompleteBody(task_id=str(done_id), result={"ok": True}, busy_seconds=1.0))
+    await s.fail(worker, FailBody(task_id=str(failed_id), error_class="fatal", message="bad request"))
+    async with s.db.session() as session:
+        rows = {tid: await session.get_one(GpuTask, tid) for tid in (done_id, failed_id)}
+    assert rows[done_id].state == "succeeded" and rows[failed_id].state == "failed"
+    assert rows[done_id].payload["completion_pending"]["kind"] == "complete"
+    assert rows[failed_id].payload["completion_pending"]["error_class"] == "fatal"
+    assert await s.deliver_pending_once() == 0  # still down: nothing is dropped
+    completer.down = False
+    assert await s.deliver_pending_once() >= 2
+    assert ("tok-outage-fatal", "fatal") in completer.failed
+    assert any(token == "tok-outage-ok" and r["result"] == {"ok": True} for token, r in completer.completed)
+    async with s.db.session() as session:
+        for tid in (done_id, failed_id):
+            assert "completion_pending" not in (await session.get_one(GpuTask, tid)).payload
+    assert await s.deliver_pending_once() == 0  # delivered exactly once
+
+
+@pytest.mark.infra
+async def test_an_unavailable_temporal_cancels_no_task(sched: tuple[Scheduler, FakeCompleter]) -> None:
+    """Regression (audit W2): the cancellation probe treated a Temporal blip as "every activity is
+    gone" and cancelled every queued and running task."""
+    s, completer = sched
+    task_id, _ = await _task(s, token="tok-blip")
+    completer.down = True
+    assert await s.probe_cancellations_once() == 0
+    async with s.db.session() as session:
+        assert (await session.get_one(GpuTask, task_id)).state == "queued"
+    completer.down = False
+
+
+def test_only_permanent_rpc_errors_mean_the_activity_is_gone() -> None:
+    from types import SimpleNamespace
+
+    from ce_scheduler.completion import classify_rpc_error
+
+    def rpc(status: str) -> Exception:
+        error = Exception(status)
+        error.status = SimpleNamespace(name=status)  # type: ignore[attr-defined]
+        return error
+
+    assert isinstance(classify_rpc_error(rpc("NOT_FOUND")), Gone)
+    assert isinstance(classify_rpc_error(rpc("INVALID_ARGUMENT")), Gone)
+    for transient in ("UNAVAILABLE", "DEADLINE_EXCEEDED", "RESOURCE_EXHAUSTED", "INTERNAL", "UNKNOWN"):
+        assert isinstance(classify_rpc_error(rpc(transient)), Unavailable), transient
+
+
+@pytest.mark.infra
+async def test_a_leader_that_lost_its_lock_connection_steps_down(sched_db: TestDatabase) -> None:
+    """Regression (audit W6): the advisory lock dies with its session, but a leader never checked;
+    after a Postgres restart or idle-connection kill two replicas both ran the leader loops."""
+    from ce_scheduler.leader import LeaderLoops
+
+    def loops(name: str) -> list[Any]:
+        async def tick() -> None:
+            return None
+
+        return [("tick", 0.2, tick)]
+
+    db = Database(sched_db.url, pool_size=2)
+    a, b = LeaderLoops(db, loops("a")), LeaderLoops(db, loops("b"))
+    a.start()
+    for _ in range(50):
+        if a.is_leader:
+            break
+        await asyncio.sleep(0.1)
+    b.start()
+    await asyncio.sleep(0.5)
+    assert a.is_leader and not b.is_leader
+    old_conn = a._conn
+    pid = (await old_conn.execute(sa.text("SELECT pg_backend_pid()"))).scalar_one()
+    await old_conn.commit()
+    async with db.transaction() as session:  # what a Postgres restart or failover does to the session
+        await session.execute(sa.text("SELECT pg_terminate_backend(:pid)"), {"pid": pid})
+    both = False
+    recovered = False
+    for _ in range(150):  # the election cycle is 5 s
+        both = both or (a.is_leader and b.is_leader and a._conn is not None)
+        if b.is_leader and not a.is_leader:
+            recovered = True
+        elif a.is_leader and a._conn is not None and a._conn is not old_conn:
+            recovered = True  # it stepped down and took the lock again on a new session
+        if recovered:
+            break
+        await asyncio.sleep(0.1)
+    assert recovered and not both
+    assert a.is_leader != b.is_leader  # exactly one leader
+    await a.stop()
+    await b.stop()
+    await db.dispose()

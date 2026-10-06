@@ -32,7 +32,7 @@ from ce_worker.protocol import (
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from ce_scheduler.completion import ActivityCompleter, Gone, TemporalCompleter
+from ce_scheduler.completion import ActivityCompleter, Gone, TemporalCompleter, Unavailable
 from ce_scheduler.fleet import FleetManager
 from ce_scheduler.leader import LeaderLoops
 from ce_scheduler.providers import load_providers
@@ -88,9 +88,12 @@ class LazyTemporalCompleter:
                 from temporalio.client import Client
                 from temporalio.contrib.pydantic import pydantic_data_converter
 
-                client = await Client.connect(
-                    self.address, namespace=self.namespace, data_converter=pydantic_data_converter
-                )
+                try:
+                    client = await Client.connect(
+                        self.address, namespace=self.namespace, data_converter=pydantic_data_converter
+                    )
+                except Exception as exc:  # not reachable yet: transient, retried by the caller
+                    raise Unavailable(f"cannot connect to Temporal at {self.address}: {exc}") from exc
                 self._inner = TemporalCompleter(client)
             return self._inner
 
@@ -160,7 +163,10 @@ def create_app(
             completer=completer or LazyTemporalCompleter(settings.temporal_address, settings.temporal_namespace),
             config=app_cfg.scheduler,
             registration_token=registration_token(effective),
-            presign_ttl_s=app_cfg.storage.presign_ttl_s,
+            # Worker URLs (a task's inputs and upload slots, each scoped to one content key or the
+            # task's staging prefix) are granted once at lease time: they must outlive the longest
+            # model node (model download and load included), not just the browser's 15 minutes (W4).
+            presign_ttl_s=max(app_cfg.storage.presign_ttl_s, int(app_cfg.build.model_node_timeout_s) + 600),
             vram_classes=tuple(
                 sorted({float(c.vram_gb) for c in effective.bundle.gpu_pools.classes.values() if c.vram_gb > 0})
             )
@@ -213,6 +219,7 @@ def create_app(
             [
                 ("reaper", cfg.reaper_interval_s, scheduler.reap_once),
                 ("cancellations", cfg.temporal_heartbeat_s, scheduler.probe_cancellations_once),
+                ("completions", cfg.temporal_heartbeat_s, scheduler.deliver_pending_once),
                 ("fleet", cfg.fleet_interval_s, fleet.tick),
                 ("providers", 60.0, reload_providers),
                 ("metrics", 5.0, scheduler.refresh_metrics),

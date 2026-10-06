@@ -10,7 +10,16 @@ from __future__ import annotations
 import base64
 from typing import Any, Protocol
 
-__all__ = ["ActivityCompleter", "Cancelled", "Gone", "TemporalCompleter", "decode_token", "encode_token"]
+__all__ = [
+    "ActivityCompleter",
+    "Cancelled",
+    "Gone",
+    "TemporalCompleter",
+    "Unavailable",
+    "classify_rpc_error",
+    "decode_token",
+    "encode_token",
+]
 
 
 class Cancelled(Exception):
@@ -19,6 +28,24 @@ class Cancelled(Exception):
 
 class Gone(Exception):
     """The activity no longer exists (its workflow ended, or it already completed)."""
+
+
+class Unavailable(Exception):
+    """Temporal could not be reached or answered with a transient error: the call must be retried.
+
+    Never treated as `Gone`: a completion that fails this way is kept and redelivered
+    (`Scheduler.deliver_pending_once`), and a cancellation probe that fails this way cancels nothing.
+    """
+
+
+# gRPC answers that mean the activity is really gone (or the token can never work); every other
+# status (UNAVAILABLE, DEADLINE_EXCEEDED, RESOURCE_EXHAUSTED, INTERNAL, …) is transient.
+_GONE_STATUSES = frozenset({"NOT_FOUND", "INVALID_ARGUMENT", "FAILED_PRECONDITION", "ALREADY_EXISTS"})
+
+
+def classify_rpc_error(exc: Exception) -> Exception:
+    status = getattr(getattr(exc, "status", None), "name", None)
+    return Gone(str(exc)) if status in _GONE_STATUSES else Unavailable(f"{status}: {exc}")
 
 
 def encode_token(token: bytes) -> str:
@@ -35,7 +62,8 @@ class ActivityCompleter(Protocol):
     async def fail(self, token: str, error_class: str, message: str) -> None: ...
 
     async def heartbeat(self, token: str, details: dict[str, Any] | None = None) -> None:
-        """Raises `Cancelled` when cancellation was requested, `Gone` when the activity is gone."""
+        """Raises `Cancelled` when cancellation was requested, `Gone` when the activity is gone and
+        `Unavailable` when Temporal could not answer (every method may raise `Unavailable`)."""
 
     async def report_cancellation(self, token: str) -> None: ...
 
@@ -55,7 +83,7 @@ class TemporalCompleter:
         try:
             await self._handle(token).complete(result)
         except RPCError as exc:
-            raise Gone(str(exc)) from exc
+            raise classify_rpc_error(exc) from exc
 
     async def fail(self, token: str, error_class: str, message: str) -> None:
         from temporalio.exceptions import ApplicationError
@@ -67,7 +95,7 @@ class TemporalCompleter:
         try:
             await self._handle(token).fail(error)
         except RPCError as exc:
-            raise Gone(str(exc)) from exc
+            raise classify_rpc_error(exc) from exc
 
     async def heartbeat(self, token: str, details: dict[str, Any] | None = None) -> None:
         from temporalio.client import AsyncActivityCancelledError
@@ -81,7 +109,7 @@ class TemporalCompleter:
         except AsyncActivityCancelledError as exc:
             raise Cancelled(str(exc)) from exc
         except RPCError as exc:
-            raise Gone(str(exc)) from exc
+            raise classify_rpc_error(exc) from exc
 
     async def report_cancellation(self, token: str) -> None:
         from temporalio.service import RPCError
@@ -89,4 +117,4 @@ class TemporalCompleter:
         try:
             await self._handle(token).report_cancellation()
         except RPCError as exc:
-            raise Gone(str(exc)) from exc
+            raise classify_rpc_error(exc) from exc

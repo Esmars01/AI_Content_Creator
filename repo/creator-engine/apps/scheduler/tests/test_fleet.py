@@ -406,6 +406,27 @@ async def test_a_worker_that_never_registers_is_terminated_after_the_timeout(db:
     assert len(decision.provisioned) == 1  # the backlog is still there: a replacement is provisioned
 
 
+async def test_a_worker_the_reaper_failed_has_its_instance_terminated(db: Database) -> None:
+    """Regression (audit W9): the reaper marked a stale fleet worker `failed` and stopped its cost,
+    but nothing terminated the host, which kept billing outside the spend report."""
+    clock = Clock()
+    provider = _mock(price=0.5)
+    fleet = _fleet(db, {"mock": provider}, clock=clock)
+    await _task(db)
+    (external,) = (await fleet.tick())[0].provisioned
+    registered = await _register(_scheduler(db), provider.specs[external].env)
+    async with db.transaction() as session:  # what Scheduler.reap_once does to a silent worker
+        row = await session.get_one(GpuWorker, uuid.UUID(str(registered.worker_id)))
+        row.state, row.stopped_at = "failed", clock()
+    assert provider.instances[external].state != "terminated"
+    await fleet.tick()
+    assert provider.instances[external].state == "terminated"
+    assert (await _worker(db, registered.worker_id)).token_hash is None
+    calls = len([i for i in provider.instances.values() if i.state == "terminated"])
+    await fleet.tick()  # terminated once, not on every tick
+    assert len([i for i in provider.instances.values() if i.state == "terminated"]) == calls
+
+
 async def test_idle_action_stop_restarts_the_same_host_and_re_arms_its_token(db: Database) -> None:
     clock = Clock()
     provider = _mock(price=0.5)
