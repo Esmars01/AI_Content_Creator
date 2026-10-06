@@ -6,7 +6,7 @@ import asyncio
 import uuid
 
 import pytest
-from ce_db.models.videos import Video, VideoVersion
+from ce_db.models.videos import Project, Video, VideoVersion
 from ce_db.session import Database
 from ce_db.versions import next_version_number
 from ce_testing.database import TestDatabase
@@ -21,8 +21,11 @@ async def test_concurrent_new_versions_of_one_video_get_distinct_numbers(seeded_
     gave two of them the same number and one failed on the unique (video_id, number)."""
     db = Database(seeded_db.url, pool_size=4)
     video_id = uuid.uuid4()
-    async with db.transaction() as session:
-        session.add(Video(id=video_id, org_id=ALEX.ORG_ID, project_id=ALEX.PROJECT_ID))
+    async with db.transaction() as session:  # a project of its own: the seeded one stays as seeded
+        project = Project(org_id=ALEX.ORG_ID, name=f"version numbers {video_id.hex[:6]}")
+        session.add(project)
+        await session.flush()
+        session.add(Video(id=video_id, org_id=ALEX.ORG_ID, project_id=project.id))
 
     async def add_version() -> int:
         async with db.transaction() as session:
