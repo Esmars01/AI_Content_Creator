@@ -49,7 +49,7 @@ type Creator = {
 function SectionFields({ value, onChange }: { value: Json; onChange: (next: Json) => void }) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   return (
-    <div className="grid grid-cols-[14rem_1fr] items-start gap-x-3 gap-y-2">
+    <div className="grid grid-cols-1 items-start gap-x-3 gap-y-2 sm:grid-cols-[14rem_1fr]">
       {Object.entries(value).map(([field, current]) => {
         const kind = fieldKind(current);
         const id = `dna-${field}`;

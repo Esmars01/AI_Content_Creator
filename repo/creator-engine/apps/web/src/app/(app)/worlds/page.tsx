@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/app-shell";
 import { StateBadge } from "@/components/state-badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Empty, Skeleton, Table, Td, Th } from "@/components/ui/misc";
+import { Empty, LoadError, Skeleton, Table, Td, Th } from "@/components/ui/misc";
 import { humanize, when } from "@/lib/format";
 import { useWorlds } from "@/lib/queries";
 
@@ -12,11 +12,16 @@ export default function WorldsPage() {
   const worlds = useWorlds();
   return (
     <>
-      <PageHeader title="Worlds" description="Read-only here; the World Studio arrives in Phase 10." />
+      <PageHeader
+        title="Worlds"
+        description="Recurring places with their DNA and plates. Open one for its World Studio."
+      />
       <Card>
         <CardContent>
           {worlds.isLoading ? (
             <Skeleton className="h-24" />
+          ) : worlds.error ? (
+            <LoadError what="worlds" error={worlds.error} onRetry={() => void worlds.refetch()} />
           ) : worlds.data?.items.length ? (
             <Table>
               <thead>

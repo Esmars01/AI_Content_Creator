@@ -8,9 +8,19 @@ import { expect, test } from "@playwright/test";
 import { USER_FILE } from "./global-setup";
 
 const IDEA = "Create a 30-second TikTok explaining why most people misunderstand AI agents.";
+// The build itself (approve → ready) on the mock stack; measured ~110 s on 4 vCPU (FINAL_AUDIT_AND_FIX_REPORT.md).
+const BUILD_TIMEOUT_MS = Number(process.env.CE_E2E_BUILD_TIMEOUT_S ?? 420) * 1000;
+// Once the backend says ready, the UI must follow quickly: it reconciles with the API, never only SSE.
+const UI_LAG_MS = 15_000;
 
 test("create → previz → approve → progress → play", async ({ page }) => {
   const user = JSON.parse(readFileSync(USER_FILE, "utf8")) as { email: string; password: string };
+  // Every opened event stream. The shell keeps one per tab; a stream that keeps dying (the Valkey read
+  // timeout of audit S1 dropped it every 5 s) shows up as many reconnects.
+  let streams = 0;
+  page.on("request", (request) => {
+    if (request.url().includes("/api/v1/events")) streams += 1;
+  });
 
   // sign in
   await page.goto("/login");
@@ -57,16 +67,38 @@ test("create → previz → approve → progress → play", async ({ page }) => 
       () => false,
     );
 
-  // play
+  // ready (backend truth), then the player within UI_LAG_MS: the UI must not lag behind the API
+  await expect(page.locator('[data-state="ready"]').first()).toBeVisible({ timeout: BUILD_TIMEOUT_MS });
   const player = page.getByTestId("player");
-  await expect(player).toBeVisible({ timeout: 420_000 });
-  await expect(page.locator('[data-state="ready"]').first()).toBeVisible({ timeout: 60_000 });
+  await expect(player).toBeVisible({ timeout: UI_LAG_MS });
+  await expect(page.getByText(/· final ·/)).toBeVisible(); // the final render, not the proxy
+
+  // the media itself: a range request answers 206 with an MP4 (any browser can check this)
+  const media = await player.evaluate(async (element) => {
+    const url = (element as HTMLVideoElement).currentSrc || (element as HTMLVideoElement).src;
+    const response = await fetch(url, { headers: { Range: "bytes=0-63" } });
+    const head = new Uint8Array(await response.arrayBuffer());
+    return {
+      status: response.status,
+      type: response.headers.get("content-type"),
+      ftyp: String.fromCharCode(...head.slice(4, 8)),
+    };
+  });
+  expect(media.status).toBe(206);
+  expect(media.type).toContain("video/mp4");
+  expect(media.ftyp).toBe("ftyp");
+
+  // play: needs H.264, which Playwright's open-source Chromium lacks (playwright.config.ts)
   const playback = await player.evaluate(async (element) => {
     const video = element as HTMLVideoElement;
     const codec = video.canPlayType('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
     if (!codec) return { codec, error: "this browser cannot decode H.264 (use Google Chrome: CE_E2E_CHROME)" };
     video.muted = true;
-    await video.play();
+    const started = await Promise.race([
+      video.play().then(() => true),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 15_000)),
+    ]);
+    if (!started) return { codec, error: "play() did not start within 15 s" };
     await new Promise((r) => setTimeout(r, 1500));
     const time = video.currentTime;
     video.pause();
@@ -76,6 +108,7 @@ test("create → previz → approve → progress → play", async ({ page }) => 
   expect(playback.time).toBeGreaterThan(0.5);
   expect(playback.duration).toBeGreaterThan(3);
   expect(progressSeen).toBe(true);
+  expect(streams, "the event stream reconnected over and over").toBeLessThanOrEqual(4);
 
   // Phase 11: the QC report with the shot gates and the requested → compiled → observed triad
   await expect(page.getByText("QC report", { exact: true })).toBeVisible();

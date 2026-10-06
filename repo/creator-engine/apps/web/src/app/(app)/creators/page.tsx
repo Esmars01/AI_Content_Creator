@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/app-shell";
 import { StateBadge } from "@/components/state-badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Empty, Skeleton, Table, Td, Th } from "@/components/ui/misc";
+import { Empty, LoadError, Skeleton, Table, Td, Th } from "@/components/ui/misc";
 import { humanize, when } from "@/lib/format";
 import { useCreators } from "@/lib/queries";
 
@@ -14,12 +14,14 @@ export default function CreatorsPage() {
     <>
       <PageHeader
         title="Creators"
-        description="Read-only here; the Creator Studio (editing, memory, identity packs) arrives in Phase 10."
+        description="Synthetic creators with their DNA, voices, wardrobe and memory. Open one for its Creator Studio."
       />
       <Card>
         <CardContent>
           {creators.isLoading ? (
             <Skeleton className="h-24" />
+          ) : creators.error ? (
+            <LoadError what="creators" error={creators.error} onRetry={() => void creators.refetch()} />
           ) : creators.data?.items.length ? (
             <Table>
               <thead>

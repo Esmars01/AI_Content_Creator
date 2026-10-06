@@ -33,7 +33,7 @@ export default function ProjectsPage() {
   return (
     <>
       <PageHeader title="Projects" description="Videos live in projects." />
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="col-span-2">
           <CardContent>
             {projects.isLoading ? (

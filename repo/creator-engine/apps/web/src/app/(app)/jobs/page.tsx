@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/app-shell";
 import { StateBadge } from "@/components/state-badge";
 import { Label, Select } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Empty, Progress, Skeleton, Table, Td, Th } from "@/components/ui/misc";
+import { Empty, LoadError, Progress, Skeleton, Table, Td, Th } from "@/components/ui/misc";
 import { humanize, usd, when } from "@/lib/format";
 import { useJobs } from "@/lib/queries";
 
@@ -35,6 +35,8 @@ export default function JobsPage() {
         <CardContent>
           {jobs.isLoading ? (
             <Skeleton className="h-24" />
+          ) : jobs.error ? (
+            <LoadError what="jobs" error={jobs.error} onRetry={() => void jobs.refetch()} />
           ) : jobs.data?.items.length ? (
             <Table>
               <thead>

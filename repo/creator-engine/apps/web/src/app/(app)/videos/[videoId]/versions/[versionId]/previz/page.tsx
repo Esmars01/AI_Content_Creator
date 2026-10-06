@@ -101,7 +101,7 @@ function Review({ videoId, versionId }: { videoId: string; versionId: string }) 
         }
       />
       {previz.data.state === "failed" ? <Alert tone="danger">Previz failed; regenerate the plan.</Alert> : null}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="col-span-2 flex flex-col gap-4">
           <Card>
             <CardHeader>

@@ -118,7 +118,7 @@ function Compare({ videoId }: { videoId: string }) {
           </Button>
         }
       />
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {[
           { label: "A", version: va.data, ref: left, id: a },
           { label: "B", version: vb.data, ref: right, id: b },

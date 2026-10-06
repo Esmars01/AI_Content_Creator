@@ -2,7 +2,7 @@
 /** Shared pieces of the studios (Phase 10): asset images, artifact audio, and studio jobs that run in
  * the background and refresh what they change when they finish. */
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Alert, Skeleton } from "@/components/ui/misc";
@@ -65,6 +65,8 @@ export function MockBadge({ mock }: { mock?: boolean | null }) {
 }
 
 /** A studio job: start it, watch it, and refresh `invalidate` when it ends. */
+const TERMINAL_JOB = ["succeeded", "failed", "cancelled", "partial"];
+
 export function useStudioJob(invalidate: readonly (readonly unknown[])[]) {
   const client = useQueryClient();
   const [jobId, setJobId] = useState<string | null>(null);
@@ -74,15 +76,22 @@ export function useStudioJob(invalidate: readonly (readonly unknown[])[]) {
     queryFn: () => unwrap(api.GET("/v1/jobs/{job_id}", { params: { path: { job_id: jobId ?? "" } } })),
     refetchInterval: (query) => {
       const status = (query.state.data as { status?: string } | undefined)?.status;
-      return status && ["succeeded", "failed", "cancelled", "partial"].includes(status) ? false : 1500;
+      return status && TERMINAL_JOB.includes(status) ? false : 1500;
     },
   });
   const status = (job.data as { status?: string } | undefined)?.status ?? null;
+  // Callers pass a fresh array literal on every render; reading it through a ref and invalidating
+  // once per finished job keeps this from re-running after every render (which, with each refetch
+  // re-rendering the caller, was an endless refetch loop once the job had finished).
+  const latest = useRef(invalidate);
+  latest.current = invalidate;
+  const handled = useRef<string | null>(null);
   useEffect(() => {
-    if (status && ["succeeded", "failed", "cancelled", "partial"].includes(status)) {
-      for (const key of invalidate) void client.invalidateQueries({ queryKey: key });
-    }
-  }, [status, client, invalidate]);
+    if (!jobId || !status || !TERMINAL_JOB.includes(status)) return;
+    if (handled.current === jobId) return;
+    handled.current = jobId;
+    for (const key of latest.current) void client.invalidateQueries({ queryKey: key });
+  }, [jobId, status, client]);
   return { jobId, setJobId, job: job.data as Record<string, unknown> | undefined, status };
 }
 

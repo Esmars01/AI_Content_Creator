@@ -61,7 +61,7 @@ export function Storyboard({ versionId }: { versionId: string }) {
   const shots = storyboard.data?.shots ?? [];
   if (!shots.length) return <Empty>No shots.</Empty>;
   return (
-    <ol className="grid grid-cols-4 gap-3" aria-label="Storyboard">
+    <ol className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-label="Storyboard">
       {shots.map((shot) => {
         const image = shot.keyframe ?? shot.plate;
         return (
@@ -109,7 +109,7 @@ export function IntentPanel({ intent }: { intent: Schemas["IntentOut"] | undefin
           ? `; arc: ${(video.emotional_arc as string[]).join(" → ")}`
           : ""}
       </p>
-      <ul className="grid grid-cols-2 gap-2">
+      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {intent.scenes.map((scene) => {
           const fields = scene.intent as Record<string, unknown>;
           return (
