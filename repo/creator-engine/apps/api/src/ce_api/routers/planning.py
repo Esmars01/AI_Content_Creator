@@ -24,7 +24,7 @@ from ce_core.spec.videospec import VideoSpec
 from ce_core.text import tokenize
 from ce_db import execution as rec
 from ce_db.models.assets import Artifact, Asset, ExecutionNode, GenerationJob
-from ce_db.models.creators import Creator
+from ce_db.models.creators import Creator, VoiceVersion, WardrobeVersion
 from ce_db.models.videos import DirectorRun, Project, Video, VideoVersion
 from ce_db.models.worlds import World, WorldVersion
 from ce_director.models import CastRequest, PlanRequest
@@ -355,6 +355,31 @@ async def _check_sources(session: Any, org_id: UUID, project_id: UUID, source_id
         raise InvalidInputError("research sources cannot be used", issues=issues)
 
 
+async def _check_cast_versions(session: Any, org_id: UUID, cast: list[Any]) -> None:
+    """A cast member's voice and wardrobe versions exist in this org: otherwise the request was accepted
+    and the plan job failed later on an unknown reference (audit A12)."""
+    issues: list[Issue] = []
+    for index, member in enumerate(cast):
+        for field, model, what in (
+            ("voice_version_id", VoiceVersion, "voice version"),
+            ("wardrobe_version_id", WardrobeVersion, "wardrobe version"),
+        ):
+            ref = getattr(member, field)
+            if ref is None:
+                continue
+            found = (
+                await session.execute(sa.select(model.id).where(model.org_id == org_id, model.id == ref))
+            ).scalar_one_or_none()
+            if found is None:
+                issues.append(
+                    Issue(
+                        "reference_missing", f"{what} not found", path=f"/cast/{index}/{field}", detail={"id": str(ref)}
+                    )
+                )
+    if issues:
+        raise InvalidInputError("unknown cast references", issues=issues)
+
+
 @router.post("/v1/projects/{project_id}/videos", status_code=202, response_model=PlanAccepted)
 async def create_video(
     project_id: UUID,
@@ -381,6 +406,7 @@ async def create_video(
     _check_request(services, plan_request)
     for member in body.cast:
         await get_scoped(session, Creator, principal.ctx, member.creator_id, "creator")
+    await _check_cast_versions(session, principal.org_id, body.cast)
     if body.world_id is not None:
         await get_scoped(session, World, principal.ctx, body.world_id, "world")
     video = Video(
