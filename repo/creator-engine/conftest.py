@@ -66,4 +66,6 @@ def repo_root() -> Path:
 
 @pytest.fixture(scope="session")
 def spec_text() -> str:
-    return (ROOT / "docs" / "MASTER_BUILD_PROMPT.md").read_text(encoding="utf-8")
+    from ce_testing import docs
+
+    return docs.require_spec().read_text(encoding="utf-8")

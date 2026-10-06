@@ -17,6 +17,8 @@ from ce_api.app import create_app
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "packages" / "ts" / "api-client" / "schema" / "api.openapi.json"
+# docs/API.md; absent in the AI_Content_Creator workspace layout (it lives in the phase bundles), and
+# then only the OpenAPI document is generated or checked
 DOC = ROOT / "docs" / "API.md"
 BEGIN = "<!-- generated:endpoints (scripts/gen_openapi.py) -->"
 END = "<!-- end:endpoints -->"
@@ -45,13 +47,17 @@ def render_doc(spec: dict[str, Any], current: str) -> str:
 
 def main(argv: list[str]) -> int:
     spec = create_app().openapi()
-    targets = {OUT: render(spec), DOC: render_doc(spec, DOC.read_text(encoding="utf-8"))}
+    targets = {OUT: render(spec)}
+    if DOC.is_file():
+        targets[DOC] = render_doc(spec, DOC.read_text(encoding="utf-8"))
+    else:
+        print(f"{DOC.relative_to(ROOT)} not present: only the OpenAPI document is generated or checked")
     if "--check" in argv:
         stale = [p for p, text in targets.items() if (p.read_text(encoding="utf-8") if p.exists() else "") != text]
         for path in stale:
             print(f"{path.relative_to(ROOT)} is stale; run `make gen-client`")
         if not stale:
-            print("OpenAPI document and API.md endpoint table are fresh")
+            print("OpenAPI document" + (" and API.md endpoint table are" if DOC in targets else " is") + " fresh")
         return 1 if stale else 0
     for path, text in targets.items():
         path.write_text(text, encoding="utf-8")

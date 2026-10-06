@@ -96,6 +96,10 @@ def main() -> int:
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     text = render()
+    if not OUT.parent.is_dir():
+        # the AI_Content_Creator workspace layout has no docs/ beside the sources (MODELS.md is in the phase bundles)
+        print(f"{OUT.parent} not present: nothing to generate or check", file=sys.stderr)
+        return 0
     if args.check:
         if not OUT.is_file() or OUT.read_text(encoding="utf-8") != text:
             print("docs/MODELS.md is stale: run scripts/gen_models_doc.py", file=sys.stderr)

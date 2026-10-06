@@ -30,7 +30,15 @@ ALLOWED_DOTTED = {
 # Env-like tokens the spec mentions only to say they do not exist.
 ALLOWED_ENV_MENTIONS = {"MOCK_LLM"}
 
-SPEC = Path(sys.argv[1] if len(sys.argv) > 1 else "docs/MASTER_BUILD_PROMPT.md")
+
+def _default_spec() -> Path:
+    # docs/MASTER_BUILD_PROMPT.md, or the AI_Content_Creator workspace's outer docs/ (ce_testing.docs)
+    from ce_testing import docs
+
+    return docs.spec_path() or Path("docs/MASTER_BUILD_PROMPT.md")
+
+
+SPEC = Path(sys.argv[1]) if len(sys.argv) > 1 else _default_spec()
 
 
 def section_bodies(text: str) -> dict[str, str]:
