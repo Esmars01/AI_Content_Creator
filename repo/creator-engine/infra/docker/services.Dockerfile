@@ -16,10 +16,23 @@ COPY pyproject.toml uv.lock ./
 COPY packages/py ./packages/py
 COPY apps ./apps
 COPY plugins ./plugins
+# Every plugin of the workspace (audit D6): the control plane routes and the scheduler accepts adapters
+# only from the manifests installed here, so a GPU worker of another image registering with this
+# scheduler had all its adapters dropped. The GPU adapters' packages are manifest + adapter code only
+# (their engines live in the GPU family images, ADR 0052). tests/phase0 checks this list is complete.
 RUN --mount=type=cache,target=/root/.cache/uv --mount=type=secret,id=extra_ca,required=false \
     if [ -s /run/secrets/extra_ca ]; then export SSL_CERT_FILE=/run/secrets/extra_ca; fi; \
     uv sync --frozen --no-dev --no-editable --python /usr/local/bin/python3 \
-      --package ce-orchestrator --package ce-scheduler --package ce-render-worker --package ce-gpu-worker
+      --package ce-orchestrator --package ce-scheduler --package ce-render-worker --package ce-gpu-worker \
+      --package ce-plugin-asr-ctc-aligner --package ce-plugin-asr-qwen3 --package ce-plugin-audio-acestep \
+      --package ce-plugin-audio-emotion --package ce-plugin-audio-moss-sfx \
+      --package ce-plugin-avatar-infinitetalk --package ce-plugin-avatar-longcat \
+      --package ce-plugin-embed-speaker --package ce-plugin-embed-text --package ce-plugin-image-qwen-edit \
+      --package ce-plugin-image-z-image --package ce-plugin-lipsync-musetalk --package ce-plugin-qc-gpu \
+      --package ce-plugin-translate-captions-llm --package ce-plugin-video-rife \
+      --package ce-plugin-video-seedvr2 --package ce-plugin-video-wan22 --package ce-plugin-vision-vllm \
+      --package ce-plugin-voice-chatterbox --package ce-plugin-voice-qwen3-tts \
+      --package ce-plugin-voice-voxcpm2 --package ce-plugin-watermarks
 
 FROM python@sha256:dddfd7e07f9d15aeeca61529320492139d21cac7f0070c00609243e51e4e0016 AS runtime
 # FFmpeg renders and probes (ADR 0017: Debian's build is GPL — review before distributing this image);

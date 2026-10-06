@@ -56,7 +56,9 @@ infra-status: .env ## Show infrastructure container health
 
 .PHONY: dev
 dev: infra-up seed ## Bring up the system in mock mode: infrastructure, API, orchestrator, scheduler, workers, dev seed
-	$(COMPOSE) --profile core --profile mock-gpu up -d --wait --wait-timeout 180
+	@# --build: the service images carry the code (non-editable install); reusing an existing image would run
+	@# stale code against the current API and database. The layer cache keeps an unchanged rebuild quick.
+	EXTRA_CA_BUNDLE=$(EXTRA_CA_BUNDLE) $(COMPOSE) --profile core --profile mock-gpu up -d --build --wait --wait-timeout 300
 	@$(COMPOSE) --profile core --profile mock-gpu ps --format 'table {{.Service}}\t{{.Status}}'
 	@echo ""
 	@echo "Running in mock mode: infrastructure, web app, API, orchestrator, scheduler, render worker and worker-cpu"
@@ -76,8 +78,13 @@ dev-down: .env ## Stop everything `make dev` started (keeps volumes)
 
 # ---------------------------------------------------------------- native mode and observability (Phase 14)
 .PHONY: dev-native
+APP_SERVICES := api web orchestrator render-worker scheduler worker-cpu
+
 dev-native: infra-up seed ## Run the API, scheduler, orchestrator, render worker, CPU worker and web on the host (no service images)
-	@test -d apps/web/.next || $(PNPM) --filter @ce/web build
+	@# containers of an earlier `make dev` would poll the same Temporal queues and hold the same ports
+	@$(COMPOSE) --profile core --profile mock-gpu stop $(APP_SERVICES) >/dev/null 2>&1 || true
+	@# always rebuild: a stale .next build would serve an old web app against the current API
+	$(PNPM) --filter @ce/web build
 	$(UV) run python scripts/dev_native.py up
 
 .PHONY: dev-native-down
