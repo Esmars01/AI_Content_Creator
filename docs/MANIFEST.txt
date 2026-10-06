@@ -1,90 +1,171 @@
-AI Creator Engine — final handoff package
-=========================================
+AI Creator Engine - workspace manifest
+======================================
 
-Authoritative final checkpoint: 64816c42ee3f590bf21423cef3202b70ae358604 (Phase 14), branch claude/phase12-14-work
-Phase 12 checkpoint: 755bdcb5af05470fc99da650aef0b44d95a7222e. Phase 13 was intentionally skipped.
-All files were extracted from committed Git objects (not from a working tree).
+Layout: bundles/ (the 14 phase bundles), docs/ (canonical current documentation), repo/creator-engine/
+(the sources). There is no Phase 13 (intentionally skipped, ADR 0050).
 
-Reconstruct locally:
+Final state: tag phase-14-audit = e2a4c38f8911b26ed45a25b84f2a2f1f235d1208 in bundles/creator-engine-phase14.bundle. Its tree is
+repo/creator-engine/ plus the engine's own docs/ (historical documents, the audit reports and the
+updated phase reports). The Phase 14 checkpoint itself stays tagged phase-14 (64816c4).
+
+Reconstruct:
   git clone bundles/creator-engine-phase14.bundle creator-engine
-  cd creator-engine && git log -1        # 64816c4
-  git tag                                # phase-8 … phase-12, phase-14
-  then follow README.md (make bootstrap; make dev, or make infra-up && make dev-native; make demo).
-  Verify this package first: sha256sum -c SHA256SUMS.txt
+  cd creator-engine && git describe --tags          # phase-14-audit
+  git fetch ../bundles/creator-engine-phase14.bundle refs/notes/audit:refs/notes/audit
+  git notes --ref=audit show phase-2                 # the audit verdict for a phase
+Verify this package first: cd docs && sha256sum -c SHA256SUMS.txt
+
+Bundle format (regenerated 2026-10 by the audit): every bundle records a complete history and holds
+HEAD, refs/heads/main at its phase's checkpoint, tags phase-0 ... phase-N (phase-11-implementation from
+Phase 11 on) and refs/notes/audit (one note per phase commit it contains). The historical commits are
+byte-identical to the original bundles: only refs were normalized (bundles 0-7 had no tags; bundles 2-7
+carried refs/remotes/origin/* at the Phase 1 commit, an artifact of being made with --all from one clone
+of the Phase 1 bundle) and the audit notes were added. Only the Phase 14 bundle gained commits: the
+audit's corrections on top of 64816c4 (see docs/FINAL_AUDIT_AND_FIX_REPORT.md, section 18).
+
+File:    bundles/creator-engine-phase0.bundle
+Size:    288744 bytes
+Phase:   Phase 0 - environment and bootstrap
+HEAD:    1a7732862fd7e04a8b46100cd42561f99266c4db
+Tags:    phase-0
+Notes:   refs/notes/audit
+SHA256:  aca1d7034d53e5e5694669255bb0a0f3a6eae087d4321305a801ca013414ea6b
+
+File:    bundles/creator-engine-phase1.bundle
+Size:    1325542 bytes
+Phase:   Phase 1 - foundations: models, vocabularies, database, API
+HEAD:    bf9a42ff07fff8392d288290f5f7b6cd34d4cb20
+Tags:    phase-0, phase-1
+Notes:   refs/notes/audit
+SHA256:  001833809d21c49464315d8efa433ad2b754f22428b0d52eafa4f1897c608336
+
+File:    bundles/creator-engine-phase2.bundle
+Size:    1699362 bytes
+Phase:   Phase 2 - execution runtime: build graph, scheduler, workers, render, workflows
+HEAD:    b507a17c6523966f35d2c0d7efff571c03742d74
+Tags:    phase-0, phase-1, phase-2
+Notes:   refs/notes/audit
+SHA256:  50a44564abfa3593dda190648d119595f17fc162e49751b2efc5a35167974c3e
+
+File:    bundles/creator-engine-phase3.bundle
+Size:    1854791 bytes
+Phase:   Phase 3 - behavior backbone
+HEAD:    8b185113cd4aaa32fc74d079d8780857eac2ff1e
+Tags:    phase-0, phase-1, phase-2, phase-3
+Notes:   refs/notes/audit
+SHA256:  1b0799c4fbe7a3c886a789c30cda907a28f7de5cabc7ad89da70276bc999b1e1
+
+File:    bundles/creator-engine-phase4.bundle
+Size:    2111759 bytes
+Phase:   Phase 4 - AI Director and previz
+HEAD:    dbce87aa21126b4b3223dc2d9e2d2b54de2aae67
+Tags:    phase-0, phase-1, phase-2, phase-3, phase-4
+Notes:   refs/notes/audit
+SHA256:  91eb087d6773072f65d043efa6b9c5cf734f9b3177dfd7151aa8986370b28b10
+
+File:    bundles/creator-engine-phase5.bundle
+Size:    2236153 bytes
+Phase:   Phase 5 - web app MVP
+HEAD:    d7576c5ba7d2a8061c476d2f3c4d4b4a47013064
+Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5
+Notes:   refs/notes/audit
+SHA256:  60bab0b9112dcc4699d7119d743e729c0842acb727ca169adadac408a2a3309f
+
+File:    bundles/creator-engine-phase6.bundle
+Size:    2455775 bytes
+Phase:   Phase 6 - incremental editing
+HEAD:    ae8786132b2fa5e976920976715ffa09628d84dd
+Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5, phase-6
+Notes:   refs/notes/audit
+SHA256:  f59b254156483f0cabc476f9b77cfc762187249684a2a76be755de1a268a1a8d
+
+File:    bundles/creator-engine-phase7.bundle
+Size:    3622806 bytes
+Phase:   Phase 7 - real CPU engines (milestone M1)
+HEAD:    b437fe63c551832cd2c62114adb722ca6df04e36
+Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5, phase-6, phase-7
+Notes:   refs/notes/audit
+SHA256:  135c7569156d7efb43382c7fa637465dc4f761d8c712a50656e4d5089688b9b2
+
+File:    bundles/creator-engine-phase8.bundle
+Size:    11533662 bytes
+Phase:   Phase 8 - GPU adapters (untested on GPU)
+HEAD:    6f5f230eb64821e382f182da73f11430b9225758
+Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5, phase-6, phase-7, phase-8
+Notes:   refs/notes/audit
+SHA256:  2ade6dc291cd05b008c8c994628ae4a0aa6eb579d3ae219b5ccceb489cee4e2c
+
+File:    bundles/creator-engine-phase9.bundle
+Size:    11651279 bytes
+Phase:   Phase 9 - fleet manager and GPU providers
+HEAD:    1949d108ecda47b3064c94e59091474dcac974d7
+Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5, phase-6, phase-7, phase-8, phase-9
+Notes:   refs/notes/audit
+SHA256:  03785afae4673971f2372bf89ff012d5d39de209cfda9c3baf0d4dda1e5a2be7
+
+File:    bundles/creator-engine-phase10.bundle
+Size:    11757842 bytes
+Phase:   Phase 10 - Creator Studio and World Studio
+HEAD:    8be739c19e85084432e7aeed2942028719ade53d
+Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5, phase-6, phase-7, phase-8, phase-9, phase-10
+Notes:   refs/notes/audit
+SHA256:  6e76f16a52da6cd97a78a768317b828c9b9d5ec861ad7d3c231b401b54719736
+
+File:    bundles/creator-engine-phase11.bundle
+Size:    11900068 bytes
+Phase:   Phase 11 - QC gate, Performance QA, Creative Director, benchmarks
+HEAD:    5d6ba91967c8097ff75d78108e8610ba46c3bebe
+Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5, phase-6, phase-7, phase-8, phase-9, phase-10, phase-11, phase-11-implementation
+Notes:   refs/notes/audit
+SHA256:  b8a3995b85da128e2f6587ecbbabb5f8a11c9897ab88b31b57bf67a1b04bbdbf
 
 File:    bundles/creator-engine-phase12.bundle
-Size:    12123126 bytes
-Purpose: Git bundle of the Phase 12 checkpoint: HEAD, main and tag phase-12 at 755bdcb, plus tags phase-8, phase-9, phase-10, phase-11, phase-11-implementation. Complete history (no prerequisites).
-Phase:   Phase 12
-Commit:  755bdcb5af05470fc99da650aef0b44d95a7222e (file committed in c5575de)
-SHA256:  d5c3025069ff92b10d7915bc252420c1f13c7dcbb0551d6f3d9232471cbad9cb
+Size:    12129169 bytes
+Phase:   Phase 12 - memory loop, research and claims, templates, exports
+HEAD:    755bdcb5af05470fc99da650aef0b44d95a7222e
+Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5, phase-6, phase-7, phase-8, phase-9, phase-10, phase-11, phase-12, phase-11-implementation
+Notes:   refs/notes/audit
+SHA256:  45bef3afd621bab47923293f6fe24b2249f2e25280a03c9731c2abbd99137ae8
 
 File:    bundles/creator-engine-phase14.bundle
-Size:    24390104 bytes
-Purpose: Git bundle of the FINAL checkpoint: HEAD, main and tag phase-14 at 64816c4, tag phase-12 at 755bdcb, plus tags phase-8 … phase-11, phase-11-implementation. Complete history (58 commits). Reconstruct the final system from this file.
-Phase:   Phase 14 (final)
-Commit:  64816c42ee3f590bf21423cef3202b70ae358604 (file committed in 3f2d1e4, the commit after the checkpoint)
-SHA256:  6962d6f4fb5e1dee538c80141679f9bccb2493e1e4deab53dd6dfc3eede274f0
+Size:    24494657 bytes
+Phase:   Phase 14 - hardening, operations, documentation - plus the 2026-10 audit corrections
+HEAD:    e2a4c38f8911b26ed45a25b84f2a2f1f235d1208  (phase-14-audit; phase-14 = 64816c42ee3f590bf21423cef3202b70ae358604)
+Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5, phase-6, phase-7, phase-8, phase-9, phase-10, phase-11, phase-12, phase-14, phase-14-audit, phase-11-implementation
+Notes:   refs/notes/audit
+SHA256:  d6fbd516662cf3fad94e788da71949d74b43b49a0f4719afa424982e0ca14cee
 
-File:    docs/progress/phase-12.md
-Size:    10335 bytes
-Purpose: Phase 12 progress report: DoD evidence, what was built, test results, untested items, checkpoint verification.
-Phase:   Phase 12
-Commit:  as committed at 64816c4 (identical in 755bdcb's successor c5575de)
-SHA256:  6d809d1659e5f632a0c087c030611b904ec299c6f0f49a687566832a5fc49860
-
-File:    docs/progress/phase-14.md
-Size:    12400 bytes
-Purpose: Phase 14 progress report: DoD evidence, findings and fixes, untested items, and the checkpoint/bundle/fresh-clone verification record.
-Phase:   Phase 14
-Commit:  as committed at 3f2d1e4 = the 64816c4 version plus the appended 'Checkpoint' verification (the only difference)
-SHA256:  5a21e6d15b7ddf720c1a08006a4319f84b10bae7a74f179a8ef0e3760a692e6b
-
-File:    docs/MASTER_BUILD_PROMPT_v2_private.md
-Size:    308706 bytes
-Purpose: The authoritative master build specification.
-Phase:   All phases
-Commit:  as committed at 64816c4
-SHA256:  fdb136bf3ae74cb64e5903605c1b5bfcadc959e1114d7efbfc62e27e1b6d132b
-
-File:    docs/MASTER_BUILD_PROMPT_v2_CHANGELOG_private.md
-Size:    30601 bytes
-Purpose: Master build changelog: v1→v2 changes, the archived Phase 8–11 handoff (verbatim), Phase 12, Phase 13 (intentionally skipped), Phase 14 and the final checkpoint state.
-Phase:   All phases
-Commit:  as committed at 64816c4
-SHA256:  6798b594cd67916afb2c80994eecec22c8b9675b3b428d753b2497e05a8012ab
-
-File:    README.md
-Size:    13071 bytes
-Purpose: Repository README: phase status, validated vs not validated, quick start (Compose or native mode), documentation index.
-Phase:   Final
-Commit:  as committed at 64816c4
-SHA256:  27baf45eb7cca8873d0d3ecde25e96364ae264434a1bb8bac83832f7baa61659
-
-File:    docs/SETUP.md
-Size:    12079 bytes
-Purpose: Prerequisites and step-by-step setup of the development stack.
-Phase:   Final
-Commit:  as committed at 64816c4
-SHA256:  aea2806814cd79ee41ea7f45db496e6fbc78d81c1a21eac4643763a191ad8c81
-
-File:    docs/DEPLOYMENT.md
-Size:    7422 bytes
-Purpose: Topologies (Compose, native mode, split GPU workers), production requirements, checklist.
-Phase:   Final
-Commit:  as committed at 64816c4
-SHA256:  fffe3170ccecbda085a134ef0f5b2cfdf773083e28ecb0ddf0e1e12487d5e95c
-
-File:    docs/DEMO.md
-Size:    4628 bytes
-Purpose: The reproducible mock-mode demo (make demo) with a measured run.
-Phase:   Final
-Commit:  as committed at 64816c4
-SHA256:  3592242b69c3d39abe57dd04467a05f92517b5a5745f86147cd1f15a377d11e3
+Documents (docs/):
+  docs/DEMO.md  (4628 bytes)
+  docs/DEPLOYMENT.md  (8019 bytes)
+  docs/FINAL_AUDIT_AND_FIX_REPORT.md  (40712 bytes)
+  docs/GPU_READINESS_REPORT.md  (14179 bytes)
+  docs/MASTER_BUILD_PROMPT_v2_CHANGELOG_private.md  (30601 bytes)
+  docs/MASTER_BUILD_PROMPT_v2_private.md  (308706 bytes)
+  docs/README.md  (13302 bytes)
+  docs/SETUP.md  (12349 bytes)
+  docs/progress/phase-0.md  (7009 bytes)
+  docs/progress/phase-1.md  (9577 bytes)
+  docs/progress/phase-10.md  (7757 bytes)
+  docs/progress/phase-11.md  (10172 bytes)
+  docs/progress/phase-12.md  (10922 bytes)
+  docs/progress/phase-14.md  (13607 bytes)
+  docs/progress/phase-2.md  (16240 bytes)
+  docs/progress/phase-3.md  (14519 bytes)
+  docs/progress/phase-4.md  (13436 bytes)
+  docs/progress/phase-5.md  (10500 bytes)
+  docs/progress/phase-6.md  (14367 bytes)
+  docs/progress/phase-7.md  (18122 bytes)
+  docs/progress/phase-8.md  (12128 bytes)
+  docs/progress/phase-9.md  (9007 bytes)
 
 Notes:
-- The Phase 14 bundle file cannot be inside the commit it captures, so it was committed in 3f2d1e4, which changes only that file and appends the verification record to phase-14.md.
-- The bundled history has two root commits (f3c7938 'Initial AI Creator Engine archive', 01a50d0 the original spec commit), joined earlier by 'Reconstruct project from creator-engine-phase8.bundle'. Pre-existing, unchanged.
-- Known pre-existing typo, left unchanged: the archived Phase 8–11 section of the changelog cites the Phase 11 implementation commit as cd23664c3990d49f37079f07c88ebdec1906f37 (39 hex digits, one missing); the real commit is cd236641c3990d49f37079f07c88ebdec1906f37 (tag phase-11-implementation in both bundles).
-- The tree contains .env.example only (dev-only placeholders; provider keys empty). No .env, keys, credentials, .venv, node_modules, .data or caches are included.
+- docs/README.md is a copy of repo/creator-engine/README.md.
+- docs/progress/phase-14.md includes the Phase 14 checkpoint verification of commit 3f2d1e4, which no bundle
+  contains (a bundle cannot contain the commit that adds it); the audit commits restore that text into the
+  history. docs/progress/phase-0.md was missing from this directory and was restored from the history.
+- The engine's other documents (ADRs, ARCHITECTURE, API, OPERATIONS, ...) live in the bundles' docs/ only;
+  tests read them through ce_testing.docs (CE_DOCS_DIR) and skip with that reason when absent.
+- The tree contains .env.example only (dev-only placeholders). No .env, keys, credentials, .venv,
+  node_modules, .data or caches are included.
 - MANIFEST.txt is covered by SHA256SUMS.txt; SHA256SUMS.txt cannot list itself.
