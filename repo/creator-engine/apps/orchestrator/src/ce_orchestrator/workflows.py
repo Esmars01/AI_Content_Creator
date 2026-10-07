@@ -62,6 +62,7 @@ with workflow.unsafe.imports_passed_through():
         EditJobInput,
         EditJobResult,
         FailInput,
+        FailJobInput,
         FinalizeInput,
         LocalInput,
         MemoryEnqueueInput,
@@ -125,6 +126,18 @@ def _is_cancel(exc: BaseException) -> bool:
 def _error(exc: BaseException) -> str:
     cause = exc.__cause__ or exc
     return f"{type(cause).__name__}: {cause}"[:1000]
+
+
+async def _fail_job(org_id: str, job_id: str, code: str, exc: BaseException, task_queue: str | None = None) -> None:
+    """The job of a workflow whose activity failed for good still ends `failed`, with the reason
+    (the activities record expected failures themselves; this covers the rest — audit PLAN-FAIL)."""
+    await workflow.execute_activity(
+        "fail_job",
+        FailJobInput(org_id=org_id, job_id=job_id, code=code, message=_error(exc)),
+        task_queue=task_queue,
+        start_to_close_timeout=timedelta(seconds=60),
+        retry_policy=CPU_RETRY,
+    )
 
 
 class _Dag:
@@ -789,14 +802,20 @@ class PlanVideoWorkflow:
 
     @workflow.run
     async def run(self, build: BuildInput) -> dict[str, Any]:
-        planned: PlanVideoResult = await workflow.execute_activity(
-            "plan_video",
-            PlanVideoInput(org_id=build.org_id, job_id=build.job_id),
-            task_queue=build.queues.orchestrator,
-            start_to_close_timeout=timedelta(seconds=build.plan_timeout_s),
-            retry_policy=CPU_RETRY,
-            result_type=PlanVideoResult,
-        )
+        try:
+            planned: PlanVideoResult = await workflow.execute_activity(
+                "plan_video",
+                PlanVideoInput(org_id=build.org_id, job_id=build.job_id),
+                task_queue=build.queues.orchestrator,
+                start_to_close_timeout=timedelta(seconds=build.plan_timeout_s),
+                retry_policy=CPU_RETRY,
+                result_type=PlanVideoResult,
+            )
+        except ActivityError as exc:  # the plan job must not stay `running` (audit PLAN-FAIL)
+            if _is_cancel(exc):
+                raise
+            await _fail_job(build.org_id, build.job_id, "planning_failed", exc, build.queues.orchestrator)
+            return {"plan": {"status": "failed", "error": _error(exc)}, "previz": None}
         if planned.status != "succeeded" or not planned.previz_job_id or not planned.version_id:
             return {"plan": planned.model_dump(), "previz": None}
         previz = build.model_copy(update={"job_id": planned.previz_job_id, "version_id": planned.version_id})
@@ -873,13 +892,19 @@ class AssetValidationWorkflow:
 
     @workflow.run
     async def run(self, inp: AssetValidationInput) -> dict[str, Any]:
-        result: dict[str, Any] = await workflow.execute_activity(
-            "validate_asset",
-            inp,
-            start_to_close_timeout=timedelta(minutes=10),
-            retry_policy=CPU_RETRY,
-            result_type=dict,
-        )
+        try:
+            result: dict[str, Any] = await workflow.execute_activity(
+                "validate_asset",
+                inp,
+                start_to_close_timeout=timedelta(minutes=10),
+                retry_policy=CPU_RETRY,
+                result_type=dict,
+            )
+        except ActivityError as exc:  # the job must not stay `running` (audit PLAN-FAIL)
+            if _is_cancel(exc):
+                raise
+            await _fail_job(inp.org_id, inp.job_id, "asset_validation_failed", exc)
+            return {"status": "failed", "error": _error(exc)}
         analysis_job = result.get("screen_analysis_job_id")
         if analysis_job:
             child = ScreenAnalysisInput(org_id=inp.org_id, job_id=str(analysis_job), asset_id=inp.asset_id)
@@ -896,13 +921,19 @@ class ScreenAnalysisWorkflow:
 
     @workflow.run
     async def run(self, inp: ScreenAnalysisInput) -> dict[str, Any]:
-        result: dict[str, Any] = await workflow.execute_activity(
-            "analyze_screen",
-            inp,
-            start_to_close_timeout=timedelta(minutes=30),
-            retry_policy=CPU_RETRY,
-            result_type=dict,
-        )
+        try:
+            result: dict[str, Any] = await workflow.execute_activity(
+                "analyze_screen",
+                inp,
+                start_to_close_timeout=timedelta(minutes=30),
+                retry_policy=CPU_RETRY,
+                result_type=dict,
+            )
+        except ActivityError as exc:  # the job must not stay `running` (audit PLAN-FAIL)
+            if _is_cancel(exc):
+                raise
+            await _fail_job(inp.org_id, inp.job_id, "screen_analysis_failed", exc)
+            return {"status": "failed", "error": _error(exc)}
         return result
 
 
@@ -914,13 +945,19 @@ class CalibrationWorkflow:
 
     @workflow.run
     async def run(self, inp: CalibrationInput) -> dict[str, Any]:
-        result: dict[str, Any] = await workflow.execute_activity(
-            "calibrate_model",
-            inp,
-            start_to_close_timeout=timedelta(hours=2),
-            retry_policy=RetryPolicy(maximum_attempts=1),
-            result_type=dict,
-        )
+        try:
+            result: dict[str, Any] = await workflow.execute_activity(
+                "calibrate_model",
+                inp,
+                start_to_close_timeout=timedelta(hours=2),
+                retry_policy=RetryPolicy(maximum_attempts=1),
+                result_type=dict,
+            )
+        except ActivityError as exc:  # the job must not stay `running` (audit PLAN-FAIL)
+            if _is_cancel(exc):
+                raise
+            await _fail_job(inp.org_id, inp.job_id, "calibration_failed", exc)
+            return {"status": "failed", "error": _error(exc)}
         return result
 
 
@@ -928,13 +965,19 @@ class CalibrationWorkflow:
 class DeletionWorkflow:
     @workflow.run
     async def run(self, inp: DeletionInput) -> dict[str, Any]:
-        result: dict[str, Any] = await workflow.execute_activity(
-            "delete_target",
-            inp,
-            start_to_close_timeout=timedelta(minutes=10),
-            retry_policy=CPU_RETRY,
-            result_type=dict,
-        )
+        try:
+            result: dict[str, Any] = await workflow.execute_activity(
+                "delete_target",
+                inp,
+                start_to_close_timeout=timedelta(minutes=10),
+                retry_policy=CPU_RETRY,
+                result_type=dict,
+            )
+        except ActivityError as exc:  # the job must not stay `running` (audit PLAN-FAIL)
+            if _is_cancel(exc):
+                raise
+            await _fail_job(inp.org_id, inp.job_id, "deletion_failed", exc)
+            return {"status": "failed", "error": _error(exc)}
         return result
 
 

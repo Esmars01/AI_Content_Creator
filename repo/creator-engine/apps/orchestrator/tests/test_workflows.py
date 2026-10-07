@@ -26,6 +26,7 @@ from ce_orchestrator.models import (
     EditJobInput,
     EditJobResult,
     FailInput,
+    FailJobInput,
     FinalizeInput,
     LocalInput,
     NodeInfo,
@@ -48,7 +49,7 @@ from ce_orchestrator.workflows import (
 from temporalio import activity
 from temporalio.client import Client, WorkflowFailureError
 from temporalio.contrib.pydantic import pydantic_data_converter
-from temporalio.exceptions import CancelledError
+from temporalio.exceptions import ApplicationError, CancelledError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Replayer, Worker
 
@@ -122,6 +123,8 @@ class FakeActivities:
         self.max_running = 0
         self.plan_inputs: list[PlanInput] = []
         self.planned: PlanVideoResult | None = None
+        self.plan_crash: str | None = None  # plan_video raises this (a non-retryable error type name)
+        self.failed_jobs: list[FailJobInput] = []
         self.previz_completed: list[PrevizCompleteInput] = []
         self.edit_result: EditJobResult | None = None
         self.edit_calls: list[tuple[str, str]] = []
@@ -213,8 +216,14 @@ class FakeActivities:
 
     @activity.defn(name="plan_video")
     async def plan_video(self, inp: PlanVideoInput) -> PlanVideoResult:
+        if self.plan_crash is not None:
+            raise ApplicationError("no route for voice.tts: language az not supported", type=self.plan_crash)
         assert self.planned is not None
         return self.planned
+
+    @activity.defn(name="fail_job")
+    async def fail_job(self, inp: FailJobInput) -> None:
+        self.failed_jobs.append(inp)
 
     @activity.defn(name="complete_previz")
     async def complete_previz(self, inp: PrevizCompleteInput) -> dict[str, Any]:
@@ -261,6 +270,7 @@ class FakeActivities:
             self.propose_edit,
             self.apply_edit,
             self.plan_video,
+            self.fail_job,
             self.complete_previz,
             self.plan_build,
             self.begin_node,
@@ -531,6 +541,24 @@ async def test_a_failed_plan_starts_no_previz(env: WorkflowEnvironment) -> None:
         )
     assert result == {"plan": {"status": "failed", "version_id": None, "previz_job_id": None}, "previz": None}
     assert fake.plan_inputs == [] and fake.previz_completed == []
+
+
+async def test_a_crashed_plan_activity_still_fails_the_plan_job(env: WorkflowEnvironment) -> None:
+    """Audit PLAN-FAIL: planning in a language no voice engine speaks raised GraphError out of the
+    activity; the workflow failed in a second and the plan job stayed `running` at 5 % forever."""
+    queue = f"wf-{uuid.uuid4()}"
+    fake = FakeActivities(previz_plan())
+    fake.plan_crash = "GraphError"
+    build = _build(queue)
+    workflow_id = f"plan-{build.job_id}"
+    async with _workers(env.client, fake, queue):
+        result = await env.client.execute_workflow(PlanVideoWorkflow.run, build, id=workflow_id, task_queue=queue)
+    assert result["plan"]["status"] == "failed" and result["previz"] is None
+    (failed,) = fake.failed_jobs
+    assert failed.job_id == build.job_id and failed.code == "planning_failed"
+    assert "language az not supported" in failed.message
+    assert fake.plan_inputs == []
+    await _replay(env.client, workflow_id)
 
 
 async def test_a_failed_previz_node_fails_the_previz(env: WorkflowEnvironment) -> None:

@@ -382,3 +382,22 @@ async def test_replan_reuses_the_request_and_the_pinned_memory(harness: ApiHarne
     await editor.client.post(f"/v1/versions/{v3['id']}:approve", json={}, headers=key())
     late = await editor.client.post(f"/v1/versions/{v3['id']}:replan", json={}, headers=key())
     assert late.status_code == 409
+
+
+async def test_planning_in_a_language_no_voice_speaks_fails_the_job_with_a_reason(
+    harness: ApiHarness, editor: ApiTenant
+) -> None:
+    """Audit PLAN-FAIL: the Create wizard offers "Azerbaijani — unsupported"; planning raised
+    GraphError (no voice.tts route) out of the activity and the job stayed `running` at 5 %."""
+    project = await new_project(editor)
+    body = {"input": "Short tip: drink water before coffee in the morning.", "language": "az"}
+    response = await editor.client.post(f"/v1/projects/{project}/videos", json=body, headers=key())
+    assert response.status_code == 202, response.text
+    await harness.services.drain()
+    job_id = response.json()["job_id"]
+    result = await run_plan(harness.exec, editor.org_id, UUID(job_id))  # type: ignore[attr-defined]
+    assert result == {"status": "failed", "version_id": None, "previz_job_id": None}
+    job = (await editor.client.get(f"/v1/jobs/{job_id}")).json()
+    assert job["status"] == "failed" and job["error"]["code"] == "planning_failed"
+    assert job["error"]["message"].startswith("No available engine can do voice.tts for this video")
+    assert "language az not supported" in job["error"]["message"]
