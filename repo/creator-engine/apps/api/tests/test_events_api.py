@@ -124,3 +124,61 @@ async def test_events_never_cross_orgs(harness: ApiHarness, owner: ApiTenant, se
         own = await bus.publish(stranger.org_id, "notification", {"secret": "org B"})
         events = await read_events(response, 1)
     assert [(e["id"], e["data"]["secret"]) for e in events] == [(own, "org B")]
+
+
+async def test_idle_stream_outlives_the_redis_socket_timeout(
+    harness: ApiHarness, owner: ApiTenant, server: str
+) -> None:
+    """Regression: XREAD blocked 15 s on a client whose socket timeout is 5 s, so every quiet period
+    of 5 s raised TimeoutError inside the generator and dropped the connection (audit S1)."""
+    bus = harness.services.events
+    async with stream_client(server, owner) as client, client.stream("GET", "/v1/events") as response:
+        assert response.status_code == 200
+        await asyncio.sleep(6.5)  # longer than redis-py's default 5 s socket timeout, nothing published
+        sent = await bus.publish(owner.org_id, "job.updated", {"job_id": "late", "status": "succeeded"})
+        [event] = await read_events(response, 1)
+    assert event["id"] == sent
+    assert event["data"]["job_id"] == "late"
+
+
+async def test_fresh_connection_sends_its_cursor_as_event_id(
+    harness: ApiHarness, owner: ApiTenant, server: str
+) -> None:
+    """Regression: a fresh stream started at the tail without telling the browser, so a reconnect
+    before the first event restarted at the new tail and skipped what was published in between (S2)."""
+    bus = harness.services.events
+    before = await bus.publish(owner.org_id, "job.updated", {"job_id": "before"})
+    async with stream_client(server, owner) as client, client.stream("GET", "/v1/events") as response:
+        first: list[str] = []
+        async for line in response.aiter_lines():
+            if line == "":
+                break
+            first.append(line)
+    assert "retry: 3000" in first
+    assert f"id: {before}" in first
+    # the browser resumes from that id: what was published while it was away is replayed
+    missed = await bus.publish(owner.org_id, "job.updated", {"job_id": "while-away"})
+    async with (
+        stream_client(server, owner) as client,
+        client.stream("GET", "/v1/events", headers={"Last-Event-ID": before}) as response,
+    ):
+        [event] = await read_events(response, 1)
+    assert event["id"] == missed
+
+
+async def test_malformed_last_event_id_reports_a_gap_and_keeps_streaming(
+    harness: ApiHarness, owner: ApiTenant, server: str
+) -> None:
+    """Regression: an invalid Last-Event-ID went straight into XREAD, which errors, so the browser
+    reconnected with the same header in a loop (S10)."""
+    bus = harness.services.events
+    async with (
+        stream_client(server, owner) as client,
+        client.stream("GET", "/v1/events", headers={"Last-Event-ID": "not-an-id"}) as response,
+    ):
+        reading = asyncio.create_task(read_events(response, 2))  # one iteration of the stream for both
+        await asyncio.sleep(0.5)
+        sent = await bus.publish(owner.org_id, "job.updated", {"job_id": "after-gap"})
+        gap, event = await reading
+    assert gap["event"] == "stream.gap" and gap["data"]["reason"] == "invalid_last_event_id"
+    assert event["id"] == sent

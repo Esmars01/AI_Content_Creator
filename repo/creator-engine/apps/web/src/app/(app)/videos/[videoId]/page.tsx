@@ -7,7 +7,8 @@
  */
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, use } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Suspense, use, useEffect, useRef } from "react";
 
 import { PageHeader, useAdvanced } from "@/components/app-shell";
 import { SceneCoverageBadge } from "@/components/coverage";
@@ -30,7 +31,7 @@ import { bySceneKey, type CoverageEntry } from "@/lib/coverage";
 import { humanize, seconds, when } from "@/lib/format";
 import { buildLane, trajectorySentence } from "@/lib/performance";
 import { ApiError } from "@/lib/api";
-import { useCoverage, useIntent, useJobs, usePreviz, useVersion, useVersions, useVideo } from "@/lib/queries";
+import { keys, useCoverage, useIntent, useJobs, usePreviz, useVersion, useVersions, useVideo } from "@/lib/queries";
 
 const BUILDING = new Set(["approved", "generating"]);
 const PREVIZ = new Set(["planned", "previz_running"]);
@@ -61,6 +62,24 @@ function ActiveJobs({ versionIds }: { versionIds: string[] }) {
   );
 }
 
+/**
+ * When the version's state changes (seen by polling or by an event), refresh everything that hangs
+ * off it — renders, coverage, QC, critiques, consistency — so no panel keeps a mid-build answer.
+ */
+function useRefreshOnStateChange(versionId: string | null, state: string) {
+  const client = useQueryClient();
+  const seen = useRef<{ id: string | null; state: string }>({ id: versionId, state });
+  useEffect(() => {
+    const before = seen.current;
+    seen.current = { id: versionId, state };
+    if (!versionId || before.id !== versionId || !before.state || before.state === state) return;
+    void client.invalidateQueries({
+      queryKey: keys.version(versionId),
+      predicate: (query) => query.queryKey.length > 2, // the sub-resources; the version itself is fresh
+    });
+  }, [client, versionId, state]);
+}
+
 function Studio({ videoId }: { videoId: string }) {
   const params = useSearchParams();
   const advanced = useAdvanced();
@@ -73,6 +92,7 @@ function Studio({ videoId }: { videoId: string }) {
   const state = version.data?.state ?? "";
   const built = ["ready", "partial", "needs_review", "generating"].includes(state);
   const coverage = useCoverage(built ? versionId : null);
+  useRefreshOnStateChange(versionId, state);
 
   if (video.isLoading) return <Skeleton className="h-64" />;
   if (!video.data) return <Alert tone="danger">This video does not exist.</Alert>;
@@ -127,7 +147,7 @@ function Studio({ videoId }: { videoId: string }) {
           </div>
         }
       />
-      <div className="grid grid-cols-[minmax(0,22rem)_1fr] gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,22rem)_1fr]">
         <div className="flex flex-col gap-4">
           <Player versionId={versionId} state={state} />
           <ActiveJobs versionIds={[versionId]} />

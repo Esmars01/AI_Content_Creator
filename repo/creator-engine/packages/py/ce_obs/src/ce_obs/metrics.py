@@ -21,6 +21,7 @@ from prometheus_client import (
 __all__ = [
     "CONTENT_TYPE_LATEST",
     "FLEET_DESIRED",
+    "GPU_COMPLETIONS_DEFERRED",
     "GPU_LEASES",
     "GPU_LEASE_EXPIRED",
     "GPU_QUEUE",
@@ -49,6 +50,11 @@ GPU_QUEUE = Gauge("ce_gpu_tasks", "GPU tasks by state", ["state", "capability"],
 GPU_LEASES = Counter("ce_gpu_leases_total", "Tasks leased to workers", ["capability"], registry=REGISTRY)
 GPU_TASKS_DONE = Counter("ce_gpu_tasks_done_total", "Finished GPU tasks", ["capability", "status"], registry=REGISTRY)
 GPU_LEASE_EXPIRED = Counter("ce_gpu_lease_expired_total", "Leases that expired and were requeued", registry=REGISTRY)
+GPU_COMPLETIONS_DEFERRED = Counter(
+    "ce_gpu_completions_deferred_total",
+    "Task results Temporal could not take at once, kept on the task and redelivered",
+    registry=REGISTRY,
+)
 WORKERS = Gauge("ce_workers", "Registered workers by state", ["state", "family"], registry=REGISTRY)
 FLEET_DESIRED = Gauge("ce_fleet_desired_workers", "Desired workers per pool", ["pool"], registry=REGISTRY)
 # Phase 9: fleet and providers (§25, §34)

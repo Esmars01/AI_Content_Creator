@@ -79,3 +79,9 @@ Changed: `config/default.yaml` (`research:`), `config/intent_policies.yaml`, `co
 4. Video Studio v1: player, scene list, read-only performance lane, Simple coverage badges, job progress via SSE, versions list.
 5. Creators and Worlds lists (read-only DNA), Jobs, developer spec and CBS viewers.
 6. DoD: a Playwright e2e test in mock mode (create → previz → approve → progress → play) and the I9 coverage-badge contract test.
+
+## Post-audit corrections (2026-10, after Phase 14)
+
+- **A4** — version numbers were allocated MAX+1 without a lock (concurrent replans/edits collided). **A6** — more sources than the Director's `PlanRequest` accepts answered 500 instead of 422.
+
+The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-4`).

@@ -12,8 +12,9 @@ from uuid import UUID
 
 import sqlalchemy as sa
 from ce_config.settings import EffectiveConfig
-from ce_core.enums import JobKind
+from ce_core.enums import JobKind, VersionState
 from ce_db.models.assets import GenerationJob
+from ce_db.models.videos import VideoVersion
 from ce_obs import get_logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -98,6 +99,9 @@ class WorkflowStarter:
         self.prefix = effective.settings.temporal_task_queue_prefix
         self._client: Any = None
         self._lock = asyncio.Lock()
+        # Handles are kept only when `track` is set (tests wait for them with `drain`); a long-running
+        # API process would otherwise keep one per workflow it ever started, and drain them on shutdown.
+        self.track = False
         self.handles: list[Any] = []
         self.before_start: Callable[[], Awaitable[None]] | None = None
 
@@ -124,7 +128,8 @@ class WorkflowStarter:
             await self.before_start()
         client = await self.client()
         handle = await client.start_workflow(workflow, arg, id=workflow_id, task_queue=self.task_queue)
-        self.handles.append(handle)
+        if self.track:
+            self.handles.append(handle)
         return handle
 
     async def cancel(self, workflow_id: str) -> None:
@@ -139,6 +144,23 @@ class WorkflowStarter:
                 await asyncio.wait_for(handle.result(), timeout_s)
             except Exception as exc:
                 _log.info("workflow ended with an error", workflow_id=handle.id, error=str(exc)[:200])
+
+
+async def job_in_flight(
+    session: AsyncSession, org_id: UUID, kind: JobKind, version_id: UUID, *, edit_proposal_id: UUID | None = None
+) -> bool:
+    """A job of this kind for this version (and proposal) is queued or running. Callers hold the
+    version's or the proposal's row lock, so two concurrent requests cannot both pass."""
+    where = [
+        GenerationJob.org_id == org_id,
+        GenerationJob.kind == kind.value,
+        GenerationJob.video_version_id == version_id,
+        GenerationJob.status.in_(("queued", "running")),
+    ]
+    if edit_proposal_id is not None:
+        where.append(GenerationJob.input["edit_proposal_id"].astext == str(edit_proposal_id))
+    count = (await session.execute(sa.select(sa.func.count()).where(*where))).scalar_one()
+    return bool(count)
 
 
 async def start_job(services: Any, org_id: UUID, job_id: UUID, kind: JobKind, arg: dict[str, Any]) -> None:
@@ -156,7 +178,27 @@ async def start_job(services: Any, org_id: UUID, job_id: UUID, kind: JobKind, ar
                 .values(status="failed", error={"code": "workflow_start_failed", "message": type(exc).__name__})
             )
             job = await session.get_one(GenerationJob, job_id)
+            # An approved version whose generation never started must not stay `approved` forever (no
+            # route moves it on from there): it fails, and `:resume` starts generation again.
+            stranded = None
+            if kind == JobKind.GENERATE and job.video_version_id is not None:
+                stranded = (
+                    await session.execute(
+                        sa.update(VideoVersion)
+                        .where(
+                            VideoVersion.org_id == org_id,
+                            VideoVersion.id == job.video_version_id,
+                            VideoVersion.state == VersionState.APPROVED.value,
+                        )
+                        .values(state=VersionState.FAILED.value)
+                        .returning(VideoVersion.id)
+                    )
+                ).scalar_one_or_none()
         await services.events.publish(org_id, EventType.JOB_UPDATED, job_event(job))
+        if stranded is not None:
+            await services.events.publish(
+                org_id, EventType.VERSION_UPDATED, {"version_id": str(stranded), "state": VersionState.FAILED.value}
+            )
 
 
 async def start_studio_job(

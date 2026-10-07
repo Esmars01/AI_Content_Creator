@@ -14,7 +14,12 @@ export function Alert({
     success: "border-green-700 bg-green-50 text-green-950",
   };
   return (
-    <div role="status" className={cn("rounded-md border-l-4 px-3 py-2 text-sm", tones[tone], className)} {...props} />
+    // errors interrupt (role=alert); everything else is announced politely (role=status)
+    <div
+      role={tone === "danger" ? "alert" : "status"}
+      className={cn("rounded-md border-l-4 px-3 py-2 text-sm", tones[tone], className)}
+      {...props}
+    />
   );
 }
 
@@ -42,7 +47,12 @@ export function Progress({ value, label }: { value: number; label: string }) {
 }
 
 export function Table({ className, ...props }: React.TableHTMLAttributes<HTMLTableElement>) {
-  return <table className={cn("w-full border-collapse text-sm", className)} {...props} />;
+  // wide tables scroll inside their card instead of widening the page on small screens
+  return (
+    <div className="w-full overflow-x-auto">
+      <table className={cn("w-full border-collapse text-sm", className)} {...props} />
+    </div>
+  );
 }
 
 export function Th({ className, ...props }: React.ThHTMLAttributes<HTMLTableCellElement>) {
@@ -97,4 +107,28 @@ export function Tabs<T extends string>({
 
 export function Empty({ children }: { children: React.ReactNode }) {
   return <p className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-600">{children}</p>;
+}
+
+/**
+ * A query that failed: what could not be loaded, why, and a retry. Pages show this instead of their
+ * empty state, so a failed request never reads as "nothing here".
+ */
+export function LoadError({ what, error, onRetry }: { what: string; error: unknown; onRetry?: () => void }) {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    <Alert tone="danger" className="flex flex-wrap items-center justify-between gap-2">
+      <span>
+        Could not load {what}: {message}
+      </span>
+      {onRetry ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded-md border border-red-700 px-2 py-0.5 text-xs font-medium hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-blue-700"
+        >
+          Retry
+        </button>
+      ) : null}
+    </Alert>
+  );
 }

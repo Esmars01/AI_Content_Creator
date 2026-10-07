@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/app-shell";
 import { StateBadge } from "@/components/state-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Empty, Progress, Skeleton, Table, Td, Th } from "@/components/ui/misc";
+import { Empty, LoadError, Progress, Skeleton, Table, Td, Th } from "@/components/ui/misc";
 import { api, unwrap } from "@/lib/api";
 import { humanize, when } from "@/lib/format";
 import { keys, useCreators, useJobs, useProjects } from "@/lib/queries";
@@ -26,6 +26,8 @@ function RecentVideos() {
     })),
   });
   if (projects.isLoading) return <Skeleton className="h-24" />;
+  const failed = projects.error ?? videos.find((v) => v.error)?.error;
+  if (failed) return <LoadError what="recent videos" error={failed} onRetry={() => void projects.refetch()} />;
   const rows = recent.flatMap((project, i) => (videos[i]?.data?.items ?? []).map((video) => ({ project, video })));
   rows.sort((a, b) => b.video.created_at.localeCompare(a.video.created_at));
   if (!rows.length) {
@@ -140,8 +142,8 @@ export default function DashboardPage() {
           </Button>
         }
       />
-      <div className="grid grid-cols-3 gap-4">
-        <Card className="col-span-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle>Recent videos</CardTitle>
           </CardHeader>
@@ -171,8 +173,11 @@ export default function DashboardPage() {
             <CardTitle>Spend and fleet</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-slate-700">
-            Mock mode: no GPU is used and nothing is spent. Budgets, spend and fleet status arrive with the GPU
-            providers (Phase 9).
+            In mock mode no GPU is used and nothing is spent. Budgets, spend and the worker fleet are on the{" "}
+            <Link className="text-blue-800 underline" href="/gpu">
+              GPU
+            </Link>{" "}
+            page.
           </CardContent>
         </Card>
         <Card>
@@ -180,7 +185,12 @@ export default function DashboardPage() {
             <CardTitle>QC and consistency flags</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-slate-700">
-            The QC gate and consistency reports arrive in Phase 11; behavior coverage is shown per video today.
+            Each video&apos;s QC report, creator consistency and behavior coverage are in its studio; takes waiting for
+            a human verdict are in the{" "}
+            <Link className="text-blue-800 underline" href="/ratings">
+              rating queue
+            </Link>
+            .
           </CardContent>
         </Card>
       </div>

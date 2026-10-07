@@ -277,6 +277,7 @@ class FleetManager:
     async def tick(self) -> list[FleetDecision]:
         now = self.clock()
         failed = await self._watch_provisioning(now)
+        await self._terminate_failed(now)
         async with self.db.transaction() as session:
             report = await fleet_db.spend_report(session, now=now, horizon_h=self.config.spend_horizon_h)
             daily_exceeded = bool(self.budget_daily_usd) and report.projected_usd > self.budget_daily_usd
@@ -628,11 +629,49 @@ class FleetManager:
             async with self.db.transaction() as session:
                 row = await session.get_one(GpuWorker, worker.id)
                 row.state, row.stopped_at = "failed", now
+                row.token_hash = None  # its instance was terminated above (see _terminate_failed)
                 await fleet_db.record_fleet_cost(session, row, end=now)
             reason = "lost by its provider" if lost else "did not register in time"
             _log.warning("provisioned worker failed", external_id=worker.external_id, reason=reason)
             failed.append((worker.pool_id or "", worker.external_id or str(worker.id)))
         return failed
+
+    async def _terminate_failed(self, now: datetime) -> list[str]:
+        """Terminates the instances of fleet workers the reaper failed (no heartbeat for
+        `worker_stale_s`). The reaper only marks the row, so a partitioned or crashed host kept
+        billing, outside the spend report, while the autoscaler provisioned its replacement (audit
+        W9). `token_hash` cleared marks an instance as terminated, as `release` does."""
+        async with self.db.session() as session:
+            rows = list(
+                (
+                    await session.execute(
+                        sa.select(GpuWorker).where(
+                            GpuWorker.state == "failed",
+                            GpuWorker.pool_id.is_not(None),
+                            GpuWorker.external_id.is_not(None),
+                            GpuWorker.token_hash.is_not(None),
+                        )
+                    )
+                ).scalars()
+            )
+        terminated: list[str] = []
+        for worker in rows:
+            fp = await self._worker_provider(worker)
+            if fp is None:
+                continue
+            try:
+                await fp.provider.terminate(str(worker.external_id))
+            except ProviderError as exc:
+                _log.warning(
+                    "terminate of a failed worker failed", external_id=worker.external_id, error=str(exc)[:200]
+                )
+                continue  # retried on the next tick
+            async with self.db.transaction() as session:
+                row = await session.get_one(GpuWorker, worker.id, with_for_update=True)
+                row.token_hash = None
+            _log.warning("terminated the instance of a failed worker", external_id=worker.external_id)
+            terminated.append(str(worker.external_id))
+        return terminated
 
     async def _idle_since(self, worker: GpuWorker) -> datetime:
         async with self.db.session() as session:

@@ -27,6 +27,7 @@ from ce_db.models.videos import DirectorRun, Project, Video, VideoVersion
 from ce_db.models.worlds import World, WorldVersion
 from ce_db.projections import rebuild_projections
 from ce_db.repository import OrgContext
+from ce_db.versions import next_version_number
 from ce_memory.store import create_snapshot, load_records, recent_usage, version_numbers
 from ce_research.ingest import StoredFact
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -193,13 +194,7 @@ async def persist_plan(
 ) -> VideoVersion:
     spec = outcome.spec
     video_id = spec.video_id
-    number = (
-        await session.execute(
-            sa.select(sa.func.coalesce(sa.func.max(VideoVersion.number), 0)).where(
-                VideoVersion.org_id == org_id, VideoVersion.video_id == video_id
-            )
-        )
-    ).scalar_one() + 1
+    number = await next_version_number(session, org_id, video_id)
     artifact_id = await register_artifact(
         session,
         org_id,

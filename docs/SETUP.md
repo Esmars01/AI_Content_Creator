@@ -81,10 +81,12 @@ What it does, in order:
    world and memory. The seed is idempotent and refuses `APP_ENV=prod`.
 3. The `core` and `mock-gpu` profiles together: the one-shot `api-migrate` (migrations and buckets),
    `api`, `web`, `orchestrator`, `scheduler` and `render-worker` (the images
-   `creator-engine/api`, `creator-engine/services` and `creator-engine/web` are built from
-   `infra/docker/` when missing), and `worker-cpu`
-   (`WORKER_RUNTIME_FAMILY=cpu_model`), which registers with the scheduler and serves the mock
-   adapters plus the real CPU engines whose assets are present.
+   `creator-engine/api`, `creator-engine/services` and `creator-engine/web` are rebuilt from
+   `infra/docker/` on every `make dev` — the images carry the code, so an image that is not rebuilt
+   runs old code; the layer cache keeps an unchanged rebuild quick), and `worker-cpu`
+   (`WORKER_RUNTIME_FAMILY=cpu_model`, two tasks at once: `WORKER_CPU_CONCURRENCY`), which registers
+   with the scheduler and serves the mock adapters plus the real CPU engines whose assets are present.
+   Ports are published on `CE_BIND_ADDRESS` (default `127.0.0.1`, this machine only).
 
 `make dev` prints the dev login `admin@creator-engine.local` and, the first time, a generated
 password, shown once. Set `CE_SEED_ADMIN_PASSWORD` (in the environment or in `.env`, which the seed

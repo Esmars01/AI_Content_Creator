@@ -9,7 +9,7 @@ from uuid import UUID
 import sqlalchemy as sa
 from ce_core.errors import ConflictError, InvalidInputError, Issue, NotFoundError, PermissionDeniedError
 from ce_db.models.tenancy import ROLES as _ROLES
-from ce_db.models.tenancy import Invitation, Membership, Session, User
+from ce_db.models.tenancy import ApiKey, Invitation, Membership, Session, User
 from fastapi import APIRouter, Request, Response
 from pydantic import Field
 
@@ -116,6 +116,13 @@ async def remove_member(
     await session.execute(
         sa.update(Session)
         .where(Session.org_id == principal.org_id, Session.user_id == user_id, Session.revoked_at.is_(None))
+        .values(revoked_at=services.clock())
+    )
+    # Their API keys too: keys authorize through the membership, so a later re-invitation (even as a
+    # viewer) would otherwise bring the old keys back with their old scopes.
+    await session.execute(
+        sa.update(ApiKey)
+        .where(ApiKey.org_id == principal.org_id, ApiKey.user_id == user_id, ApiKey.revoked_at.is_(None))
         .values(revoked_at=services.clock())
     )
     await audit(session, principal, "member.remove", "user", user_id, request=request, before={"role": membership.role})

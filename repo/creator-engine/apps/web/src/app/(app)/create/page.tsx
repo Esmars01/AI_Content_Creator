@@ -92,7 +92,7 @@ function CreateWizard() {
   const o = options.data;
 
   return (
-    <div className="grid grid-cols-[14rem_1fr] gap-6">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-[14rem_1fr]">
       <ol aria-label="Steps" className="flex flex-col gap-1">
         {STEPS.map((name, index) => (
           <li key={name}>
@@ -368,7 +368,7 @@ function CreateWizard() {
           ) : null}
 
           {step === 8 ? (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field id="tier" label="Quality tier">
                 <Select
                   id="tier"
@@ -464,7 +464,7 @@ function CreateWizard() {
 
           {step === 9 ? (
             <>
-              <dl className="grid grid-cols-[10rem_1fr] gap-x-4 gap-y-1 text-sm">
+              <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[10rem_1fr]">
                 <dt className="text-slate-600">Input</dt>
                 <dd className="line-clamp-3 whitespace-pre-wrap">{form.input || "—"}</dd>
                 <dt className="text-slate-600">Creator</dt>

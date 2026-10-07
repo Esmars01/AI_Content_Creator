@@ -28,9 +28,19 @@ SECRET_PATTERNS = {
     "RunPod API key": re.compile(r"\brpa_[A-Za-z0-9]{30,}"),
 }
 
-pytestmark = pytest.mark.skipif(
-    shutil.which("git") is None or not (ROOT / ".git").exists(), reason="not a git checkout"
-)
+
+def _in_git_work_tree() -> bool:
+    """Inside any git work tree: the repository root, or the AI_Content_Creator workspace, where the
+    sources are `repo/creator-engine` of the outer repository (git commands then run on that subtree)."""
+    if shutil.which("git") is None:
+        return False
+    result = subprocess.run(
+        ["git", "rev-parse", "--is-inside-work-tree"], cwd=ROOT, capture_output=True, text=True, check=False
+    )
+    return result.returncode == 0 and result.stdout.strip() == "true"
+
+
+pytestmark = pytest.mark.skipif(not _in_git_work_tree(), reason="not a git checkout")
 
 
 def committable_files() -> list[str]:

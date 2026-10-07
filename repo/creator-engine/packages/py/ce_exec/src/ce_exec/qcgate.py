@@ -376,7 +376,7 @@ async def accept_outputs(svc: ExecServices, inp: AcceptInput) -> dict[str, Any]:
                 if row["artifact_id"]:
                     row["artifact_id"] = UUID(row["artifact_id"])
             await rec.insert_manifest_rows(session, org_id, version_id, rows)
-            await rec.upsert_node(  # the node row names the accepted attempt (seed, route, artifacts)
+            node_row = await rec.upsert_node(  # the node row names the accepted attempt (seed, route, artifacts)
                 session,
                 org_id,
                 job_id=job_id,
@@ -387,6 +387,10 @@ async def accept_outputs(svc: ExecServices, inp: AcceptInput) -> dict[str, Any]:
                 route=node.route.model_dump(mode="json") if node.route else None,
                 artifact_ids=list(dict.fromkeys([doc_id, *media])),
             )
+            if node_row.status == "failed":
+                # A later re-run inside the QC ladder failed (fail_node), but an earlier attempt of this
+                # node is the accepted one: its row must not say "failed" in a finished version.
+                node_row.status = "succeeded"
             await rec.add_artifact_refs(
                 session, org_id, [doc_id, *media], ref_type="build_manifest", ref_id=str(version_id)
             )

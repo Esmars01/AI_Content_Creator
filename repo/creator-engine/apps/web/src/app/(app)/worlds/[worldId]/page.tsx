@@ -1,9 +1,10 @@
 "use client";
 import { use, useState } from "react";
 
+import { ApiError } from "@/lib/api";
 import { PageHeader } from "@/components/app-shell";
 import { ContinuityPanel, PlatesPanel, WorldDnaPanel, WorldVersionsPanel } from "@/components/studio/world-panels";
-import { Empty, Skeleton, Tabs } from "@/components/ui/misc";
+import { Empty, LoadError, Skeleton, Tabs } from "@/components/ui/misc";
 import { humanize } from "@/lib/format";
 import { useWorld } from "@/lib/queries";
 
@@ -19,6 +20,9 @@ export default function WorldPage({ params }: { params: Promise<{ worldId: strin
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("dna");
   const world = useWorld(worldId);
   if (world.isLoading) return <Skeleton className="h-64" />;
+  if (world.error && !(world.error instanceof ApiError && world.error.status === 404)) {
+    return <LoadError what="this world" error={world.error} onRetry={() => void world.refetch()} />;
+  }
   if (!world.data) return <Empty>This world does not exist.</Empty>;
   return (
     <>

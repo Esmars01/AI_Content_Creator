@@ -9,7 +9,11 @@
 #   observability  otel-collector, prometheus, grafana, loki, tempo (Phase 14)
 #
 # Third-party images are pinned by digest. Versions at pin time are noted beside each image.
-# Our images are built from infra/docker (`make build-images`; compose builds them when missing).
+# Our images are built from infra/docker. `make dev` rebuilds them on every start (`up --build`; the
+# layer cache makes an unchanged rebuild quick): the code is installed into the images, not mounted, so
+# an image that is not rebuilt runs old code against a newer API and database (audit finding D1).
+# Ports are published on CE_BIND_ADDRESS (default 127.0.0.1, this machine only); set it to 0.0.0.0 when
+# remote workers must reach the scheduler (docs/DEPLOYMENT.md).
 # Credentials come from .env (created from .env.example by `make infra-up`); they are dev-only values.
 
 name: creator-engine
@@ -24,7 +28,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
       POSTGRES_DB: ${POSTGRES_DB:?set in .env}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${CE_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
@@ -42,7 +46,7 @@ services:
     image: valkey/valkey@sha256:081c2f5cb575efc901aa80ff9cdbd1ec6a301682fd35e1ebb4b0990a4a4a8507
     command: ["valkey-server", "--appendonly", "yes"]
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "${CE_BIND_ADDRESS:-127.0.0.1}:${REDIS_PORT:-6379}:6379"
     volumes:
       - redisdata:/data
     healthcheck:
@@ -66,7 +70,7 @@ services:
       - --namespace
       - ${TEMPORAL_NAMESPACE:-default}
     ports:
-      - "${TEMPORAL_PORT:-7233}:7233"
+      - "${CE_BIND_ADDRESS:-127.0.0.1}:${TEMPORAL_PORT:-7233}:7233"
     volumes:
       # Mounted on the image user's home so the non-root `temporal` user owns the volume.
       - temporaldata:/home/temporal
@@ -85,7 +89,7 @@ services:
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_CORS_ORIGINS: http://localhost:3000
     ports:
-      - "${TEMPORAL_UI_PORT:-8080}:8080"
+      - "${CE_BIND_ADDRESS:-127.0.0.1}:${TEMPORAL_UI_PORT:-8080}:8080"
     depends_on:
       temporal:
         condition: service_healthy
@@ -113,8 +117,8 @@ services:
         JSON
         exec weed server -dir=/data -ip.bind=0.0.0.0 -volume.max=200 -master.volumeSizeLimitMB=512 -s3 -s3.port=8333 -s3.config=/tmp/s3.json
     ports:
-      - "${S3_PORT:-8333}:8333"
-      - "${SEAWEED_MASTER_PORT:-9333}:9333"
+      - "${CE_BIND_ADDRESS:-127.0.0.1}:${S3_PORT:-8333}:8333"
+      - "${CE_BIND_ADDRESS:-127.0.0.1}:${SEAWEED_MASTER_PORT:-9333}:9333"
     volumes:
       - seaweeddata:/data
     healthcheck:
@@ -142,6 +146,7 @@ services:
       S3_PUBLIC_ENDPOINT_URL: http://localhost:${S3_PORT:-8333}
       API_BASE_URL: http://localhost:${API_PORT:-8000}
       SCHEDULER_INTERNAL_URL: http://scheduler:8100
+      MODEL_CACHE_DIR: /models  # .env's ./.cache/models is a host path
     command: ["sh", "-c", "alembic -c /app/alembic.ini upgrade head && ce storage init"]
     depends_on:
       postgres: {condition: service_healthy}
@@ -161,7 +166,7 @@ services:
       # production set the gateway's exact address and do not publish the API port.
       FORWARDED_ALLOW_IPS: ${API_FORWARDED_ALLOW_IPS:-172.16.0.0/12}
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "${CE_BIND_ADDRESS:-127.0.0.1}:${API_PORT:-8000}:8000"
     depends_on:
       api-migrate: {condition: service_completed_successfully}
       redis: {condition: service_healthy}
@@ -183,7 +188,7 @@ services:
     environment:
       API_INTERNAL_URL: http://api:8000
     ports:
-      - "${WEB_PORT:-3000}:3000"
+      - "${CE_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-3000}:3000"
     depends_on:
       api: {condition: service_healthy}
     healthcheck:
@@ -249,7 +254,7 @@ services:
       METRICS_PORT: "9100"  # side port: the worker API port faces remote workers, metrics stay internal
     command: ["python", "-m", "ce_scheduler"]
     ports:
-      - "${SCHEDULER_PORT:-8100}:8100"
+      - "${CE_BIND_ADDRESS:-127.0.0.1}:${SCHEDULER_PORT:-8100}:8100"
     depends_on:
       api-migrate: {condition: service_completed_successfully}
       temporal: {condition: service_healthy}
@@ -274,6 +279,9 @@ services:
       SCHEDULER_URL: http://scheduler:8100
       WORKER_RUNTIME_FAMILY: cpu_model
       WORKER_NAME: worker-cpu
+      # Model tasks at once. The mock adapters are small and stateless; with one at a time every model
+      # node of a build (TTS, avatar chunks × takes, B-roll, music, …) waited in a single queue.
+      WORKER_CONCURRENCY: ${WORKER_CPU_CONCURRENCY:-2}
       MODEL_CACHE_DIR: /models
       METRICS_PORT: "9100"
     volumes: *model-cache
@@ -298,7 +306,7 @@ services:
       - ../observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
     ports:
-      - "${OTEL_HTTP_PORT:-4318}:4318"
+      - "${CE_BIND_ADDRESS:-127.0.0.1}:${OTEL_HTTP_PORT:-4318}:4318"
     depends_on:
       loki: {condition: service_started}
       tempo: {condition: service_healthy}
@@ -322,7 +330,7 @@ services:
       - ../observability/alerts.yml:/etc/prometheus/alerts.yml:ro
       - promdata:/prometheus
     ports:
-      - "${PROMETHEUS_PORT:-9090}:9090"
+      - "${CE_BIND_ADDRESS:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/ready"]
       interval: 10s
@@ -338,7 +346,7 @@ services:
     volumes:
       - ../observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
     ports:
-      - "${ALERTMANAGER_PORT:-9093}:9093"
+      - "${CE_BIND_ADDRESS:-127.0.0.1}:${ALERTMANAGER_PORT:-9093}:9093"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9093/-/ready"]
       interval: 10s
@@ -390,7 +398,7 @@ services:
       - ../observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafanadata:/var/lib/grafana
     ports:
-      - "${GRAFANA_PORT:-3001}:3000"
+      - "${CE_BIND_ADDRESS:-127.0.0.1}:${GRAFANA_PORT:-3001}:3000"
     depends_on:
       prometheus: {condition: service_healthy}
     healthcheck:

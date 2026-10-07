@@ -238,7 +238,12 @@ export function PlatesPanel({ world }: { world: World }) {
           params: { path: { world_version_id: versionId ?? "" } },
         }),
       ),
-    onSuccess: () => client.invalidateQueries({ queryKey: keys.world(world.id) }),
+    // the world (its versions) and the version this panel shows: its status decides draft or frozen
+    onSuccess: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: keys.world(world.id) }),
+        client.invalidateQueries({ queryKey: keys.worldVersion(versionId ?? "") }),
+      ]),
   });
   if (!version.data) return <Skeleton className="h-48" />;
   const draft = version.data.status === "draft";

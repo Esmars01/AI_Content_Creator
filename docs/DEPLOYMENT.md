@@ -22,8 +22,10 @@ make dev                    # infrastructure + migrations + seed + api, web, orc
 make obs-up                 # optional: Prometheus, Alertmanager, Grafana, Loki, Tempo, OTel collector
 ```
 
-Service images are built from `infra/docker/` (`make build-images`; `EXTRA_CA_BUNDLE=<path>` behind a
-TLS-intercepting proxy). Everything runs in mock mode (`MOCK_GPU=true`, fixture LLM, `PROVENANCE_MODE`
+Service images are built from `infra/docker/` and rebuilt by every `make dev` (`make build-images` builds
+them alone; `EXTRA_CA_BUNDLE=<path>` behind a TLS-intercepting proxy); the services image carries every
+plugin manifest, so Compose routes exactly like native mode. Ports are published on `CE_BIND_ADDRESS`
+(default `127.0.0.1`). Everything runs in mock mode (`MOCK_GPU=true`, fixture LLM, `PROVENANCE_MODE`
 resolving to `mock_dev`): renders are stamped "MOCK PROVENANCE — NOT FOR DISTRIBUTION" and cannot be exported.
 
 ### 2. One host, native services (when images cannot be built)
@@ -46,7 +48,11 @@ store) runs on CPU hosts; GPU workers run wherever GPUs are and need only:
 
 - HTTPS reach to the scheduler's worker API (`SCHEDULER_PUBLIC_URL`) — workers lease work, heartbeat and
   upload outputs through presigned URLs, so they need no database or Temporal access;
-- reach to the object store's public endpoint (`S3_PUBLIC_ENDPOINT_URL`) for presigned downloads and uploads;
+- reach to the object store for presigned downloads and uploads. **The scheduler signs worker URLs with
+  its own `S3_ENDPOINT_URL`** (not `S3_PUBLIC_ENDPOINT_URL`, which is for browsers): that endpoint must be an
+  address the GPU hosts can reach (audit 2026-10, GPU readiness R10). With Compose, set `CE_BIND_ADDRESS=0.0.0.0`
+  so the scheduler and the object store are reachable from other hosts;
+- `WORKER_CONCURRENCY=1` (the default) on GPU workers: VRAM is not yet accounted per running task;
 - a registration secret: `WORKER_TOKEN` (≥ 32 characters in production) or a one-time enrollment token
   issued by the fleet manager or `POST /v1/admin/gpu/workers:enroll`;
 - the model cache (`MODEL_CACHE_DIR`), filled from pinned, checksum-verified sources.

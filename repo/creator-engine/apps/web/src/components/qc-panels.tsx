@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, Empty, Skeleton, Table, Td, Th } from "@/components/ui/misc";
 import { api, unwrap } from "@/lib/api";
 import { humanize } from "@/lib/format";
+import { keys } from "@/lib/queries";
 import { type Json, ladderSteps, metricRows, scoreBars, statusTone, triadRows } from "@/lib/qc";
 
 type Tone = "success" | "warning" | "danger" | "info" | "neutral";
@@ -18,7 +19,7 @@ const badge = (tone: Tone) => (tone === "neutral" ? "muted" : tone);
 
 export function QCReportPanel({ versionId }: { versionId: string }) {
   const report = useQuery({
-    queryKey: ["qc", versionId],
+    queryKey: keys.qc(versionId),
     queryFn: () => unwrap(api.GET("/v1/versions/{version_id}/qc", { params: { path: { version_id: versionId } } })),
   });
   if (report.isLoading) return <Skeleton className="h-40" />;
@@ -188,11 +189,11 @@ export function QCReportPanel({ versionId }: { versionId: string }) {
 export function CritiquePanel({ versionId }: { versionId: string }) {
   const client = useQueryClient();
   const critiques = useQuery({
-    queryKey: ["critiques", versionId],
+    queryKey: keys.critiques(versionId),
     queryFn: () =>
       unwrap(api.GET("/v1/versions/{version_id}/critiques", { params: { path: { version_id: versionId } } })),
   });
-  const job = useStudioJob([["critiques", versionId]]);
+  const job = useStudioJob([keys.critiques(versionId)]);
   const run = useMutation({
     mutationFn: () =>
       unwrap(api.POST("/v1/versions/{version_id}:critique", { params: { path: { version_id: versionId } } })),
@@ -208,7 +209,7 @@ export function CritiquePanel({ versionId }: { versionId: string }) {
       ),
     onSuccess: (data, vars) => {
       setProposed((p) => ({ ...p, [vars.findingId]: data.edit_proposal_id }));
-      void client.invalidateQueries({ queryKey: ["edits", versionId] });
+      void client.invalidateQueries({ queryKey: keys.edits(versionId) });
     },
   });
   const latest = critiques.data?.[0];
@@ -289,7 +290,7 @@ export function CritiquePanel({ versionId }: { versionId: string }) {
 
 export function VersionConsistency({ versionId }: { versionId: string }) {
   const reports = useQuery({
-    queryKey: ["version-consistency", versionId],
+    queryKey: keys.versionConsistency(versionId),
     queryFn: () =>
       unwrap(api.GET("/v1/versions/{version_id}/consistency", { params: { path: { version_id: versionId } } })),
   });

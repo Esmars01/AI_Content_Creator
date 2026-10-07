@@ -48,6 +48,7 @@ Prerequisites: Docker with Compose v2 (daemon running), [uv](https://docs.astral
 make bootstrap     # creates .env from .env.example, installs Python + JS workspaces, git hooks
 make fetch-cpu-assets  # optional: real CPU engines (0.57 GB into .cache/models; mocks without it)
 make dev           # infrastructure, web app, API, orchestrator, scheduler, render worker and worker-cpu
+                   # (service images rebuilt on every start: they carry the code)
                    # (images built, migrated, buckets created, dev data seeded) — mock mode, plus the
                    # real CPU engines whose assets are present;
                    # `make infra-up` starts only the infrastructure (no service images)
@@ -112,6 +113,7 @@ Start here: [`docs/SETUP.md`](docs/SETUP.md) (install and run), [`docs/ARCHITECT
 - Engines: [`PLUGINS`](docs/PLUGINS.md), [`ADAPTERS`](docs/ADAPTERS.md), [`MODELS`](docs/MODELS.md), [`MODEL_INSTALLATION`](docs/MODEL_INSTALLATION.md), [`GPU_SETUP`](docs/GPU_SETUP.md), [`GPU_VALIDATION`](docs/GPU_VALIDATION.md).
 - Running it: [`DEPLOYMENT`](docs/DEPLOYMENT.md), [`OPERATIONS`](docs/OPERATIONS.md) (runbooks, backup and restore), [`OBSERVABILITY`](docs/OBSERVABILITY.md), [`SECURITY`](docs/SECURITY.md), [`POLICY_AND_COMPLIANCE`](docs/POLICY_AND_COMPLIANCE.md), [`LOAD_TEST`](docs/LOAD_TEST.md), [`TROUBLESHOOTING`](docs/TROUBLESHOOTING.md), [`ENVIRONMENT_VARIABLES`](docs/ENVIRONMENT_VARIABLES.md).
 - Working on it: [`DEVELOPMENT`](docs/DEVELOPMENT.md), [`TESTING`](docs/TESTING.md), [`INVARIANTS`](docs/INVARIANTS.md) (the 14 architecture invariants), [`ENVIRONMENT`](docs/ENVIRONMENT.md) (the machines this was built on).
+- Audit (2026-10): `FINAL_AUDIT_AND_FIX_REPORT.md` and `GPU_READINESS_REPORT.md` in the workspace's `docs/` (and in `docs/` of the Phase 14 bundle).
 - Decisions: [`docs/adr/`](docs/adr/) (ADRs 0001–0060), [`DECISIONS`](docs/DECISIONS.md), [`SPEC_ERRATA`](docs/SPEC_ERRATA.md); plans: [`ROADMAP.md`](ROADMAP.md), [`TODO.md`](TODO.md), [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Contributing

@@ -120,6 +120,10 @@ async def run_ffmpeg(args: Sequence[str], *, timeout_s: float = 600.0) -> None:
         process.kill()
         await process.wait()
         raise FFmpegError(f"ffmpeg timed out after {timeout_s} s") from None
+    except asyncio.CancelledError:  # a cancelled task must not leave the subprocess running
+        process.kill()
+        await process.wait()
+        raise
     if process.returncode != 0:
         raise FFmpegError(stderr.decode("utf-8", "replace")[-2000:] or f"ffmpeg exited with {process.returncode}")
 

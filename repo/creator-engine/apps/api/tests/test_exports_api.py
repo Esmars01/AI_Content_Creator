@@ -291,9 +291,27 @@ async def test_every_export_rule_then_the_export(harness: ApiHarness, editor: Ap
     assert pending.status_code == 409 and "de translation is pending" in pending.json()["detail"]
     started: list[Any] = harness.started  # type: ignore[attr-defined]
     before = len(started)
-    created = await editor.client.post(url, json=body, headers=key())
+    export_key = key()
+    created = await editor.client.post(url, json=body, headers=export_key)
     assert created.status_code == 201, created.text
     export = created.json()
+    # Regression (audit A7): a retry with the same key returned the stored answer, whose presigned
+    # URLs expire long before the idempotency record does; now the downloads are signed again.
+    from ce_db.models.tenancy import IdempotencyKey
+
+    async with harness.services.db.transaction() as session:
+        row = (
+            await session.execute(sa.select(IdempotencyKey).where(IdempotencyKey.key == export_key["Idempotency-Key"]))
+        ).scalar_one()
+        stale = dict(row.response or {})
+        stale["body"] = {
+            **stale["body"],
+            "downloads": {"video": {"url": "http://expired.invalid/", "expires_at": None}},
+        }
+        row.response = stale
+    replayed = await editor.client.post(url, json=body, headers=export_key)
+    assert replayed.status_code == 201 and replayed.json()["id"] == export["id"]
+    assert replayed.json()["downloads"]["video"]["url"] != "http://expired.invalid/"
     meta = export["metadata_doc"]
     assert meta["provenance"]["mode"] == "real" and meta["provenance"]["ai_generated"] is True
     assert meta["packaging"]["title"] == "Why agents are not chatbots"

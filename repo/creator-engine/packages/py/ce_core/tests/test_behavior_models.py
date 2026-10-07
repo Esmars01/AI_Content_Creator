@@ -25,11 +25,15 @@ from ce_core.enums import CoverageLevel, ObservationVerdict, Outcome
 from ce_testing.fixtures import route_digest_placeholder
 from pydantic import ValidationError
 
-SPEC_DOC = Path(__file__).resolve().parents[4] / "docs" / "MASTER_BUILD_PROMPT.md"
+
+def _spec_doc() -> Path:
+    from ce_testing import docs
+
+    return docs.require_spec()
 
 
 def doc_block(predicate: Any) -> dict[str, Any]:
-    text = SPEC_DOC.read_text(encoding="utf-8").replace('"sha256:…"', json.dumps(route_digest_placeholder()))
+    text = _spec_doc().read_text(encoding="utf-8").replace('"sha256:…"', json.dumps(route_digest_placeholder()))
     blocks = [json.loads(m.group(1)) for m in re.finditer(r"```json\n(.*?)\n```", text, re.S)]
     [block] = [b for b in blocks if predicate(b)]
     return block

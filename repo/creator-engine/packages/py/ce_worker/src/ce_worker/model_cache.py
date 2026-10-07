@@ -232,15 +232,17 @@ class ModelCache:
             await fetcher(uri, staging, list(files))
         else:
             await fetcher(uri, staging)
-        hashes = self._hash_tree(staging)
+        # Hashing (and removing) tens of GB of weights blocks for minutes: off the event loop, which
+        # also runs the task's heartbeats (a blocked loop loses the lease; audit W8).
+        hashes = await asyncio.to_thread(self._hash_tree, staging)
         for rel, digest in (expected or {}).items():
             if hashes.get(rel) != digest:
-                shutil.rmtree(staging, ignore_errors=True)
+                await asyncio.to_thread(shutil.rmtree, staging, ignore_errors=True)
                 raise ModelCacheError(f"{model_key}: {rel} failed its sha256 check")
-        shutil.rmtree(target, ignore_errors=True)
+        await asyncio.to_thread(shutil.rmtree, target, ignore_errors=True)
         target.parent.mkdir(parents=True, exist_ok=True)
         os.replace(staging, target)
-        size = sum(p.stat().st_size for p in target.rglob("*") if p.is_file())
+        size = await asyncio.to_thread(lambda: sum(p.stat().st_size for p in target.rglob("*") if p.is_file()))
         self.entries[model_key] = CacheEntry(model_key, uri, str(target), size, hashes, time.time(), pin)
         self.evict()
         self._save()

@@ -7,6 +7,7 @@ import tomllib
 from pathlib import Path
 
 import pytest
+from ce_testing import docs
 
 from tests.phase0 import spec_index as spec
 
@@ -14,7 +15,11 @@ ROOT = spec.ROOT
 
 
 def test_top_level_entries_exist() -> None:
-    missing = [e for e in spec.top_level_entries() if not (ROOT / e.rstrip("/")).exists()]
+    # docs/ may be the AI_Content_Creator workspace's outer docs/ (ce_testing.docs)
+    present = {e for e in spec.top_level_entries() if (ROOT / e.rstrip("/")).exists()}
+    if docs.docs_dirs():
+        present.add("docs/")
+    missing = [e for e in spec.top_level_entries() if e not in present]
     assert not missing, f"§8 top-level entries missing: {missing}"
 
 

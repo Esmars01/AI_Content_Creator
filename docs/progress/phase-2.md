@@ -96,3 +96,12 @@ New or extended in Phase 2:
 5. Observation: `behavior.observe` with the mock observer, triad comparison and the 12 viewer-level outcomes, `config/qc/behavior.yaml` wired to take ranking and mocked QC retries, `behavior_observations` rows, `model_behavior_profiles` aggregation.
 6. Invariant tests I1 (model swap) and I4 (triad), the coverage-upgrade test, the CBS no-engine-fields lint, re-route flagging of `compiler_approximation` elements.
 7. Extend `make e2e-mock` to produce and check a coverage report with requested, compiled and observed entries for every CBS item of the fixture spec.
+
+## Post-audit corrections (2026-10, after Phase 14)
+
+- **C1/C2** — a failing bookkeeping activity (or a render plan failure) failed the workflow without `complete_build`, leaving jobs `running` forever. **C5** — local activities never heartbeated (cancellation could not reach FFmpeg). **C6** — FFmpeg failures were retried 5×.
+- **W1/W2** — Temporal RPC errors counted as "activity gone": results were dropped and every task cancelled on a Temporal blip. **W3** — a worker shutdown failed the node permanently. **W4** — worker URLs expired after 15 min. **W6** — a leader that lost its lock session kept leading. **W7** — `/complete` timeout and 5xx classification. **W12** — FFmpeg not killed on cancellation.
+- **P1** — one task at a time per worker serialized every model node; **P4** — dependency-free video nodes (SFX) held back every scene.
+- **A1** — a generation that could not start left its version `approved` forever. **A3** — concurrent render requests raced. **D1** — `make dev` never rebuilt the service images (the stale-orchestrator `PlanRequest.sources` failure). **D6** — the services image lacked plugins that native mode has.
+
+The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-2`).

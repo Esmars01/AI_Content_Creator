@@ -45,6 +45,28 @@ async def test_removing_a_member_revokes_their_sessions(harness: ApiHarness, own
     assert (await owner.client.delete(f"/v1/members/{owner.user_id}")).status_code == 409
 
 
+async def test_removing_a_member_revokes_their_api_keys(harness: ApiHarness, owner: ApiTenant) -> None:
+    """Regression (audit A13): keys authorize through the membership, so removing a member left their
+    keys valid for the moment they were invited back (with the keys' old scopes)."""
+    import uuid
+
+    from ce_db.models.tenancy import ApiKey, Membership
+
+    admin = await harness.add_member(owner.org_id, "admin")
+    created = await admin.client.post("/v1/api-keys", json={"scopes": ["read", "write"]})
+    assert created.status_code == 201, created.text
+    bot = harness.client()
+    bot.headers["Authorization"] = f"Bearer {created.json()['key']}"
+    assert (await bot.get("/v1/me")).status_code == 200
+    assert (await owner.client.delete(f"/v1/members/{admin.user_id}")).status_code == 204
+    async with harness.services.db.transaction() as session:  # invited back later, as a viewer
+        session.add(Membership(org_id=owner.org_id, user_id=admin.user_id, role="viewer"))
+    assert (await bot.get("/v1/me")).status_code == 401
+    async with harness.services.db.session() as session:
+        key = await session.get_one(ApiKey, uuid.UUID(created.json()["id"]))
+    assert key.revoked_at is not None
+
+
 async def test_invitations(harness: ApiHarness, owner: ApiTenant) -> None:
     invited = await owner.client.post("/v1/invitations", json={"email": "Sam@Example.test", "role": "editor"})
     assert invited.status_code == 201, invited.text

@@ -8,7 +8,7 @@ import { SourcesPanel } from "@/components/research-panels";
 import { StateBadge } from "@/components/state-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Empty, Skeleton, Table, Td, Th } from "@/components/ui/misc";
+import { Empty, LoadError, Skeleton, Table, Td, Th } from "@/components/ui/misc";
 import { humanize, when } from "@/lib/format";
 import { useProject, useProjectVideos } from "@/lib/queries";
 
@@ -32,6 +32,8 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
         <CardContent>
           {videos.isLoading ? (
             <Skeleton className="h-24" />
+          ) : videos.error ? (
+            <LoadError what="this project's videos" error={videos.error} onRetry={() => void videos.refetch()} />
           ) : videos.data?.items.length ? (
             <Table>
               <thead>

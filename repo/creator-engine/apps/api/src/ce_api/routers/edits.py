@@ -34,7 +34,7 @@ from pydantic import Field, ValidationError
 from ce_api.common import audit, begin_idempotent, finish_idempotent
 from ce_api.deps import DbSession, Reader, ServicesDep, Writer
 from ce_api.errors import NotYetImplementedError
-from ce_api.jobs import create_job, start_job
+from ce_api.jobs import create_job, job_in_flight, start_job
 from ce_api.routers.behavior import _cbs_by_scene, _report
 from ce_api.routers.planning import MediaLink, _build_arg
 from ce_api.schemas import Body, Out, examples
@@ -609,6 +609,10 @@ async def apply_edit(
     row = await lock_scoped(session, EditProposal, principal.ctx, edit_proposal_id, "edit")
     if row.status != "proposed":
         raise ConflictError(f"a {row.status} proposal cannot be applied")
+    # The proposal stays `proposed` until its apply job finishes: a second apply (another tab, a
+    # retry with a fresh key) would otherwise create a second derived version and a second build.
+    if await job_in_flight(session, principal.org_id, JobKind.EDIT_APPLY, row.version_id, edit_proposal_id=row.id):
+        raise ConflictError("this proposal is already being applied")
     alternative = body.alternative if body else None
     offered = {a.get("strategy") for a in row.alternatives or []}
     if alternative and alternative != "full_reperformance" and alternative not in offered:
@@ -638,6 +642,8 @@ async def reject_edit(edit_proposal_id: UUID, principal: Writer, session: DbSess
     row = await lock_scoped(session, EditProposal, principal.ctx, edit_proposal_id, "edit")
     if row.status not in ("proposed", "failed"):
         raise ConflictError(f"a {row.status} proposal cannot be rejected")
+    if await job_in_flight(session, principal.org_id, JobKind.EDIT_APPLY, row.version_id, edit_proposal_id=row.id):
+        raise ConflictError("this proposal is being applied")
     row.status = "rejected"
     await session.flush()
     return EditOut.model_validate(row)

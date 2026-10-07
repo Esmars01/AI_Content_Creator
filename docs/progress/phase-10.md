@@ -59,3 +59,9 @@ ADR 0055 (studio jobs); D109 (`execution_nodes.version_id` nullable), D110 (age 
 ## Final Phase 10 state and what Phase 11 inherits
 
 Creators and worlds can be designed, tested and approved end to end on mock engines; the Creator Test and the plates produce the baselines and fingerprints that Phase 11's QC gate, world continuity checks and consistency reports compare against.
+
+## Post-audit corrections (2026-10, after Phase 14)
+
+- `useStudioJob` (8 Studio panels) re-invalidated its queries on every render once a job finished — an endless refetch loop. That loop also hid a second defect: approving a world version from the Plates tab never refreshed the version shown, so the panel stayed "Draft". The creators/worlds pages still said the studios "arrive in Phase 10".
+
+The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-10`).

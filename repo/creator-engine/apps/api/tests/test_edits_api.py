@@ -148,6 +148,11 @@ async def test_an_instruction_becomes_a_proposal_and_applying_it_derives_a_versi
     assert applied.status_code == 202, applied.text
     apply_ids = applied.json()
     assert last_start(harness)[0] == "ApplyEditWorkflow"
+    # Regression (audit A2): while the apply job runs the proposal still says `proposed`; a second
+    # apply with a fresh key created a second derived version (and a second build).
+    twice = await editor.client.post(f"/v1/edits/{ids['edit_proposal_id']}:apply", json={}, headers=key())
+    assert twice.status_code == 409 and "already being applied" in twice.text
+    assert (await editor.client.post(f"/v1/edits/{ids['edit_proposal_id']}:reject")).status_code == 409
     outcome = await run_apply(harness, apply_ids["job_id"])
     assert outcome["status"] == "succeeded" and outcome["version_id"] == apply_ids["new_version_id"]
     assert outcome["next_kind"] == "generate"  # the parent passed approval: generation follows
@@ -547,3 +552,36 @@ async def test_estimates_come_from_the_planned_routes_and_the_proposal(harness: 
         "/v1/estimates", json={"version_id": str(sub.version_id), "edit_proposal_id": regen.json()["edit_proposal_id"]}
     )
     assert both.status_code == 422
+
+
+async def test_a_generation_that_cannot_start_fails_the_version_so_it_can_resume(
+    harness: ApiHarness, editor: ApiTenant
+) -> None:
+    """Regression (audit A1): when Temporal refused the generate workflow, only the job failed; the
+    version stayed `approved`, from which no route moves on (approve needs previz_ready, resume needs
+    failed/partial/cancelled), so it was stuck for good."""
+    from ce_api.jobs import start_job
+    from ce_core.enums import JobKind
+
+    sub = await submitted(harness)  # approved, with its queued generate job
+    job_id = sub.job_id
+
+    async def refuse(workflow: str, arg: Any, *, workflow_id: str) -> None:
+        raise ConnectionError("temporal is down")
+
+    harness.services.workflows.start = refuse  # type: ignore[method-assign]
+    await start_job(harness.services, ALEX.ORG_ID, job_id, JobKind.GENERATE, {})
+    async with harness.services.db.session() as session:
+        job_row = await session.get_one(GenerationJob, job_id)
+        version = await session.get_one(VideoVersion, sub.version_id)
+    assert job_row.status == "failed" and (job_row.error or {})["code"] == "workflow_start_failed"
+    assert version.state == VersionState.FAILED.value
+    # and the way out works: resume starts a new generate job
+    harness.started = []  # type: ignore[attr-defined]
+
+    async def record_start(workflow: str, arg: Any, *, workflow_id: str) -> None:
+        harness.started.append((workflow, arg, workflow_id))  # type: ignore[attr-defined]
+
+    harness.services.workflows.start = record_start  # type: ignore[method-assign]
+    response = await editor.client.post(f"/v1/versions/{sub.version_id}:resume", headers=key())
+    assert response.status_code == 202, response.text

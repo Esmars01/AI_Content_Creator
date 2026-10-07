@@ -50,7 +50,26 @@ export const keys = {
   captions: (versionId: string) => ["version", versionId, "captions"] as const,
   packaging: (versionId: string) => ["version", versionId, "packaging"] as const,
   exports: (versionId: string) => ["version", versionId, "exports"] as const,
+  // Phase 11 — under the version, so a version's terminal state refreshes them with it
+  qc: (versionId: string) => ["version", versionId, "qc"] as const,
+  critiques: (versionId: string) => ["version", versionId, "critiques"] as const,
+  versionConsistency: (versionId: string) => ["version", versionId, "consistency"] as const,
 };
+
+/**
+ * How long before a presigned URL expires it is refreshed (the API signs for `presign_ttl_s`,
+ * 15 min by default); `null` when the response has no expiry.
+ */
+export function refreshBefore(
+  expiresAt: string | null | undefined,
+  now = Date.now(),
+  marginMs = 60_000,
+): number | false {
+  if (!expiresAt) return false;
+  const at = Date.parse(expiresAt);
+  if (Number.isNaN(at)) return false;
+  return Math.max(5_000, at - now - marginMs);
+}
 
 /** 404s are an answer ("not there yet"), not a retryable failure. */
 function retry(count: number, error: Error): boolean {
@@ -170,21 +189,31 @@ export const useBehavior = (id: string | null, sceneKey: string | null) =>
     ...opts,
   });
 
-export const useRenders = (id: string | null) =>
+/**
+ * A version's renders. `pollWhile(renders, fetches)` keeps refetching while the caller still
+ * expects one, so the player never depends on an SSE event alone: events are a fast path, the
+ * durable API state is the source of truth.
+ */
+export const useRenders = (id: string | null, pollWhile?: (data: Renders | undefined, fetches: number) => boolean) =>
   useQuery({
     queryKey: keys.renders(id ?? ""),
     enabled: Boolean(id),
     queryFn: () => unwrap(api.GET("/v1/versions/{version_id}/renders", { params: { path: { version_id: id ?? "" } } })),
+    refetchInterval: (query) => (pollWhile?.(query.state.data, query.state.dataUpdateCount) ? 2000 : false),
     ...opts,
   });
 
+type Renders = Schemas["RenderOut"][];
+
+/** A render's presigned download URL, refreshed a minute before it expires. */
 export const useRenderDownload = (renderId: string | null) =>
   useQuery({
     queryKey: keys.download(renderId ?? ""),
     enabled: Boolean(renderId),
     queryFn: () =>
       unwrap(api.GET("/v1/renders/{render_id}/download", { params: { path: { render_id: renderId ?? "" } } })),
-    staleTime: 600_000,
+    staleTime: (query) => refreshBefore(query.state.data?.expires_at) || 600_000,
+    refetchInterval: (query) => refreshBefore(query.state.data?.expires_at),
     ...opts,
   });
 

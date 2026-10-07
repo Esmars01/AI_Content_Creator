@@ -14,11 +14,15 @@ from ce_core.spec.videospec import VideoSpec
 from ce_testing.fixtures import example_spec, example_spec_dict, route_digest_placeholder
 from pydantic import ValidationError
 
-SPEC_DOC = Path(__file__).resolve().parents[4] / "docs" / "MASTER_BUILD_PROMPT.md"
+
+def _spec_doc() -> Path:
+    from ce_testing import docs
+
+    return docs.require_spec()
 
 
 def doc_json_blocks() -> list[dict[str, Any]]:
-    text = SPEC_DOC.read_text(encoding="utf-8").replace('"sha256:…"', json.dumps(route_digest_placeholder()))
+    text = _spec_doc().read_text(encoding="utf-8").replace('"sha256:…"', json.dumps(route_digest_placeholder()))
     return [json.loads(m.group(1)) for m in re.finditer(r"```json\n(.*?)\n```", text, re.S)]
 
 

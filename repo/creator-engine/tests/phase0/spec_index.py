@@ -1,4 +1,4 @@
-"""Reads the facts Phase 0 tests check out of docs/MASTER_BUILD_PROMPT.md itself.
+"""Reads the facts Phase 0 tests check out of the spec (docs/MASTER_BUILD_PROMPT.md) itself.
 
 The tests derive expectations from the spec (the §8 layout tree, the §4 invariants, the §6
 ADRs, the §35 env block, the §36 make targets) instead of copying them, so the repository
@@ -11,13 +11,15 @@ import re
 from functools import cache
 from pathlib import Path
 
+from ce_testing import docs
+
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = ROOT / "docs" / "MASTER_BUILD_PROMPT.md"
 
 
 @cache
 def spec_text() -> str:
-    return SPEC.read_text(encoding="utf-8")
+    # the repository's docs/ or, in the AI_Content_Creator workspace, its outer docs/ (ce_testing.docs)
+    return docs.require_spec().read_text(encoding="utf-8")
 
 
 @cache

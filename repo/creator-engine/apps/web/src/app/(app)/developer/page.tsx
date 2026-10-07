@@ -93,7 +93,7 @@ function Developer() {
   return (
     <>
       <form className="mb-4 flex items-end gap-2" onSubmit={submit}>
-        <div className="flex w-[28rem] flex-col gap-1">
+        <div className="flex w-full max-w-[28rem] flex-col gap-1">
           <Label htmlFor="version-id">Version id</Label>
           <Input id="version-id" value={value} onChange={(e) => setValue(e.target.value)} placeholder="01a1…" />
         </div>

@@ -102,3 +102,9 @@ Changed: `ce_contracts` (manifest assets and CPU engines, `provenance.verify`, T
 3. A minimal golden set (`eval/smoke/`, with behavior fixtures) and the smoke-promotion flow (`promotion_basis: smoke`).
 4. `CalibrationWorkflow` with `POST /v1/admin/models/{model_id}:calibrate`; the `voice.prepare` conditioning for each TTS adapter.
 5. DoD: all adapters import and pass the contract tests; with no GPU in this environment every adapter stays `validation: untested_on_gpu` and nothing claims otherwise. No paid GPU is provisioned without explicit owner approval.
+
+## Post-audit corrections (2026-10, after Phase 14)
+
+- **W12** — the mock adapters' FFmpeg was not killed on cancellation. **D14** — the API container received a host path as `MODEL_CACHE_DIR`.
+
+The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-7`).

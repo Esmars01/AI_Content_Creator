@@ -24,6 +24,8 @@ import json
 import logging
 import os
 import platform
+import shutil
+import subprocess
 import sys
 from collections.abc import Mapping
 
@@ -40,6 +42,25 @@ def _truthy(value: str | None) -> bool:
     return (value or "").strip().lower() in ("1", "true", "yes", "on")
 
 
+def detect_vram_gb() -> float:
+    """Total memory of the first GPU from `nvidia-smi`, in GB; 0 without one. Used when
+    `WORKER_VRAM_GB` is not set, so a GPU worker never advertises 0 GB and leases nothing."""
+    binary = shutil.which("nvidia-smi")
+    if binary is None:
+        return 0.0
+    try:
+        out = subprocess.run(  # noqa: S603 — fixed argv, the binary resolved by shutil.which
+            [binary, "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        ).stdout
+        return round(float(out.strip().splitlines()[0]) / 1024, 1)  # MiB → GiB
+    except (OSError, subprocess.SubprocessError, ValueError, IndexError):
+        return 0.0
+
+
 def config_from_env(env: Mapping[str, str]) -> WorkerConfig:
     return WorkerConfig(
         scheduler_url=env.get("SCHEDULER_URL", "http://localhost:8100"),
@@ -50,8 +71,9 @@ def config_from_env(env: Mapping[str, str]) -> WorkerConfig:
         external_id=env.get("WORKER_EXTERNAL_ID") or None,
         region=env.get("WORKER_REGION") or None,
         gpu_type=env.get("WORKER_GPU_TYPE", "cpu"),
-        vram_gb=float(env.get("WORKER_VRAM_GB", "0") or 0),
+        vram_gb=float(env.get("WORKER_VRAM_GB", "0") or 0) or detect_vram_gb(),
         price_per_hour_usd=float(env.get("WORKER_PRICE_PER_HOUR_USD", "0") or 0),
+        concurrency=max(1, int(env.get("WORKER_CONCURRENCY", "1") or 1)),
         app_env=env.get("APP_ENV", "prod"),
         model_cache_dir=env.get("MODEL_CACHE_DIR", "/models"),
         adapter_defaults=json.loads(env.get("CE_ADAPTER_DEFAULTS", "{}") or "{}"),

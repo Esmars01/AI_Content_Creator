@@ -84,3 +84,9 @@ ADR 0050 (phase mapping; Phase 13 removed), ADR 0051 (engine adapter/backend spl
 
 - 28 sandbox GPU adapters ready for smoke runs the moment a GPU host exists; the harness, the evidence API and the promotion flow are in place.
 - Phase 9 builds the providers that create such hosts (`local_docker`, `runpod_pod`, `runpod_serverless`, a third-party stub), the fleet's autoscaling, budgets and holds, enrollment, cost actuals and the GPU admin UI. Milestone M2 (a GPU-validated golden video) needs a GPU, which this environment does not have; any paid run needs the owner's explicit approval.
+
+## Post-audit corrections (2026-10, after Phase 14)
+
+- **W8** — hashing model weights blocked the worker's event loop and its heartbeats. **D6** — none of the Phase 8 GPU adapter plugins was installed in the Compose services image, so a GPU worker registering with that scheduler would have had every adapter dropped.
+
+The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-8`).

@@ -8,7 +8,10 @@ retried by Temporal (`maximum_attempts=1`), because infrastructure retries belon
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import contextlib
+from collections.abc import Awaitable
 from typing import Any
 from uuid import UUID
 
@@ -40,6 +43,28 @@ from ce_orchestrator.models import (
 )
 
 __all__ = ["Activities"]
+
+
+HEARTBEAT_EVERY_S = 10.0
+
+
+async def _heartbeating(work: Awaitable[Any]) -> Any:
+    """Runs `work` while heartbeating every HEARTBEAT_EVERY_S. Without heartbeats Temporal can neither
+    deliver a cancellation to a running node (the build was cancelled, its ffmpeg kept going and wrote
+    results afterwards) nor notice a dead worker before the start-to-close timeout (30 min on the
+    render queue); the workflow sets `heartbeat_timeout` for these activities (audit C5)."""
+    task = asyncio.ensure_future(work)
+    try:
+        while True:
+            done, _ = await asyncio.wait({task}, timeout=HEARTBEAT_EVERY_S)
+            if done:
+                return task.result()
+            activity.heartbeat()
+    except asyncio.CancelledError:
+        task.cancel()  # ce_render kills its ffmpeg on cancellation
+        with contextlib.suppress(BaseException):
+            await task
+        raise
 
 
 class Activities:
@@ -89,7 +114,8 @@ class Activities:
 
     @activity.defn(name="run_local_node")
     async def run_local_node(self, inp: LocalInput) -> runtime.FinishResult:
-        return await runtime.run_node_local(self.svc, inp.ref, inp.begin)
+        result: runtime.FinishResult = await _heartbeating(runtime.run_node_local(self.svc, inp.ref, inp.begin))
+        return result
 
     @activity.defn(name="dispatch_gpu")
     async def dispatch_gpu(self, inp: DispatchInput) -> dict[str, Any]:

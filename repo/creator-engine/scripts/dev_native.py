@@ -68,6 +68,7 @@ SERVICES: dict[str, dict[str, Any]] = {
             "METRICS_PORT": "9104",
             "WORKER_RUNTIME_FAMILY": "cpu_model",
             "WORKER_NAME": "worker-cpu-native",
+            "WORKER_CONCURRENCY": os.environ.get("WORKER_CPU_CONCURRENCY", "2"),  # as in Compose
             "SCHEDULER_URL": "http://127.0.0.1:8100",
         },
         "ready": "http://127.0.0.1:9104/metrics",
@@ -129,6 +130,15 @@ def up(args: argparse.Namespace) -> int:
         if name in running:
             print(f"{name}: already running (pid {running[name]})")
             continue
+        if _ready(str(spec["ready"])):
+            # Something else already answers on this service's port — typically a container left by
+            # `make dev`. Starting anyway would report "ready" for the wrong process (audit D4).
+            print(
+                f"{name}: {spec['ready']} already answers but was not started here; stop that process "
+                "first (`make dev-down`)",
+                file=sys.stderr,
+            )
+            return 1
         env = {**base, **spec["env"]}
         cmd = list(spec["cmd"])
         if cmd[0] in ("uvicorn", "python"):
@@ -142,12 +152,12 @@ def up(args: argparse.Namespace) -> int:
     pending = {name: str(spec["ready"]) for name, spec in services.items()}
     while pending and time.monotonic() < deadline:
         for name, url in list(pending.items()):
+            if name in running and not _alive(running[name]):  # before the URL: it may be someone else's
+                print(f"{name}: exited — see .data/native/{name}.log", file=sys.stderr)
+                return 1
             if _ready(url):
                 print(f"{name}: ready ({url})")
                 del pending[name]
-            elif name in running and not _alive(running[name]):
-                print(f"{name}: exited — see .data/native/{name}.log", file=sys.stderr)
-                return 1
         time.sleep(1.0)
     if pending:
         print(f"not ready after {args.timeout:.0f}s: {', '.join(pending)}", file=sys.stderr)

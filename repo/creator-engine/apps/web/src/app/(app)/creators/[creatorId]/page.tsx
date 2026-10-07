@@ -16,8 +16,8 @@ import {
   VoicePanel,
   WardrobePanel,
 } from "@/components/studio/creator-panels";
-import { Empty, Skeleton, Tabs } from "@/components/ui/misc";
-import type { Domain } from "@/lib/api";
+import { Empty, LoadError, Skeleton, Tabs } from "@/components/ui/misc";
+import { ApiError, type Domain } from "@/lib/api";
 import { humanize } from "@/lib/format";
 import { useCreator, useMemory, useWorlds } from "@/lib/queries";
 
@@ -29,7 +29,7 @@ function DnaSummary({ dna }: { dna: DNA }) {
   const personality = dna.personality as unknown as Record<string, unknown> | undefined;
   const traits = (personality?.traits as Record<string, unknown> | undefined) ?? {};
   return (
-    <dl className="grid grid-cols-[10rem_1fr] gap-x-4 gap-y-2 text-sm">
+    <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-[10rem_1fr]">
       <dt className="text-slate-600">Display name</dt>
       <dd>{String(identity.display_name ?? "—")}</dd>
       <dt className="text-slate-600">Bio</dt>
@@ -83,6 +83,9 @@ export default function CreatorPage({ params }: { params: Promise<{ creatorId: s
   const memory = useMemory(creatorId);
   const worlds = useWorlds();
   if (creator.isLoading) return <Skeleton className="h-64" />;
+  if (creator.error && !(creator.error instanceof ApiError && creator.error.status === 404)) {
+    return <LoadError what="this creator" error={creator.error} onRetry={() => void creator.refetch()} />;
+  }
   if (!creator.data) return <Empty>This creator does not exist.</Empty>;
   const current = creator.data.current_version;
   const defaults = new Set(current?.default_world_ids ?? []);
@@ -105,7 +108,7 @@ export default function CreatorPage({ params }: { params: Promise<{ creatorId: s
       {tab === "consistency" ? <ConsistencyPanel creatorId={creatorId} /> : null}
       {tab === "consent" ? <ConsentPanel /> : null}
       {tab === "overview" ? (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <Card className="col-span-2">
             <CardHeader>
               <CardTitle>Creator DNA {current ? `(version ${current.number}, ${current.status})` : ""}</CardTitle>

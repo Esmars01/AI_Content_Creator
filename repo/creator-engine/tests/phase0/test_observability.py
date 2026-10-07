@@ -58,7 +58,9 @@ def test_every_query_and_alert_names_a_defined_metric() -> None:
 
 
 def test_alerts_have_severity_and_runbook() -> None:
-    operations = (ROOT / "docs" / "OPERATIONS.md").read_text().lower()
+    from ce_testing import docs
+
+    operations = docs.require("OPERATIONS.md").read_text().lower()
     for rule in alert_rules():
         assert rule["labels"]["severity"] in ("page", "ticket"), rule["alert"]
         runbook = rule["annotations"]["runbook"]
