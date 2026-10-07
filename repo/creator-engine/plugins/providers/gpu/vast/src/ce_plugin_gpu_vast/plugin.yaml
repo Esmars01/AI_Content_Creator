@@ -1,0 +1,63 @@
+# Vast.ai marketplace instances as a GPU provider (§25). It is an additional provider: RunPod, local,
+# local Docker and the mock stay as they are.
+#
+# Paid: inert until an administrator enables paid provisioning (`allow_paid`) after the owner approved
+# the spend (§41). It also needs a price ceiling: offers above `max_price_per_hour_usd` are never
+# rented. It has never been exercised against the live API (no key, no approved spend) and never on a
+# GPU.
+#
+# Class prices are placeholder estimates for the class guard and budget projections, NOT read from
+# Vast. Offers and their prices come from a live search; the price of the rented offer (`dph_total`,
+# or the interruptible bid) is captured at provision.
+id: gpu.vast
+name: Vast.ai instances
+version: 0.1.0
+kind: provider
+provider: { kind: gpu, key: vast }
+entrypoint: ce_plugin_gpu_vast.provider:create
+runtime: { family: cpu_inproc, python: "3.12", requires_gpu: false, supports_cpu: true }
+allowed_envs: [dev, test, prod]
+status: experimental
+validation: untested_on_gpu
+maturity_notes: "Request shapes checked against Vast's own client (vastai 1.8.3, 2026-10-07); no live call has been made and no GPU was rented."
+defaults:
+  endpoint: https://console.vast.ai
+  allow_paid: false
+  max_price_per_hour_usd: 2.5
+  image_template: ""
+  images: {}
+  env: {}
+  storage:
+    disk_gb: 80 # container disk; holds the model cache unless a volume is linked
+    model_cache_dir: /models # MODEL_CACHE_DIR in the container (set unless the fleet passes it)
+    volume: {} # optional existing Vast volume: {volume_id, machine_id, mount_path}
+  search:
+    verified: true
+    min_reliability: 0.98
+    min_cuda: 12.8
+    limit: 20
+    rent_attempts: 3 # offers tried when the cheapest ones were rented meanwhile
+  interruptible:
+    enabled: false # spot ("bid") rentals only when enabled here and allowed by the pool and class
+    bid_margin: 0.1 # bid = min_bid × (1 + margin), never above max_price_per_hour_usd
+  regions:
+    eu: [SE, NO, FI, DK, DE, NL, BE, FR, CH, AT, CZ, PL, ES, PT, IT, IE, GB, RO, BG, HU, SI, EE, LT, LV]
+    us: [US, CA]
+  classes:
+    rtx_4090_24gb: { gpu_names: ["RTX 4090"], vram_gb: 24, price_per_hour_usd: 0.6, spot: true }
+    rtx_5090_32gb: { gpu_names: ["RTX 5090"], vram_gb: 32, price_per_hour_usd: 0.9, spot: true }
+    rtx_pro_6000_96gb:
+      {
+        gpu_names: ["RTX PRO 6000 WS", "RTX PRO 6000 S", "RTX PRO 6000"],
+        vram_gb: 96,
+        price_per_hour_usd: 1.9,
+        spot: false,
+      }
+    a100_80gb:
+      {
+        gpu_names: ["A100 SXM4", "A100 PCIE", "A100 SXM"],
+        vram_gb: 80,
+        min_vram_gb: 79,
+        price_per_hour_usd: 1.5,
+        spot: true,
+      }

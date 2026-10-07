@@ -97,7 +97,10 @@ async def test_members_read_pools_workers_and_offers_admins_manage_the_fleet(
         "/v1/admin/gpu/providers", json={"kind": "runpod_pod", "name": "rp", "config": {"api_key": "rp_x"}}
     )
     assert bad.status_code == 422 and "credentials_ref" in bad.json()["detail"]
-    unknown = await admin.client.post("/v1/admin/gpu/providers", json={"kind": "vast", "name": "v"})
+    # a kind no plugin registers (it used "vast" before the Vast provider existed)
+    unknown = await admin.client.post(
+        "/v1/admin/gpu/providers", json={"kind": "not_a_registered_provider", "name": "v"}
+    )
     assert unknown.status_code == 422
     eager = await admin.client.post(
         "/v1/admin/gpu/providers", json={"kind": "runpod_pod", "name": "rp", "config": {"allow_paid": True}}
@@ -143,6 +146,30 @@ async def test_members_read_pools_workers_and_offers_admins_manage_the_fleet(
 
     queue = await admin.client.get("/v1/admin/gpu/queue")
     assert queue.status_code == 200 and queue.json()["spend"]["budget_daily_usd"] >= 0
+
+
+async def test_vast_is_an_additional_paid_provider_kind(
+    harness: ApiHarness, owner: ApiTenant, scheduler: httpx.AsyncClient
+) -> None:
+    """The Vast plugin registers next to RunPod: same rules (paid, credentials only by reference,
+    paid provisioning only through a noted PATCH), RunPod still registered."""
+    admin = await _admin(harness, owner)
+    eager = await admin.client.post(
+        "/v1/admin/gpu/providers", json={"kind": "vast", "name": "vast-eu", "config": {"allow_paid": True}}
+    )
+    assert eager.status_code == 409
+    secret = await admin.client.post(
+        "/v1/admin/gpu/providers", json={"kind": "vast", "name": "vast-eu", "config": {"api_key": "v_x"}}
+    )
+    assert secret.status_code == 422 and "credentials_ref" in secret.json()["detail"]
+    created = await admin.client.post(
+        "/v1/admin/gpu/providers",
+        json={"kind": "vast", "name": "vast-eu", "credentials_ref": "env:CE_TEST_VAST_KEY_UNSET", "regions": ["eu"]},
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["paid"] is True and created.json()["config"] == {}
+    registered = {r["key"] for r in (await admin.client.get("/v1/admin/gpu/providers")).json()["registered"]}
+    assert {"vast", "runpod_pod", "runpod_serverless", "local_docker"} <= registered
 
 
 async def test_enrollment_tokens_register_a_self_managed_host_once(

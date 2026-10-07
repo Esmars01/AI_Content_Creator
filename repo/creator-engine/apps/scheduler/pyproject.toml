@@ -16,6 +16,7 @@ dependencies = [
     "ce-plugin-gpu-local",
     "ce-plugin-gpu-local-docker",
     "ce-plugin-gpu-runpod",
+    "ce-plugin-gpu-vast",
     # a third-party provider stub (dev/test only; registered with MOCK_GPU=true): proves the plugin path
     "ce-plugin-gpu-example-cloud",
     "ce-plugin-voice-kokoro",
