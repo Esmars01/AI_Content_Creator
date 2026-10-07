@@ -124,7 +124,20 @@ function Studio({ videoId }: { videoId: string }) {
     return (
       <>
         <PageHeader title={video.data.title || "Untitled"} />
-        <Empty>{video.data.planning ? "Planning is under way…" : "No version yet."}</Empty>
+        {video.data.planning ? (
+          <Empty>Planning is under way…</Empty>
+        ) : (
+          <Empty>
+            No version yet: its planning did not finish (see{" "}
+            <Link className="underline" href="/jobs">
+              Jobs
+            </Link>
+            ).{" "}
+            <Link className="underline" href="/create" data-testid="plan-again">
+              Plan a video again
+            </Link>
+          </Empty>
+        )}
       </>
     );
   }

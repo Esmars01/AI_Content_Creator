@@ -166,4 +166,15 @@ describe("broken deep links (NAV-D17)", () => {
     expect(screen.queryByTestId("version-missing")).toBeNull();
     expect(screen.queryByText("Creating the new version…")).toBeNull();
   });
+
+  it("a video whose planning failed offers to plan again, not only 'No version yet' (PLAN-FAIL)", async () => {
+    // Regression: a plan that failed leaves the video without a version; its Studio was a dead end.
+    search = new URLSearchParams();
+    serve((path) =>
+      path === "/v1/videos/{video_id}" ? ok({ ...VIDEO, current_version_id: null, planning: false }) : null,
+    );
+    render(page(<StudioPage params={resolved({ videoId: "vid" })} />));
+    expect((await screen.findByTestId("plan-again")).getAttribute("href")).toBe("/create");
+    expect(screen.getByText(/its planning did not finish/)).toBeTruthy();
+  });
 });
