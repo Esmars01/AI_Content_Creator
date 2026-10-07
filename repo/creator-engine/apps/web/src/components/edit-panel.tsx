@@ -342,6 +342,9 @@ export function ProposalCard({ proposalId, onClose }: { proposalId: string; onCl
 }
 
 /** "make him more skeptical": the instruction box, the selection, the proposal and the history. */
+/** The API's limit on an edit instruction; the field stops there instead of a schema error (BREAK-LONG). */
+export const INSTRUCTION_MAX = 2000;
+
 export function EditPanel({ versionId, sceneKeys }: { versionId: string; sceneKeys: string[] }) {
   const client = useQueryClient();
   const showProposal = useStudio((s) => s.showProposal);
@@ -399,7 +402,13 @@ export function EditPanel({ versionId, sceneKeys }: { versionId: string; sceneKe
             value={instruction}
             onChange={(e) => setInstruction(e.target.value)}
             placeholder="make him more skeptical"
+            maxLength={INSTRUCTION_MAX}
           />
+          {instruction.length > INSTRUCTION_MAX * 0.9 ? (
+            <p className="text-xs text-slate-600" data-testid="instruction-count">
+              {instruction.length} / {INSTRUCTION_MAX} characters
+            </p>
+          ) : null}
           {sceneKeys.length ? (
             <fieldset className="flex flex-wrap items-center gap-3 text-sm">
               <legend className="sr-only">Selection</legend>

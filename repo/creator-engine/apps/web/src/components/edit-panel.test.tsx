@@ -19,7 +19,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
   };
 });
 
-const { EditPanel, ProposalCard } = await import("./edit-panel");
+const { EditPanel, INSTRUCTION_MAX, ProposalCard } = await import("./edit-panel");
 const { useStudio } = await import("@/lib/store");
 
 const PROPOSAL: EditProposal = {
@@ -244,6 +244,22 @@ describe("EditPanel", () => {
     await waitFor(() => expect(post).toHaveBeenCalled());
     const [, init] = post.mock.calls[0] as [string, { body: { selection: unknown } }];
     expect(init.body.selection).toEqual({ time_range_s: [3, 5.5] });
+  });
+
+  it("holds the instruction to the API's limit and counts near it (BREAK-LONG)", () => {
+    // Regression: a 9,600-character instruction was accepted and the API answered with a schema error.
+    serve({});
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <EditPanel versionId="v1" sceneKeys={[]} />
+      </QueryClientProvider>,
+    );
+    const field = screen.getByLabelText("Instruction") as HTMLTextAreaElement;
+    expect(field.maxLength).toBe(2000);
+    expect(INSTRUCTION_MAX).toBe(2000);
+    expect(screen.queryByTestId("instruction-count")).toBeNull();
+    fireEvent.change(field, { target: { value: "x".repeat(1900) } });
+    expect(screen.getByTestId("instruction-count").textContent).toBe("1900 / 2000 characters");
   });
 });
 
