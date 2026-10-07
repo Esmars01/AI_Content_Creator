@@ -15,7 +15,7 @@ import { Alert, Empty, Skeleton } from "@/components/ui/misc";
 import { api, ApiError, type Domain, idempotencyKey, type Schemas, unwrap, type VideoSpec } from "@/lib/api";
 import { bySceneKey, type CoverageEntry } from "@/lib/coverage";
 import { humanize } from "@/lib/format";
-import { keys, useStoryboard } from "@/lib/queries";
+import { keys, useClaims, useStoryboard } from "@/lib/queries";
 import { useCan } from "@/lib/roles";
 
 type Scene = Domain["Scene"];
@@ -214,6 +214,11 @@ export function ApprovePanel({
       router.push(`/videos/${videoId}?version=${versionId}`);
     },
   });
+  // a claim overridden in the claim ledger no longer blocks: the API skips it (D20)
+  const claims = useClaims(versionId);
+  const ledgerOverridden = new Set(
+    (claims.data ?? []).filter((c) => c.override_by && c.overridable).map((c) => `claim:${c.claim_key}`),
+  );
   const nonOverridable = blocking.filter((f) => !f.overridable);
   const needsReason = overrides.length > 0 && !reason.trim();
   return (
@@ -227,7 +232,9 @@ export function ApprovePanel({
           <ul className="flex flex-col gap-2 text-sm" aria-label="Blocking findings">
             {blocking.map((finding) => (
               <li key={finding.id ?? finding.message} className="flex items-start gap-2">
-                {finding.overridable && finding.id ? (
+                {finding.id && ledgerOverridden.has(finding.id) ? (
+                  <Badge variant="success">overridden in the claim ledger</Badge>
+                ) : finding.overridable && finding.id ? (
                   <input
                     type="checkbox"
                     aria-label={`Override: ${finding.message}`}

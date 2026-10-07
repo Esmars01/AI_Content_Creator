@@ -1,12 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn(), push: vi.fn() }) }));
+const get = vi.fn<(...args: unknown[]) => Promise<unknown>>(() => new Promise(() => undefined));
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>();
-  return { ...actual, api: { ...actual.api, GET: vi.fn(() => new Promise(() => undefined)), POST: vi.fn() } };
+  return { ...actual, api: { ...actual.api, GET: (...args: unknown[]) => get(...args), POST: vi.fn() } };
 });
 
 const { ApprovePanel, ReplanPanel } = await import("./plan");
@@ -52,5 +53,32 @@ describe("previz actions", () => {
     expect((screen.getByRole("button", { name: "Approve and generate" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByTestId("needs-world-approval").textContent).toContain("proposed world version");
     expect(screen.getByRole("link", { name: "World Studio" }).getAttribute("href")).toBe("/worlds/w1");
+  });
+
+  it("counts a claim overridden in the claim ledger as resolved (D20)", async () => {
+    // Regression: the card kept the finding with an unticked override box, as if it still blocked,
+    // while the API accepted the approval (it reads the ledger).
+    get.mockImplementation(() =>
+      Promise.resolve({
+        data: [{ claim_key: "clm_1", override_by: "u1", overridable: true, in_version: true }],
+        response: new Response(null, { status: 200 }),
+      }),
+    );
+    render(
+      wrap(
+        <ApprovePanel
+          versionId="v1"
+          videoId="vid"
+          blocking={[
+            { id: "claim:clm_1", kind: "unsupported_claim", message: "90% of projects stall.", overridable: true },
+          ]}
+          disabled={false}
+          state="previz_ready"
+        />,
+      ),
+    );
+    await waitFor(() => expect(screen.getByText("overridden in the claim ledger")).toBeTruthy());
+    expect(screen.queryByRole("checkbox", { name: /Override:/ })).toBeNull();
+    expect((screen.getByRole("button", { name: "Approve and generate" }) as HTMLButtonElement).disabled).toBe(false);
   });
 });
