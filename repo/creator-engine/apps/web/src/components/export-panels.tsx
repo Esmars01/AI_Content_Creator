@@ -14,7 +14,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { NOT_RENDERED, RENDERED } from "@/components/qc-panels";
-import { ErrorNote } from "@/components/studio/common";
+import { ErrorNote, JobLine, useStudioJob } from "@/components/studio/common";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -509,6 +509,24 @@ export function ExportPanel({ versionId, versionState }: { versionId: string; ve
     pendingTranslations: pending,
     chosenLanguages: null,
   });
+  // the platform's presets have no finished render yet: render one (extra renders need a ready version)
+  const presetIds = (platform?.presets ?? []).map((p) => p.id);
+  const missingRender =
+    Boolean(platform) &&
+    presetIds.length > 0 &&
+    !finals.some((r) => r.status === "ready" && presetIds.includes(r.preset_id));
+  const renderJob = useStudioJob([keys.renders(versionId)]);
+  const renderFor = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.POST("/v1/versions/{version_id}/renders", {
+          params: { path: { version_id: versionId } },
+          body: { preset_ids: presetIds.slice(0, 1), proxy: false },
+        }),
+      ),
+    onSuccess: (data) => renderJob.setJobId(data.job_id),
+  });
+  const rendering = renderJob.status === "queued" || renderJob.status === "running";
   const create = useMutation({
     mutationFn: () =>
       unwrap(
@@ -560,6 +578,22 @@ export function ExportPanel({ versionId, versionState }: { versionId: string; ve
             </Select>
           </div>
         </div>
+        {missingRender && platform ? (
+          <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="render-for-platform">
+            <span>No render in a {platform.label} preset yet.</span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => renderFor.mutate()}
+              disabled={renderFor.isPending || rendering || versionState !== "ready" || !can.allowed}
+              title={versionState !== "ready" ? "Extra renders need a ready version." : can.reason}
+            >
+              Render for {platform.label}
+            </Button>
+            <JobLine status={renderJob.status} job={renderJob.job} />
+            <ErrorNote error={renderFor.error} />
+          </div>
+        ) : null}
         {render ? (
           <p className="text-sm">
             Provenance:{" "}

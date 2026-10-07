@@ -302,20 +302,45 @@ export function CritiquePanel({ versionId, versionState }: { versionId: string; 
   );
 }
 
-export function VersionConsistency({ versionId }: { versionId: string }) {
+/** The version's creator consistency reports, and a run when there are none yet (or again). */
+export function VersionConsistency({ versionId, versionState }: { versionId: string; versionState: string }) {
+  const can = useCan("write_content");
   const reports = useQuery({
     queryKey: keys.versionConsistency(versionId),
     queryFn: () =>
       unwrap(api.GET("/v1/versions/{version_id}/consistency", { params: { path: { version_id: versionId } } })),
   });
-  if (!reports.data?.length) return null;
+  const job = useStudioJob([keys.versionConsistency(versionId)]);
+  const run = useMutation({
+    mutationFn: () =>
+      unwrap(api.POST("/v1/versions/{version_id}/consistency:run", { params: { path: { version_id: versionId } } })),
+    onSuccess: (data) => job.setJobId(data.job_id),
+  });
+  const rendered = RENDERED.has(versionState);
+  const running = job.status === "queued" || job.status === "running";
   return (
     <Card>
       <CardHeader>
         <CardTitle>Creator consistency</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
-        {reports.data.map((r) => {
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => run.mutate()}
+            disabled={run.isPending || running || !rendered || !can.allowed}
+            title={rendered ? can.reason : NOT_RENDERED}
+          >
+            Run consistency check
+          </Button>
+          <JobLine status={job.status} job={job.job} />
+        </div>
+        {!rendered ? <p className="text-xs text-slate-600">{NOT_RENDERED}</p> : null}
+        <ErrorNote error={run.error ?? reports.error} />
+        {reports.data && !reports.data.length ? (
+          <Empty>No consistency report yet: run a check to compare this video with the creator.</Empty>
+        ) : null}
+        {(reports.data ?? []).map((r) => {
           const dims = ((r.metrics as Json).dimensions ?? {}) as Record<string, Json>;
           return (
             <div key={r.id}>

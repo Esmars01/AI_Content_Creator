@@ -90,6 +90,22 @@ export function VersionsPanel({
       await done(accepted);
     },
   });
+  // a copy of the version shown, as a new video in the same project (it reuses every cached artifact)
+  const duplicate = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.POST("/v1/videos/{video_id}:duplicate", {
+          params: { path: { video_id: videoId } },
+          headers: idempotencyKey(),
+          body: { version_id: currentId },
+        }),
+      ),
+    onSuccess: async (accepted) => {
+      usePendingVersions.getState().expectVersion(accepted.version_id, accepted.job_id);
+      await client.invalidateQueries({ queryKey: keys.videosAll() });
+      router.push(`/videos/${accepted.video_id}?version=${accepted.version_id}`);
+    },
+  });
   const resume = useMutation({
     mutationFn: (id: string) =>
       unwrap(
@@ -219,7 +235,18 @@ export function VersionsPanel({
             Branch
           </Button>
         </form>
-        <ErrorText error={restore.error ?? branch.error ?? resume.error} />
+        <div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => duplicate.mutate()}
+            disabled={duplicate.isPending || !can.allowed}
+            title={can.reason ?? `Copy v${current?.number ?? "?"} into a new video`}
+          >
+            {duplicate.isPending ? "Duplicating…" : "Duplicate video"}
+          </Button>
+        </div>
+        <ErrorText error={restore.error ?? branch.error ?? resume.error ?? duplicate.error} />
       </CardContent>
     </Card>
   );

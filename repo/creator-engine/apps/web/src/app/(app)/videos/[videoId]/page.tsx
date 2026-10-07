@@ -331,7 +331,7 @@ function Studio({ videoId }: { videoId: string }) {
           {built ? <ExportPanel versionId={versionId} versionState={state} /> : null}
           {built ? <QCReportPanel versionId={versionId} /> : null}
           {built ? <CritiquePanel versionId={versionId} versionState={state} /> : null}
-          {built ? <VersionConsistency versionId={versionId} /> : null}
+          {built ? <VersionConsistency versionId={versionId} versionState={state} /> : null}
           <Card>
             <CardHeader>
               <CardTitle>Creator and world</CardTitle>
