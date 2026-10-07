@@ -30,7 +30,7 @@ import {
 import { humanize } from "@/lib/format";
 import { keys, useTakes, useVocabulary } from "@/lib/queries";
 import { useCan } from "@/lib/roles";
-import { useStudio } from "@/lib/store";
+import { usePendingVersions, useStudio } from "@/lib/store";
 
 type Json = Record<string, unknown>;
 
@@ -60,10 +60,11 @@ export function VersionsPanel({
   const can = useCan("write_content");
   const [compare, setCompare] = useState<string[]>([]);
   const [branchName, setBranchName] = useState("");
-  const done = async (versionId: string) => {
+  const done = async (accepted: { version_id: string; job_id: string }) => {
+    usePendingVersions.getState().expectVersion(accepted.version_id, accepted.job_id);
     await client.invalidateQueries({ queryKey: keys.versions(videoId) });
     await client.invalidateQueries({ queryKey: keys.video(videoId) });
-    router.replace(`/videos/${videoId}?version=${versionId}`);
+    router.replace(`/videos/${videoId}?version=${accepted.version_id}`);
   };
   const restore = useMutation({
     mutationFn: (id: string) =>
@@ -73,7 +74,7 @@ export function VersionsPanel({
           headers: idempotencyKey(),
         }),
       ),
-    onSuccess: (accepted) => done(accepted.version_id),
+    onSuccess: (accepted) => done(accepted),
   });
   const branch = useMutation({
     mutationFn: () =>
@@ -86,7 +87,7 @@ export function VersionsPanel({
       ),
     onSuccess: async (accepted) => {
       setBranchName("");
-      await done(accepted.version_id);
+      await done(accepted);
     },
   });
   const resume = useMutation({

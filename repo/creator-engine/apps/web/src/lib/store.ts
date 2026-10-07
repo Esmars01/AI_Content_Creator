@@ -45,3 +45,25 @@ export const useStudio = create<StudioState>()((set) => ({
 /** The proposal shown on `versionId`'s edit panel, if any. */
 export const useActiveProposal = (versionId: string): string | null =>
   useStudio((state) => state.activeProposals[versionId] ?? null);
+
+interface PendingVersions {
+  /** version id → the job that creates it (an applied edit, a restore, a branch, a translation…) */
+  jobs: Record<string, string>;
+  expectVersion: (versionId: string, jobId: string) => void;
+}
+
+/**
+ * Versions this tab asked the API to create and that may not exist yet: until their job ends, the
+ * Studio shows "Creating the new version…" for a 404 instead of "This version does not exist".
+ * Kept for the session (a reload right after Apply still knows), at most the 20 latest.
+ */
+export const usePendingVersions = create<PendingVersions>()(
+  persist(
+    (set) => ({
+      jobs: {},
+      expectVersion: (versionId, jobId) =>
+        set((state) => ({ jobs: Object.fromEntries([...Object.entries(state.jobs), [versionId, jobId]].slice(-20)) })),
+    }),
+    { name: "ce-pending-versions", storage: createJSONStorage(() => sessionStorage) },
+  ),
+);

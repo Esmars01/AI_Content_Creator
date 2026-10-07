@@ -7,10 +7,11 @@
  */
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, use } from "react";
+import { Suspense, use, useRef } from "react";
 
 import { PageHeader } from "@/components/app-shell";
 import { FindingsList } from "@/components/findings";
+import { MissingVersion, useVersionLookup } from "@/components/missing-version";
 import { PerformanceLane } from "@/components/performance-lane";
 import { RoleNote } from "@/components/role-note";
 import { ClaimLedger } from "@/components/research-panels";
@@ -18,12 +19,12 @@ import { ApprovePanel, CoveragePanel, IntentPanel, ReplanPanel, ScriptView, Stor
 import { StateBadge } from "@/components/state-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, Empty, Progress, Skeleton } from "@/components/ui/misc";
+import { Alert, Empty, LoadError, Progress, Skeleton } from "@/components/ui/misc";
 import type { PlanReport, VideoSpec } from "@/lib/api";
 import type { CoverageEntry } from "@/lib/coverage";
 import { humanize, seconds, usd } from "@/lib/format";
 import { buildLane, trajectorySentence } from "@/lib/performance";
-import { useIntent, useJob, usePreviz, useSnapshots, useVersion } from "@/lib/queries";
+import { isMissing, useIntent, useJob, usePreviz, useSnapshots, useVersion } from "@/lib/queries";
 
 const WAITING = new Set(["planned", "previz_running"]);
 
@@ -59,7 +60,10 @@ function Waiting({ jobId, state }: { jobId: string | null; state: string | null 
 
 function Review({ videoId, versionId }: { videoId: string; versionId: string }) {
   const params = useSearchParams();
-  const version = useVersion(versionId, (v) => !v || WAITING.has(v.state));
+  const keepPolling = useRef(true);
+  const version = useVersion(versionId, (v) => (v ? WAITING.has(v.state) : keepPolling.current));
+  // a link from Create or Regenerate plan carries the plan job: while it runs, a 404 means "not yet"
+  const lookup = useVersionLookup(versionId, version, keepPolling, params.get("job"));
   const state = version.data?.state ?? null;
   const waiting = !state || WAITING.has(state);
   const previz = usePreviz(state ? versionId : null, waiting);
@@ -67,6 +71,17 @@ function Review({ videoId, versionId }: { videoId: string; versionId: string }) 
   const snapshots = useSnapshots(state ? versionId : null);
   const notPlanned = !version.data;
 
+  if (lookup.missing || (version.data && version.data.video_id !== videoId)) {
+    return (
+      <>
+        <PageHeader title="Previz review" />
+        <MissingVersion videoId={videoId} />
+      </>
+    );
+  }
+  if (version.error && !isMissing(version.error)) {
+    return <LoadError what="this version" error={version.error} onRetry={() => void version.refetch()} />;
+  }
   if (notPlanned || (state && WAITING.has(state) && previz.data?.state !== "previz_ready")) {
     return (
       <>

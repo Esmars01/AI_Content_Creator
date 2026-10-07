@@ -29,7 +29,7 @@ import {
 import { humanize, usd, when } from "@/lib/format";
 import { keys, useEdit, useEdits, useVersion } from "@/lib/queries";
 import { useCan } from "@/lib/roles";
-import { useActiveProposal, useStudio } from "@/lib/store";
+import { useActiveProposal, usePendingVersions, useStudio } from "@/lib/store";
 
 const STATUS_TONE: Record<string, "info" | "success" | "danger" | "muted" | "warning"> = {
   proposing: "info",
@@ -188,6 +188,8 @@ export function ProposalCard({ proposalId, onClose }: { proposalId: string; onCl
         }),
       ),
     onSuccess: (accepted) => {
+      // the new version is created by the apply job: the Studio waits for it instead of a 404
+      usePendingVersions.getState().expectVersion(accepted.new_version_id, accepted.job_id);
       if (videoId) {
         router.replace(`/videos/${videoId}?version=${accepted.new_version_id}`);
         void client.invalidateQueries({ queryKey: keys.versions(videoId) });

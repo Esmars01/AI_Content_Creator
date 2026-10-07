@@ -33,6 +33,7 @@ import {
   useRenders,
 } from "@/lib/queries";
 import { useCan } from "@/lib/roles";
+import { usePendingVersions } from "@/lib/store";
 import { startDownload } from "@/lib/utils";
 
 type Platform = Schemas["PlatformOut"];
@@ -89,7 +90,10 @@ export function CaptionsPanel({ versionId, videoId }: { versionId: string; video
           headers: idempotencyKey(),
         }),
       ),
-    onSuccess: (data) => setCreated(data.new_version_id),
+    onSuccess: (data) => {
+      usePendingVersions.getState().expectVersion(data.new_version_id, data.job_id);
+      setCreated(data.new_version_id);
+    },
   });
   const review = useMutation({
     mutationFn: ({ id, approve }: { id: string; approve: boolean }) =>

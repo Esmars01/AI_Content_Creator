@@ -6,14 +6,17 @@ import { CancelJobButton } from "@/components/cancel-job";
 import { JsonViewer } from "@/components/json-viewer";
 import { StateBadge } from "@/components/state-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, Empty, Progress, Skeleton, Table, Td, Th } from "@/components/ui/misc";
+import { Alert, Empty, LoadError, Progress, Skeleton, Table, Td, Th } from "@/components/ui/misc";
 import { humanize, usd } from "@/lib/format";
-import { useJob } from "@/lib/queries";
+import { isMissing, useJob } from "@/lib/queries";
 
 export default function JobPage({ params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = use(params);
   const job = useJob(jobId, true);
   if (job.isLoading) return <Skeleton className="h-64" />;
+  if (job.error && !isMissing(job.error)) {
+    return <LoadError what="this job" error={job.error} onRetry={() => void job.refetch()} />;
+  }
   if (!job.data) return <Empty>This job does not exist.</Empty>;
   const data = job.data;
   return (

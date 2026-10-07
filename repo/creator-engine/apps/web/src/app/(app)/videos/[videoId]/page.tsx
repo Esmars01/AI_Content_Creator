@@ -17,6 +17,7 @@ import { EditPanel } from "@/components/edit-panel";
 import { CaptionsPanel, ExportPanel, PackagingPanel } from "@/components/export-panels";
 import { ClaimLedger } from "@/components/research-panels";
 import { IntentEditor, PerformanceEditor } from "@/components/editors";
+import { MissingVersion, useVersionLookup } from "@/components/missing-version";
 import { PerformanceLane } from "@/components/performance-lane";
 import { RoleNote } from "@/components/role-note";
 import { CritiquePanel, QCReportPanel, VersionConsistency } from "@/components/qc-panels";
@@ -27,13 +28,22 @@ import { LocksPanel, TakesGallery, VersionsPanel } from "@/components/studio-pan
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, Empty, Progress, Skeleton, Table, Td, Th } from "@/components/ui/misc";
+import { Alert, Empty, LoadError, Progress, Skeleton, Table, Td, Th } from "@/components/ui/misc";
 import type { PlanReport, VideoSpec } from "@/lib/api";
 import { bySceneKey, type CoverageEntry } from "@/lib/coverage";
 import { humanize, seconds, when } from "@/lib/format";
 import { buildLane, trajectorySentence } from "@/lib/performance";
-import { ApiError } from "@/lib/api";
-import { keys, useCoverage, useIntent, useJobs, usePreviz, useVersion, useVersions, useVideo } from "@/lib/queries";
+import {
+  isMissing,
+  keys,
+  useCoverage,
+  useIntent,
+  useJobs,
+  usePreviz,
+  useVersion,
+  useVersions,
+  useVideo,
+} from "@/lib/queries";
 
 const BUILDING = new Set(["approved", "generating"]);
 const PREVIZ = new Set(["planned", "previz_running"]);
@@ -91,7 +101,11 @@ function Studio({ videoId }: { videoId: string }) {
   const video = useVideo(videoId);
   const versions = useVersions(videoId);
   const versionId = params.get("version") ?? video.data?.current_version_id ?? null;
-  const version = useVersion(versionId, (v) => !v || BUILDING.has(v.state) || PREVIZ.has(v.state));
+  const keepPolling = useRef(true);
+  const version = useVersion(versionId, (v) =>
+    v ? BUILDING.has(v.state) || PREVIZ.has(v.state) : keepPolling.current,
+  );
+  const lookup = useVersionLookup(versionId, version, keepPolling);
   const previz = usePreviz(versionId);
   const intent = useIntent(versionId);
   const state = version.data?.state ?? "";
@@ -100,6 +114,9 @@ function Studio({ videoId }: { videoId: string }) {
   useRefreshOnStateChange(versionId, state);
 
   if (video.isLoading) return <Skeleton className="h-64" />;
+  if (video.error && !isMissing(video.error)) {
+    return <LoadError what="this video" error={video.error} onRetry={() => void video.refetch()} />;
+  }
   if (!video.data) return <Alert tone="danger">This video does not exist.</Alert>;
   if (!versionId) {
     return (
@@ -109,7 +126,16 @@ function Studio({ videoId }: { videoId: string }) {
       </>
     );
   }
-  if (version.error instanceof ApiError && version.error.status === 404) {
+  if (lookup.missing || (version.data && version.data.video_id !== videoId)) {
+    // a deep link to a version that is not there (or is another video's): never wait forever
+    return (
+      <>
+        <PageHeader title={video.data.title || "Untitled"} />
+        <MissingVersion videoId={videoId} />
+      </>
+    );
+  }
+  if (lookup.creating) {
     // a derived version appears once its edit is applied (ApplyEditWorkflow)
     return (
       <>
@@ -119,6 +145,9 @@ function Studio({ videoId }: { videoId: string }) {
         </Alert>
       </>
     );
+  }
+  if (version.error && !isMissing(version.error)) {
+    return <LoadError what="this version" error={version.error} onRetry={() => void version.refetch()} />;
   }
   if (!version.data) return <Skeleton className="h-64" />;
   const spec = version.data.spec as unknown as VideoSpec;
