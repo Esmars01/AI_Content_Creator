@@ -173,19 +173,27 @@ export function CoveragePanel({ spec, entries }: { spec: VideoSpec; entries: rea
   );
 }
 
-/** Approve, with overrides for overridable blocking findings (each needs a reason, audit-logged). */
+/**
+ * Approve, with overrides for overridable blocking findings (each needs a reason, audit-logged).
+ * A version that binds a proposed world version (`needs_world_approval`) cannot be approved until
+ * that world version is: `worldHref` links to its World Studio.
+ */
 export function ApprovePanel({
   versionId,
   videoId,
   blocking,
   disabled,
   state,
+  needsWorldApproval = false,
+  worldHref = "/worlds",
 }: {
   versionId: string;
   videoId: string;
   blocking: Schemas["BlockingFinding"][];
   disabled: boolean;
   state: string;
+  needsWorldApproval?: boolean;
+  worldHref?: string;
 }) {
   const router = useRouter();
   const client = useQueryClient();
@@ -251,6 +259,15 @@ export function ApprovePanel({
             Policy findings cannot be overridden; regenerate the plan with a different instruction.
           </Alert>
         ) : null}
+        {needsWorldApproval ? (
+          <Alert tone="warning" data-testid="needs-world-approval">
+            This plan uses a proposed world version. Approve it in the{" "}
+            <Link className="underline" href={worldHref}>
+              World Studio
+            </Link>{" "}
+            first, then approve this version.
+          </Alert>
+        ) : null}
         {approve.error ? (
           <Alert tone="danger">
             {approve.error.message}
@@ -270,7 +287,14 @@ export function ApprovePanel({
         ) : null}
         <Button
           onClick={() => approve.mutate()}
-          disabled={disabled || approve.isPending || needsReason || nonOverridable.length > 0 || !can.allowed}
+          disabled={
+            disabled ||
+            approve.isPending ||
+            needsReason ||
+            nonOverridable.length > 0 ||
+            needsWorldApproval ||
+            !can.allowed
+          }
           title={can.reason}
         >
           {approve.isPending ? "Approving…" : "Approve and generate"}
@@ -280,15 +304,23 @@ export function ApprovePanel({
   );
 }
 
-/** "Regenerate plan" (`:replan`): optional instruction, optional fresh memory. */
+/** Versions planned from a request; only these can be replanned (the API needs their plan job). */
+export const PLANNED_ORIGINS = new Set(["plan", "replan"]);
+
+/**
+ * "Regenerate plan" (`:replan`): optional instruction, optional fresh memory. A derived version
+ * (an edit, restore, branch…) was not planned from a request, so it is offered the Studio instead.
+ */
 export function ReplanPanel({
   versionId,
   videoId,
   disabled,
+  origin = "plan",
 }: {
   versionId: string;
   videoId: string;
   disabled: boolean;
+  origin?: string;
 }) {
   const router = useRouter();
   const can = useCan("write_content");
@@ -306,6 +338,27 @@ export function ReplanPanel({
     onSuccess: (accepted) =>
       router.push(`/videos/${videoId}/versions/${accepted.version_id}/previz?job=${accepted.job_id}`),
   });
+  const studio = (
+    <Button variant="ghost" asChild>
+      <Link href={`/videos/${videoId}?version=${versionId}#edit`}>Edit in the studio</Link>
+    </Button>
+  );
+  if (!PLANNED_ORIGINS.has(origin)) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Change this version</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          <p className="text-sm text-slate-700" data-testid="derived-version-note">
+            Derived versions are changed with edits in the Studio. Only a planned version can be replanned; this one
+            comes from: {humanize(origin)}.
+          </p>
+          {studio}
+        </CardContent>
+      </Card>
+    );
+  }
   return (
     <Card>
       <CardHeader>
@@ -334,9 +387,7 @@ export function ReplanPanel({
         >
           Regenerate plan
         </Button>
-        <Button variant="ghost" asChild>
-          <Link href={`/videos/${videoId}?version=${versionId}#edit`}>Edit in the studio</Link>
-        </Button>
+        {studio}
       </CardContent>
     </Card>
   );

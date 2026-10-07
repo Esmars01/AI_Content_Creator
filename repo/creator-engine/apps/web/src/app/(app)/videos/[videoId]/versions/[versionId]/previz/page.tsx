@@ -24,9 +24,15 @@ import type { PlanReport, VideoSpec } from "@/lib/api";
 import type { CoverageEntry } from "@/lib/coverage";
 import { humanize, seconds, usd } from "@/lib/format";
 import { buildLane, trajectorySentence } from "@/lib/performance";
-import { isMissing, useIntent, useJob, usePreviz, useSnapshots, useVersion } from "@/lib/queries";
+import { isMissing, useIntent, useJob, usePreviz, useSnapshots, useVersion, useWorldVersion } from "@/lib/queries";
 
 const WAITING = new Set(["planned", "previz_running"]);
+
+/** The world version the plan's scenes bind (the proposed one, when the plan needs its approval). */
+function worldVersionOf(spec: Record<string, unknown> | undefined): string | null {
+  const scenes = (spec?.scenes ?? []) as { world?: { world_version_id?: string } | null }[];
+  return scenes.find((scene) => scene.world?.world_version_id)?.world?.world_version_id ?? null;
+}
 
 function Waiting({ jobId, state }: { jobId: string | null; state: string | null }) {
   const job = useJob(jobId, true);
@@ -70,6 +76,9 @@ function Review({ videoId, versionId }: { videoId: string; versionId: string }) 
   const intent = useIntent(state ? versionId : null);
   const snapshots = useSnapshots(state ? versionId : null);
   const notPlanned = !version.data;
+  // a plan that binds a proposed world version waits for that world version's approval (§19.2)
+  const needsWorldApproval = (version.data?.flags ?? []).includes("needs_world_approval");
+  const world = useWorldVersion(needsWorldApproval ? worldVersionOf(version.data?.spec) : null);
 
   if (lookup.missing || (version.data && version.data.video_id !== videoId)) {
     return (
@@ -192,8 +201,15 @@ function Review({ videoId, versionId }: { videoId: string; versionId: string }) 
             blocking={previz.data.blocking}
             disabled={!ready}
             state={previz.data.state}
+            needsWorldApproval={needsWorldApproval}
+            worldHref={world.data ? `/worlds/${world.data.world_id}` : "/worlds"}
           />
-          <ReplanPanel versionId={versionId} videoId={videoId} disabled={!ready && previz.data.state !== "failed"} />
+          <ReplanPanel
+            versionId={versionId}
+            videoId={videoId}
+            disabled={!ready && previz.data.state !== "failed"}
+            origin={version.data.origin}
+          />
           <ClaimLedger versionId={versionId} />
           <Card>
             <CardHeader>
