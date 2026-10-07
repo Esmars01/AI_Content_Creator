@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
+import { RoleNote } from "@/components/role-note";
 import {
   ArtifactAudio,
   AssetAudio,
@@ -23,7 +24,8 @@ import { Alert, Empty, Skeleton, Table, Tabs, Td, Th } from "@/components/ui/mis
 import { api, unwrap } from "@/lib/api";
 import { humanize, when } from "@/lib/format";
 import { embeddingStatus, type MemorySource, memoryProvenance } from "@/lib/phase12";
-import { keys, useCreator, useMemory, useVoices } from "@/lib/queries";
+import { keys, useCreator, useMemory, useVoices, useWorlds } from "@/lib/queries";
+import { useCan } from "@/lib/roles";
 import {
   CREATOR_DNA_TABS,
   coverageSummary,
@@ -105,8 +107,166 @@ function SectionFields({ value, onChange }: { value: Json; onChange: (next: Json
   );
 }
 
+type VersionLinks = { appearance: string; voice: string; wardrobes: string[]; worlds: string[] };
+type LinkedVersion = {
+  appearance_version_id?: string | null;
+  voice_version_id?: string | null;
+  default_wardrobe_version_ids?: string[];
+  default_world_ids?: string[];
+};
+
+/** What a creator draft points at (§12.8): its look, voice, default outfits and worlds. A creator
+ * version pins them, and approving a new look or voice only updates that asset — videos use it once
+ * an approved creator version links it. Before this card nothing in the Studio could set a link, so a
+ * new voice or look never reached a video and a new creator could never be approved (audit CR-VOICE). */
+export function IdentityLinks({
+  creatorId,
+  versionId,
+  version,
+}: {
+  creatorId: string;
+  versionId: string;
+  version: LinkedVersion;
+}) {
+  const client = useQueryClient();
+  const can = useCan("write_content");
+  const appearances = useQuery({
+    queryKey: ["appearances", creatorId],
+    queryFn: () =>
+      unwrap(api.GET("/v1/creators/{creator_id}/appearances", { params: { path: { creator_id: creatorId } } })),
+  });
+  const wardrobes = useQuery({
+    queryKey: ["wardrobes", creatorId],
+    queryFn: () =>
+      unwrap(api.GET("/v1/creators/{creator_id}/wardrobes", { params: { path: { creator_id: creatorId } } })),
+  });
+  const voices = useVoices(creatorId);
+  const worlds = useWorlds();
+  const saved: VersionLinks = {
+    appearance: version.appearance_version_id ?? "",
+    voice: version.voice_version_id ?? "",
+    wardrobes: version.default_wardrobe_version_ids ?? [],
+    worlds: version.default_world_ids ?? [],
+  };
+  const [edited, setEdited] = useState<VersionLinks | null>(null);
+  const links = edited ?? saved;
+  const save = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.PATCH("/v1/creator-versions/{creator_version_id}", {
+          params: { path: { creator_version_id: versionId } },
+          body: {
+            appearance_version_id: links.appearance || null,
+            voice_version_id: links.voice || null,
+            defaults: { world_ids: links.worlds, wardrobe_version_ids: links.wardrobes },
+          },
+        }),
+      ),
+    onSuccess: async () => {
+      setEdited(null);
+      await client.invalidateQueries({ queryKey: ["creator-version", versionId] });
+    },
+  });
+  const looks = (appearances.data ?? []).flatMap((a) =>
+    (a.versions as { id: string; number: number; status: string }[])
+      .filter((v) => v.status === "approved")
+      .map((v) => ({ id: v.id, label: `${a.name} · version ${v.number}` })),
+  );
+  const voiceOptions = (voices.data ?? [])
+    .filter((v) => v.current_version_id)
+    .map((v) => ({ id: String(v.current_version_id), label: `${v.name} (its current version)` }));
+  if (links.voice && !voiceOptions.some((o) => o.id === links.voice))
+    voiceOptions.unshift({ id: links.voice, label: "The linked version (not its voice's current version)" });
+  const outfits = (wardrobes.data ?? []).flatMap((w) =>
+    (w.versions as { id: string; number: number; status: string }[])
+      .filter((v) => v.status === "approved")
+      .map((v) => ({ id: v.id, label: `${w.name} · version ${v.number}` })),
+  );
+  const approvedWorlds = (worlds.data?.items ?? []).filter((w) => w.current_version_id);
+  const set = (change: Partial<VersionLinks>) => setEdited({ ...links, ...change });
+  const toggle = (list: string[], id: string, on: boolean) => (on ? [...list, id] : list.filter((x) => x !== id));
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Identity links</CardTitle>
+        <CardDescription>
+          The look, voice, default outfits and worlds this draft uses. New videos use them once this version is
+          approved.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <RoleNote />
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="link-appearance">Appearance</Label>
+            <Select id="link-appearance" value={links.appearance} onChange={(e) => set({ appearance: e.target.value })}>
+              <option value="">None linked</option>
+              {looks.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="link-voice">Voice</Label>
+            <Select id="link-voice" value={links.voice} onChange={(e) => set({ voice: e.target.value })}>
+              <option value="">None linked</option>
+              {voiceOptions.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
+        <fieldset className="flex flex-col gap-1">
+          <legend className="text-sm font-medium">Default outfits</legend>
+          {outfits.length ? (
+            outfits.map((o) => (
+              <label key={o.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={links.wardrobes.includes(o.id)}
+                  onChange={(e) => set({ wardrobes: toggle(links.wardrobes, o.id, e.target.checked) })}
+                />
+                {o.label}
+              </label>
+            ))
+          ) : (
+            <p className="text-sm text-slate-600">No approved outfits yet (Wardrobe tab).</p>
+          )}
+        </fieldset>
+        <fieldset className="flex flex-col gap-1">
+          <legend className="text-sm font-medium">Default worlds</legend>
+          {approvedWorlds.map((w) => (
+            <label key={w.id} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={links.worlds.includes(w.id)}
+                onChange={(e) => set({ worlds: toggle(links.worlds, w.id, e.target.checked) })}
+              />
+              {w.name}
+            </label>
+          ))}
+        </fieldset>
+        {!links.appearance || !links.voice ? (
+          <p className="text-sm text-slate-700">Approval needs an approved appearance and voice linked.</p>
+        ) : null}
+        <div>
+          <Button onClick={() => save.mutate()} disabled={!edited || save.isPending || !can.allowed} title={can.reason}>
+            Save links
+          </Button>
+        </div>
+        <ErrorNote error={save.error} />
+      </CardContent>
+    </Card>
+  );
+}
+
 export function DnaEditor({ creator }: { creator: Creator }) {
   const client = useQueryClient();
+  const can = useCan("write_content");
   const draftRef = editableDraft(creator.versions);
   const [tab, setTab] = useState<(typeof CREATOR_DNA_TABS)[number]["id"]>("identity");
   const [advanced, setAdvanced] = useState(false);
@@ -162,7 +322,7 @@ export function DnaEditor({ creator }: { creator: Creator }) {
         <CardContent className="flex flex-col gap-2 pt-4">
           <p className="text-sm">The current version is approved and immutable. Edits happen on a new draft.</p>
           <div>
-            <Button onClick={() => start.mutate()} disabled={start.isPending}>
+            <Button onClick={() => start.mutate()} disabled={start.isPending || !can.allowed} title={can.reason}>
               Start a draft
             </Button>
           </div>
@@ -177,56 +337,64 @@ export function DnaEditor({ creator }: { creator: Creator }) {
   const key = sectionKey(dna, tabDef.keys);
   const section = (dna[key] ?? {}) as Json;
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Creator DNA — draft version {draftRef.number}</CardTitle>
-        <CardDescription>
-          Tendencies, targets and bounds — never engine controls (I1). Approval needs the owner&apos;s adult
-          attestation.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <Tabs tabs={CREATOR_DNA_TABS} value={tab} onChange={setTab} label="Creator DNA sections" />
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={advanced} onChange={(e) => setAdvanced(e.target.checked)} /> Advanced (JSON)
-        </label>
-        {advanced ? (
-          <Textarea
-            aria-label={`${tabDef.label} JSON`}
-            rows={14}
-            className="font-mono text-xs"
-            defaultValue={JSON.stringify(section, null, 2)}
-            key={`${key}-${draft.dataUpdatedAt}`}
-            onChange={(e) => {
-              const parsed = parseJson(e.target.value);
-              if (parsed.error === undefined) setEdited({ ...dna, [key]: parsed.value as Json });
-            }}
-          />
-        ) : (
-          <SectionFields value={section} onChange={(next) => setEdited({ ...dna, [key]: next })} />
-        )}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button onClick={() => save.mutate(dna)} disabled={!edited || save.isPending}>
-            Save draft
-          </Button>
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Creator DNA — draft version {draftRef.number}</CardTitle>
+          <CardDescription>
+            Tendencies, targets and bounds — never engine controls (I1). Approval needs the owner&apos;s adult
+            attestation.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <Tabs tabs={CREATOR_DNA_TABS} value={tab} onChange={setTab} label="Creator DNA sections" />
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={attest} onChange={(e) => setAttest(e.target.checked)} />I attest this
-            synthetic creator presents as an adult
+            <input type="checkbox" checked={advanced} onChange={(e) => setAdvanced(e.target.checked)} /> Advanced (JSON)
           </label>
-          <Button
-            variant="outline"
-            onClick={() => approve.mutate()}
-            disabled={!attest || Boolean(edited) || approve.isPending}
-          >
-            Approve version {draftRef.number}
-          </Button>
-        </div>
-        <ErrorNote error={save.error ?? approve.error} />
-        {approve.isSuccess ? (
-          <Alert tone="success">Approved: this version is now the creator&apos;s current version.</Alert>
-        ) : null}
-      </CardContent>
-    </Card>
+          {advanced ? (
+            <Textarea
+              aria-label={`${tabDef.label} JSON`}
+              rows={14}
+              className="font-mono text-xs"
+              defaultValue={JSON.stringify(section, null, 2)}
+              key={`${key}-${draft.dataUpdatedAt}`}
+              onChange={(e) => {
+                const parsed = parseJson(e.target.value);
+                if (parsed.error === undefined) setEdited({ ...dna, [key]: parsed.value as Json });
+              }}
+            />
+          ) : (
+            <SectionFields value={section} onChange={(next) => setEdited({ ...dna, [key]: next })} />
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              onClick={() => save.mutate(dna)}
+              disabled={!edited || save.isPending || !can.allowed}
+              title={can.reason}
+            >
+              Save draft
+            </Button>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={attest} onChange={(e) => setAttest(e.target.checked)} />I attest this
+              synthetic creator presents as an adult
+            </label>
+            <Button
+              variant="outline"
+              onClick={() => approve.mutate()}
+              disabled={!attest || Boolean(edited) || approve.isPending || !can.allowed}
+              title={can.reason}
+            >
+              Approve version {draftRef.number}
+            </Button>
+          </div>
+          <ErrorNote error={save.error ?? approve.error} />
+          {approve.isSuccess ? (
+            <Alert tone="success">Approved: this version is now the creator&apos;s current version.</Alert>
+          ) : null}
+        </CardContent>
+      </Card>
+      <IdentityLinks creatorId={creator.id} versionId={draftRef.id} version={draft.data as LinkedVersion} />
+    </div>
   );
 }
 
@@ -524,6 +692,22 @@ export function AppearancePanel({ creatorId }: { creatorId: string }) {
   );
 }
 
+/** The VLM age check in words, leaving out what was not measured (it used to print "via undefined"). */
+export function ageCheckText(checks: Json): string {
+  const threshold = String(checks.threshold ?? 25);
+  const estimate =
+    checks.vlm_estimate === null || checks.vlm_estimate === undefined
+      ? `VLM apparent age: not measured yet (threshold ${threshold})`
+      : `VLM apparent age ${String(checks.vlm_estimate)} (threshold ${threshold})` +
+        (checks.vlm_adapter ? ` via ${String(checks.vlm_adapter)}` : "") +
+        (checks.vlm_mock ? " — mock answer, not evidence" : "");
+  const dna =
+    checks.dna_age_appearance !== null && checks.dna_age_appearance !== undefined
+      ? `; DNA age ${String(checks.dna_age_appearance)}`
+      : "";
+  return `${estimate}${dna}.`;
+}
+
 function IdentityPack({ appearanceId, versionId, name }: { appearanceId: string; versionId: string; name: string }) {
   const client = useQueryClient();
   const packKey = ["identity-pack", versionId];
@@ -693,10 +877,14 @@ function IdentityPack({ appearanceId, versionId, name }: { appearanceId: string;
           </section>
         ) : null}
         {checks.vlm_estimate !== undefined ? (
-          <Alert tone={Number(checks.vlm_estimate) < Number(checks.threshold ?? 25) ? "warning" : "info"}>
-            VLM apparent age {String(checks.vlm_estimate)} (threshold {String(checks.threshold ?? 25)}) via{" "}
-            {String(checks.vlm_adapter)}
-            {checks.vlm_mock ? " — mock answer, not evidence" : ""}; DNA age {String(checks.dna_age_appearance)}.
+          <Alert
+            tone={
+              checks.vlm_estimate !== null && Number(checks.vlm_estimate) < Number(checks.threshold ?? 25)
+                ? "warning"
+                : "info"
+            }
+          >
+            {ageCheckText(checks)}
           </Alert>
         ) : null}
         {draft ? (
@@ -835,13 +1023,15 @@ function VoiceCard({ voiceId, name }: { voiceId: string; name: string }) {
         ) : (
           <Empty>No candidates yet.</Empty>
         )}
-        {latest ? <VoiceVersionBench versionId={latest.id} /> : null}
+        {latest ? (
+          <VoiceVersionBench versionId={latest.id} current={latest.id === voice.data?.current_version_id} />
+        ) : null}
       </CardContent>
     </Card>
   );
 }
 
-function VoiceVersionBench({ versionId }: { versionId: string }) {
+function VoiceVersionBench({ versionId, current = false }: { versionId: string; current?: boolean }) {
   const client = useQueryClient();
   const version = useQuery({
     queryKey: ["voice-version", versionId],
@@ -890,6 +1080,11 @@ function VoiceVersionBench({ versionId }: { versionId: string }) {
     <section className="flex flex-col gap-2 rounded border border-slate-200 p-3">
       <h3 className="text-sm font-medium">
         Version {version.data.number} · {humanize(version.data.status)}
+        {current
+          ? " · the voice's current version"
+          : version.data.status === "approved"
+            ? " · not the voice's current version"
+            : ""}
         {Object.keys(version.data.wpm ?? {}).length ? ` · WPM ${JSON.stringify(version.data.wpm)}` : ""}
       </h3>
       <div className="flex items-end gap-2">
