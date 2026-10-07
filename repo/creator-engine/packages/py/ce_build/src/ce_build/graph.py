@@ -828,6 +828,7 @@ def build_graph(
     for scene in scenes:
         world = ctx.world(scene)
         plate_key = _world_plate(ctx, scene, world, aspect)
+        mic = _room_mic(ctx.bundle, spec, scene)
         room = ctx.add(
             "audio.room",
             f"audio.room:{scene.key}",
@@ -835,8 +836,10 @@ def build_graph(
             spec={
                 "acoustics": _dump(spec.audio.acoustics),
                 "override": _dump(scene.world.overrides.acoustics) if scene.world else None,
+                "mic": mic,  # without a spec mic, the first shot's camera profile chooses it (audit OUT-ROOM)
             },
             refs={"world": world.acoustics_digest() if world else None},
+            config=ctx.config(f"mic_profiles/{mic}.yaml") if mic else None,
             scene=scene.key,
         )
         room_keys.append(room.key)
@@ -1124,6 +1127,18 @@ def _continuity_refs(ctx: _Ctx, binding: Any, world: WorldRef) -> dict[str, Any]
             raise GraphError(f"continuity shot {ref.shot_key} of version {ref.version_id} is not resolved")
         return {"continuity": {"kind": kind, "sha256": found}}
     return {}
+
+
+def _room_mic(bundle: Any, spec: VideoSpec, scene: Scene) -> str | None:
+    """The mic profile `audio.room` records with (`ce_exec.post._acoustics`): the spec's, else the
+    first shot's camera profile's — part of the node's key, or a camera change reuses stale audio."""
+    if spec.audio.acoustics.mic_profile:
+        return str(spec.audio.acoustics.mic_profile)
+    for shot in scene.shots:
+        profile = bundle.camera_profiles.get(shot.camera.profile_id)
+        if profile is not None:
+            return str(profile.audio.mic_profile)
+    return None
 
 
 def _world_plate(ctx: _Ctx, scene: Scene, world: WorldRef | None, aspect: str) -> str | None:

@@ -405,7 +405,9 @@ def test_a_slightly_handheld_camera_is_post_only() -> None:
 
 def test_a_camera_profile_change_regenerates_that_shot() -> None:
     built = _derive(lambda d: d["scenes"][0]["shots"][0]["camera"].update(profile_id="webcam"))
-    assert _runs(built) == {*HOOK_SHOT, *RENDER}
+    # the webcam also records through another mic (phone_front_mic → webcam_mic): the scene's room
+    # sound and the mix follow (audit OUT-ROOM — before, they stayed cached with the old mic)
+    assert _runs(built) == {*HOOK_SHOT, *RENDER, "audio.room:scn_hook", "mix.audio:main"}
 
 
 def test_a_wardrobe_change_keeps_the_face_voice_and_room() -> None:
