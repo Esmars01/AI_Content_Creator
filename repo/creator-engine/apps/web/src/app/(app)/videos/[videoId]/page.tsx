@@ -33,6 +33,7 @@ import type { PlanReport, VideoSpec } from "@/lib/api";
 import { bySceneKey, type CoverageEntry } from "@/lib/coverage";
 import { humanize, seconds, when } from "@/lib/format";
 import { buildLane, trajectorySentence } from "@/lib/performance";
+import { usePinShownVersion } from "@/lib/pin-version";
 import {
   isMissing,
   keys,
@@ -101,6 +102,7 @@ function Studio({ videoId }: { videoId: string }) {
   const video = useVideo(videoId);
   const versions = useVersions(videoId);
   const versionId = params.get("version") ?? video.data?.current_version_id ?? null;
+  usePinShownVersion(versionId, params.has("version"));
   const keepPolling = useRef(true);
   const version = useVersion(versionId, (v) =>
     v ? BUILDING.has(v.state) || PREVIZ.has(v.state) : keepPolling.current,
