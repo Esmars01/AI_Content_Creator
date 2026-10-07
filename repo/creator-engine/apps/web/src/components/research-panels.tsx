@@ -79,6 +79,8 @@ export function SourcesPanel({ projectId }: { projectId: string }) {
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  // a file input cannot be cleared by state: a new key remounts it empty after each add (D12)
+  const [fileInput, setFileInput] = useState(0);
   const [open, setOpen] = useState<string | null>(null);
   const sources = useSources(projectId, true);
   const can = useCan("write_content");
@@ -106,6 +108,7 @@ export function SourcesPanel({ projectId }: { projectId: string }) {
       setText("");
       setTitle("");
       setFile(null);
+      setFileInput((n) => n + 1);
       void refresh();
     },
   });
@@ -164,6 +167,7 @@ export function SourcesPanel({ projectId }: { projectId: string }) {
             <Textarea aria-label="Note text" value={text} onChange={(e) => setText(e.target.value)} required />
           ) : (
             <Input
+              key={fileInput}
               aria-label="Document"
               type="file"
               accept=".pdf,.docx,.html,.htm,.txt,.md,.srt,.vtt"
