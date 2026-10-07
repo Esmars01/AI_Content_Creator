@@ -360,6 +360,10 @@ def _translate(inputs: ProposalInputs, ops: Sequence[EditOperation]) -> Translat
         render_presets=frozenset(
             p.id for platform in inputs.bundle.platforms.values() for p in platform.render_presets
         ),
+        platform_presets={
+            pid: [(p.id, str(p.aspect)) for p in platform.render_presets]
+            for pid, platform in inputs.bundle.platforms.items()
+        },
         node_keys=[n.key for n in inputs.parent_build.graph.nodes] if inputs.parent_build else _node_keys(inputs),
         emotion_range=_emotion_range(inputs),
         actor=inputs.actor,
