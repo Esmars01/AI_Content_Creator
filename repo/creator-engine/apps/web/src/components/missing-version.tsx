@@ -44,8 +44,10 @@ export function useVersionLookup(
   const job = useJob(notFound ? jobId : null, true);
   const jobRunning = Boolean(jobId) && (!job.data || !TERMINAL.has(job.data.status)) && !isMissing(job.error);
   const creating = notFound && jobRunning;
+  // the job that was to create it failed or was cancelled: that is the news, not "does not exist"
+  const jobEnded = notFound && Boolean(jobId) && ["failed", "cancelled"].includes(String(job.data?.status));
   const invalid = !query.data && isMissing(query.error) && query.error.status === 422;
-  const missing = invalid || (notFound && !creating && query.errorUpdateCount >= MISSING_AFTER);
-  keepPolling.current = !missing;
-  return { creating, missing };
+  const missing = invalid || (notFound && !creating && !jobEnded && query.errorUpdateCount >= MISSING_AFTER);
+  keepPolling.current = !missing && !jobEnded;
+  return { creating, missing, jobEnded };
 }

@@ -37,13 +37,21 @@ function worldVersionOf(spec: Record<string, unknown> | undefined): string | nul
 function Waiting({ jobId, state }: { jobId: string | null; state: string | null }) {
   const job = useJob(jobId, true);
   const failed = job.data?.status === "failed";
+  const cancelled = job.data?.status === "cancelled";
   return (
     <Card>
       <CardContent className="flex flex-col gap-3 py-6">
-        {failed ? (
-          <Alert tone="danger">
-            Planning failed: {String((job.data?.error as { message?: string } | null)?.message ?? "see the job")}
-          </Alert>
+        {failed || cancelled ? (
+          <>
+            <Alert tone="danger">
+              {cancelled
+                ? "Planning was cancelled."
+                : `Planning failed: ${String((job.data?.error as { message?: string } | null)?.message ?? "see the job")}`}
+            </Alert>
+            <Link className="text-sm text-blue-800 underline" href="/create">
+              Plan a video again
+            </Link>
+          </>
         ) : (
           <>
             <p className="text-sm" aria-live="polite">
@@ -90,6 +98,14 @@ function Review({ videoId, versionId }: { videoId: string; versionId: string }) 
   }
   if (version.error && !isMissing(version.error)) {
     return <LoadError what="this version" error={version.error} onRetry={() => void version.refetch()} />;
+  }
+  if (lookup.jobEnded) {
+    return (
+      <>
+        <PageHeader title="Planning stopped" />
+        <Waiting jobId={params.get("job")} state={null} />
+      </>
+    );
   }
   if (notPlanned || (state && WAITING.has(state) && previz.data?.state !== "previz_ready")) {
     return (

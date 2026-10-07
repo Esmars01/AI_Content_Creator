@@ -135,6 +135,20 @@ function Studio({ videoId }: { videoId: string }) {
       </>
     );
   }
+  if (lookup.jobEnded) {
+    // the job that was to create this version failed or was cancelled: say so, never wait forever
+    return (
+      <>
+        <PageHeader title={video.data.title || "Untitled"} />
+        <Alert tone="danger">
+          This change could not be applied: its job failed or was cancelled.{" "}
+          <Link className="underline" href={`/videos/${videoId}`}>
+            Open the video&apos;s current version
+          </Link>
+        </Alert>
+      </>
+    );
+  }
   if (lookup.creating) {
     // a derived version appears once its edit is applied (ApplyEditWorkflow)
     return (

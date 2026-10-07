@@ -129,4 +129,41 @@ describe("broken deep links (NAV-D17)", () => {
     expect(await screen.findByRole("button", { name: "Retry" })).toBeTruthy();
     expect(screen.queryByText("This project does not exist.")).toBeNull();
   });
+
+  it("a plan job that failed shows why on the previz page, not 'This version does not exist'", async () => {
+    // Regression (product audit): a creator whose designed voice had no transcript failed to plan in
+    // ~14 s; the previz page, after five 404s, said the version did not exist instead of the reason.
+    search = new URLSearchParams({ job: "plan-job" });
+    serve((path) =>
+      path === "/v1/jobs/{job_id}"
+        ? ok({
+            id: "plan-job",
+            kind: "plan",
+            status: "failed",
+            progress: 1,
+            error: { message: "the voice is not usable" },
+          })
+        : null,
+    );
+    render(
+      page(<PrevizPage params={resolved({ videoId: "vid", versionId: "0192f0a0-0000-7000-8000-00000000beef" })} />),
+    );
+    await polls(7);
+    expect(await screen.findByText("Planning failed: the voice is not usable")).toBeTruthy();
+    expect(screen.queryByTestId("version-missing")).toBeNull();
+    expect(screen.getByRole("link", { name: "Plan a video again" }).getAttribute("href")).toBe("/create");
+  });
+
+  it("an edit whose job failed says the change could not be applied, in the Studio", async () => {
+    search = new URLSearchParams({ version: "0192f0a0-0000-7000-8000-00000000cafe" });
+    usePendingVersions.setState({ jobs: { "0192f0a0-0000-7000-8000-00000000cafe": "apply-job" } });
+    serve((path) =>
+      path === "/v1/jobs/{job_id}" ? ok({ id: "apply-job", kind: "edit_apply", status: "failed", progress: 1 }) : null,
+    );
+    render(page(<StudioPage params={resolved({ videoId: "vid" })} />));
+    await polls(7);
+    expect(await screen.findByText(/This change could not be applied: its job failed or was cancelled\./)).toBeTruthy();
+    expect(screen.queryByTestId("version-missing")).toBeNull();
+    expect(screen.queryByText("Creating the new version…")).toBeNull();
+  });
 });
