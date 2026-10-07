@@ -13,7 +13,7 @@ import { Suspense, use, useEffect, useRef } from "react";
 import { PageHeader, useAdvanced } from "@/components/app-shell";
 import { CancelJobButton } from "@/components/cancel-job";
 import { SceneCoverageBadge } from "@/components/coverage";
-import { EditPanel } from "@/components/edit-panel";
+import { EditPanel, SceneOrderButtons } from "@/components/edit-panel";
 import { CaptionsPanel, ExportPanel, PackagingPanel } from "@/components/export-panels";
 import { ClaimLedger } from "@/components/research-panels";
 import { IntentEditor, PerformanceEditor } from "@/components/editors";
@@ -287,10 +287,11 @@ function Studio({ videoId }: { videoId: string }) {
                     <Th>Purpose</Th>
                     <Th>World</Th>
                     <Th>Behavior coverage</Th>
+                    <Th>Order</Th>
                   </tr>
                 </thead>
                 <tbody>
-                  {scenesOf(spec).map((scene) => (
+                  {scenesOf(spec).map((scene, _, all) => (
                     <tr key={scene.key} data-testid="scene-row">
                       <Td className="font-mono text-xs">{scene.key}</Td>
                       <Td>{humanize(scene.purpose)}</Td>
@@ -305,6 +306,13 @@ function Studio({ videoId }: { videoId: string }) {
                       </Td>
                       <Td>
                         <SceneCoverageBadge entries={grouped[scene.key] ?? []} />
+                      </Td>
+                      <Td>
+                        <SceneOrderButtons
+                          versionId={versionId}
+                          sceneKeys={all.map((s) => s.key)}
+                          sceneKey={scene.key}
+                        />
                       </Td>
                     </tr>
                   ))}

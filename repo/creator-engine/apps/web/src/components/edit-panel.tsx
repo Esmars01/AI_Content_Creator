@@ -507,3 +507,65 @@ export function useStructuredEdit(versionId: string) {
     },
   });
 }
+
+/**
+ * Move a scene up or down, or remove it, as an ordinary edit proposal (the card shows what it
+ * changes and costs before anything changes). The API had `move_scene` and `remove_scene`, but the
+ * Studio offered no way to change the scene order (audit SCENE-ORDER).
+ */
+export function SceneOrderButtons({
+  versionId,
+  sceneKeys,
+  sceneKey,
+}: {
+  versionId: string;
+  sceneKeys: string[];
+  sceneKey: string;
+}) {
+  const send = useStructuredEdit(versionId);
+  const can = useCan("write_content");
+  const at = sceneKeys.indexOf(sceneKey);
+  if (sceneKeys.length < 2 || at < 0) return null;
+  // `after_scene_key` null puts the scene first
+  const after = (position: number) =>
+    position <= 0 ? null : (sceneKeys.filter((k) => k !== sceneKey)[position - 1] ?? null);
+  const move = (position: number) =>
+    send.mutate([
+      { op: "move_scene", scene_key: sceneKey, after_scene_key: after(position), reason: "reorder scenes" },
+    ]);
+  const disabled = send.isPending || !can.allowed;
+  return (
+    <span className="flex gap-1">
+      <Button
+        size="sm"
+        variant="ghost"
+        aria-label={`Move ${sceneKey} up`}
+        disabled={disabled || at === 0}
+        title={can.reason}
+        onClick={() => move(at - 1)}
+      >
+        ↑
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        aria-label={`Move ${sceneKey} down`}
+        disabled={disabled || at === sceneKeys.length - 1}
+        title={can.reason}
+        onClick={() => move(at + 1)}
+      >
+        ↓
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        aria-label={`Remove ${sceneKey}`}
+        disabled={disabled}
+        title={can.reason}
+        onClick={() => send.mutate([{ op: "remove_scene", scene_key: sceneKey, reason: "remove a scene" }])}
+      >
+        Remove
+      </Button>
+    </span>
+  );
+}

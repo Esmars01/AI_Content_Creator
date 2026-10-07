@@ -19,7 +19,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
   };
 });
 
-const { EditPanel, INSTRUCTION_MAX, ProposalCard } = await import("./edit-panel");
+const { EditPanel, INSTRUCTION_MAX, ProposalCard, SceneOrderButtons } = await import("./edit-panel");
 const { useStudio } = await import("@/lib/store");
 
 const PROPOSAL: EditProposal = {
@@ -260,6 +260,43 @@ describe("EditPanel", () => {
     expect(screen.queryByTestId("instruction-count")).toBeNull();
     fireEvent.change(field, { target: { value: "x".repeat(1900) } });
     expect(screen.getByTestId("instruction-count").textContent).toBe("1900 / 2000 characters");
+  });
+});
+
+describe("SceneOrderButtons (SCENE-ORDER)", () => {
+  beforeEach(() => {
+    post.mockReset();
+    get.mockReset();
+    useStudio.setState({ activeProposals: {} });
+  });
+
+  it("proposes moving a scene down, up to first, or removing it", async () => {
+    // Regression: the API had move_scene and remove_scene, the Studio had no way to reorder.
+    serve({});
+    post.mockResolvedValue({ data: { edit_proposal_id: "p5", job_id: "j5" }, response: new Response() });
+    const keysList = ["scn_1", "scn_2", "scn_3"];
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        {keysList.map((k) => (
+          <SceneOrderButtons key={k} versionId="v1" sceneKeys={keysList} sceneKey={k} />
+        ))}
+      </QueryClientProvider>,
+    );
+    expect((screen.getByRole("button", { name: "Move scn_1 up" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Move scn_3 down" }) as HTMLButtonElement).disabled).toBe(true);
+    const sent = async (n: number) => {
+      await waitFor(() => expect(post).toHaveBeenCalledTimes(n));
+      return (post.mock.calls[n - 1] as [string, { body: { operations: Json[] } }])[1].body.operations[0];
+    };
+    fireEvent.click(screen.getByRole("button", { name: "Move scn_1 down" }));
+    expect(await sent(1)).toMatchObject({ op: "move_scene", scene_key: "scn_1", after_scene_key: "scn_2" });
+    fireEvent.click(screen.getByRole("button", { name: "Move scn_2 up" }));
+    expect(await sent(2)).toMatchObject({ op: "move_scene", scene_key: "scn_2", after_scene_key: null });
+    fireEvent.click(screen.getByRole("button", { name: "Move scn_3 up" }));
+    expect(await sent(3)).toMatchObject({ op: "move_scene", scene_key: "scn_3", after_scene_key: "scn_1" });
+    fireEvent.click(screen.getByRole("button", { name: "Remove scn_2" }));
+    expect(await sent(4)).toMatchObject({ op: "remove_scene", scene_key: "scn_2" });
+    expect(useStudio.getState().activeProposals.v1).toBe("p5");
   });
 });
 
