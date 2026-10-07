@@ -37,11 +37,13 @@ test, and re-tested the same way.
 - **Regression tests:** 67 new test cases were added (54 web, 13 Python, one of them parametrised over six camera
   moves), and 5 existing tests were strengthened.
 - **Final regression:** every suite passes:
-  - Python: 1907 passed, 14 skipped, 0 failed;
-  - web: 144 tests;
+  - Python: 1907 passed, 0 failed, 14 skipped;
+  - web: 144 passed, 0 failed;
   - lint, types, spec and config checks;
   - `make demo`;
   - Playwright: 8 of 9 specs. The ninth stops only at H.264 playback (BLOCKED — ENVIRONMENT, as in the baseline).
+
+  All of these ran at `b17ec34`.
 - **Still open, none blocking GPU testing:**
   - 2 FAIL: the disclosure span is ignored (P3); caption placement `bottom` equals the safe zone (P4);
   - 3 PARTIAL;
@@ -92,8 +94,8 @@ Fix what is confirmed, within the low-complexity rule, before money is spent on 
 - Baseline: `main` at `612fcff` (the merge of PR #1, which carried the technical audit).
 - Audit branch: `claude/admiring-curie-pm74e9`. It holds 37 product-audit commits on top of `612fcff`, plus this
   report. They are listed in section 22.
-- The final regression (section 29) ran on the last code commit. The final commit, the bundles and the ZIP
-  hashes are recorded in `docs/MANIFEST.txt` and `docs/SHA256SUMS.txt`.
+- The final regression (section 29) ran on `b17ec34`. The commit that records it changes only `docs/` and
+  `bundles/`. Bundle hashes are in `docs/MANIFEST.txt` and `docs/SHA256SUMS.txt`.
 - History was not rewritten: no rebase and no force-push.
 
 ## 5. Product Capability Inventory
@@ -598,41 +600,33 @@ The output-truth pass also lists behaviours that live only in the behavior track
 
 ## 29. Final Regression Results
 
-All of the following ran on the final code. The stack was `make dev-native`, with the infrastructure running.
+**Tested commit:** `b17ec34` (`b17ec3482a51b71b95362a44c10f7a12c4c75ceb`). Every suite below ran on that commit,
+with `make dev-native` and the infrastructure running.
 
-| Suite | Command | Result |
-|---|---|---|
-| Python, full | `CE_REQUIRE_INFRA=1 uv run pytest` | 1841 passed, 0 failed, 80 skipped; with `CE_DOCS_DIR`, 1907 passed, 14 skipped (assets) |
-| Web unit and contract | `pnpm --filter @ce/web run test` | 144 passed (34 files) |
-| Lint | `ruff check .`, `ruff format --check .`, `eslint .`, `prettier --check .` | clean |
-| Types | `mypy` (772 files), `tsc` (api-client and web) | clean |
-| Spec and config | `scripts/verify_spec.py`, `ce config validate --env dev` / `--env prod` | 0 errors, 0 warnings |
-| Demo | `make demo` | done in 325 s: plan, previz, approve, build, edit, template, translation, packaging, export guard |
-| Playwright | `CE_E2E_CHROME=… playwright test` (9 specs) | 8 passed; create-to-play BLOCKED at H.264 playback |
+The Playwright web server was built at `6e5b612`. Its web sources (`apps/`, `packages/ts/`) are identical to
+`b17ec34`: `git diff 6e5b612 b17ec34` touches only `repo/creator-engine/README.md` in the code tree. The commit
+that records these results changes only `docs/` and `bundles/`.
 
-Run record (final commit):
+| Suite | Command | Passed | Failed | Skipped / blocked |
+|---|---|---|---|---|
+| Python, full | `CE_DOCS_DIR=<phase-14-audit docs> CE_REQUIRE_INFRA=1 uv run pytest` | **1907** | **0** | 14 skipped: CPU-engine assets cannot be downloaded here |
+| Web unit and contract | `pnpm --filter @ce/web run test` | **144** (34 files) | **0** | 0 |
+| Playwright | `CE_E2E_CHROME=… playwright test` (9 specs) | **8** | **0** product failures | **1** environment-blocked: `create-to-play` passes every step up to `play()`, then "this browser cannot decode H.264" |
+| Lint | `ruff check .`, `ruff format --check .` (773 files), `eslint .`, `prettier --check .` | clean | 0 | — |
+| mypy | `mypy` | 772 source files, no issues | 0 | — |
+| tsc | `typecheck` for `@ce/api-client` and `@ce/web` | clean | 0 | — |
+| Spec and config validation | `scripts/verify_spec.py`; `ce config validate --env dev` and `--env prod` | 0 errors, 0 warnings (14 phases; 114 config files each) | 0 | — |
+| `make demo` | `make demo` | passed end to end in 297.8 s | 0 | export of the mock render refused (409), as designed |
 
-- **Python, full suite** (`CE_REQUIRE_INFRA=1 uv run pytest`, code at `6e5b612`, infrastructure up):
-  **1841 passed, 0 failed, 80 skipped** in 54 min 38 s, exit 0. The skips:
-  - 66 tests read engine documents (ADRs, DECISIONS, INVARIANTS, …) that live only in the phase bundles. Re-run
-    with `CE_DOCS_DIR` set to the regenerated Phase 14 bundle's `docs/`, all 148 tests of those 5 files pass.
-  - 14 tests need CPU-engine assets (`make fetch-cpu-assets`), which cannot be downloaded here.
+Notes:
 
-  In all: **1907 passed, 14 skipped, 0 failed.**
-- **Web:** `pnpm --filter @ce/web run test`: **144 passed in 34 files** (90 before this audit's web fixes, then
-  54 new).
-- **Lint and types:**
-  - ruff check and format: clean;
-  - mypy: 772 source files, no issues;
-  - eslint and prettier: clean;
-  - tsc for the api-client and the web app: clean.
-- **Spec and config:** `verify_spec.py` reports 14 phases and 0 errors; `ce config validate`, dev and prod:
-  114 files, 0 errors, 0 warnings.
-- **Demo:** `make demo` passes end to end in 325 s: plan, previz, approve, build, edit, template, German
-  translation, packaging, export guard.
-- **Playwright** (9 specs, web rebuilt at `6e5b612`): **8 passed.** The ninth, `create-to-play`, passes every step
-  up to `play()`, then stops with "this browser cannot decode H.264" (BLOCKED — ENVIRONMENT, unchanged from the
-  baseline). The responsive spec caught E2E-RESPONSIVE on the first run; it passes after the fix, at 4 of 4 widths.
+- **The Python run** took 51 min 32 s and exited 0. `CE_DOCS_DIR` pointed at the `docs/` of the regenerated
+  Phase 14 bundle, so the 66 documentation tests ran. Without it they skip, because those documents live only
+  in the bundles. An earlier run at `adb9213` gave 1841 passed, 0 failed and 80 skipped; its Python and config
+  are identical to `b17ec34`.
+- **The demo covered** plan, previz, approve, build, NL edit, template, German translation, packaging and the
+  export guard.
+- **The responsive spec** caught E2E-RESPONSIVE during the audit and passes at 4 of 4 widths since the fix.
 
 ## 30. GPU Readiness Decision
 

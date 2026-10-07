@@ -4,7 +4,7 @@ AI Creator Engine - workspace manifest
 Layout: bundles/ (the 14 phase bundles), docs/ (canonical current documentation), repo/creator-engine/
 (the sources). There is no Phase 13 (intentionally skipped, ADR 0050).
 
-Final state: tag phase-14-audit = a4eb0cc87ee89599bde05f977dba986836d24a1f in bundles/creator-engine-phase14.bundle. Its tree is
+Final state: tag phase-14-audit = f80ab38e3a74fd9e788381be24fff8b2d73e07d3 in bundles/creator-engine-phase14.bundle. Its tree is
 repo/creator-engine/ plus the engine's own docs/ (historical documents, the audit reports and the
 updated phase reports). The Phase 14 checkpoint itself stays tagged phase-14 (64816c4).
 
@@ -26,12 +26,12 @@ product-level audit of 2026-10-07 (docs/PRODUCT_LOGIC_AUDIT_REPORT.md: journeys,
 test matrix, 47 fixes and the GPU readiness decision).
 
 File:    bundles/creator-engine-phase0.bundle
-Size:    288787 bytes
+Size:    288788 bytes
 Phase:   Phase 0 - environment and bootstrap
 HEAD:    1a7732862fd7e04a8b46100cd42561f99266c4db
 Tags:    phase-0
 Notes:   refs/notes/audit
-SHA256:  973daca5aa086278083983b9a3f0261578126dda108edbf16d6315df68568f75
+SHA256:  b83dfbcabe6ef04c0ac7f47231466d4503b7ee7a628f5d3960f24c3fa32daca6
 
 File:    bundles/creator-engine-phase1.bundle
 Size:    1325425 bytes
@@ -39,103 +39,103 @@ Phase:   Phase 1 - foundations: models, vocabularies, database, API
 HEAD:    bf9a42ff07fff8392d288290f5f7b6cd34d4cb20
 Tags:    phase-0, phase-1
 Notes:   refs/notes/audit
-SHA256:  a336761060b66ed95e3b482be8759ddb0d8d23b4c6c54b7881aad9effb9e1a4d
+SHA256:  f8ac6009b6771bc09f05675f90b7833d67478556ea07c4484be5e95573ee6ab9
 
 File:    bundles/creator-engine-phase2.bundle
-Size:    1699027 bytes
+Size:    1699024 bytes
 Phase:   Phase 2 - execution runtime: build graph, scheduler, workers, render, workflows
 HEAD:    b507a17c6523966f35d2c0d7efff571c03742d74
 Tags:    phase-0, phase-1, phase-2
 Notes:   refs/notes/audit
-SHA256:  de1674d074fb21b845ed56882bf83b4f667ab65994adfe66a2c5db006803dac3
+SHA256:  65f7c61ecb2b0d678b30826d4a62175d2198edfdcd1852c8d170144daebb43d0
 
 File:    bundles/creator-engine-phase3.bundle
-Size:    1854981 bytes
+Size:    1854676 bytes
 Phase:   Phase 3 - behavior backbone
 HEAD:    8b185113cd4aaa32fc74d079d8780857eac2ff1e
 Tags:    phase-0, phase-1, phase-2, phase-3
 Notes:   refs/notes/audit
-SHA256:  90a8da9d86561c45b7cd5f25f8396588dabb578279326ee229d72bffb21f0f56
+SHA256:  f4bdf29034b23609a64e06e30383d9a5a04a8376fbf34eb08e1fb49480d6e8f7
 
 File:    bundles/creator-engine-phase4.bundle
-Size:    2111542 bytes
+Size:    2111824 bytes
 Phase:   Phase 4 - AI Director and previz
 HEAD:    dbce87aa21126b4b3223dc2d9e2d2b54de2aae67
 Tags:    phase-0, phase-1, phase-2, phase-3, phase-4
 Notes:   refs/notes/audit
-SHA256:  998de784014402f60f1287e77bdb54a50f29b9c3d625d5f8db6d4bede2e8353f
+SHA256:  eaf80d2b5a83d97a64108c4f5cc6cd5bca1e9e00ce5b33eee24fc91410545aeb
 
 File:    bundles/creator-engine-phase5.bundle
-Size:    2236319 bytes
+Size:    2236315 bytes
 Phase:   Phase 5 - web app MVP
 HEAD:    d7576c5ba7d2a8061c476d2f3c4d4b4a47013064
 Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5
 Notes:   refs/notes/audit
-SHA256:  64176f76061e2cf1c41790bedad2dcac516857aaf44257e0413a03fb7b7a9426
+SHA256:  cd9e29d377b3583dfbb356d5b98a8ca9767924c420ab9980c5b592107cec2f6c
 
 File:    bundles/creator-engine-phase6.bundle
-Size:    2456036 bytes
+Size:    2456038 bytes
 Phase:   Phase 6 - incremental editing
 HEAD:    ae8786132b2fa5e976920976715ffa09628d84dd
 Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5, phase-6
 Notes:   refs/notes/audit
-SHA256:  acb9fb253123437ab54da25bf8deae1462c6f07c3e05383fce3c5decafa2e043
+SHA256:  6703697e06b966f5fa4faf66c7327825a06ed57374821ca3e563bae1b276b9e2
 
 File:    bundles/creator-engine-phase7.bundle
-Size:    3623123 bytes
+Size:    3623125 bytes
 Phase:   Phase 7 - real CPU engines (milestone M1)
 HEAD:    b437fe63c551832cd2c62114adb722ca6df04e36
 Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5, phase-6, phase-7
 Notes:   refs/notes/audit
-SHA256:  17114aed1e663d0e2d7f9be77e19067f505cbb6c00356edb6943c2e8110ee5e2
+SHA256:  c445a4aa50f0aabe6619932aebaaf6b56d3174dacb8552bef0031a727279901f
 
 File:    bundles/creator-engine-phase8.bundle
-Size:    11533983 bytes
+Size:    11533992 bytes
 Phase:   Phase 8 - GPU adapters (untested on GPU)
 HEAD:    6f5f230eb64821e382f182da73f11430b9225758
 Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5, phase-6, phase-7, phase-8
 Notes:   refs/notes/audit
-SHA256:  64874601d4d54cc31990cd821611cd662e306805da5b1b61cc90c7103851dbd0
+SHA256:  205bd31ee62937ccb10fe3b03dc1ba906a0929d7443ffecc55bc325a08470cf7
 
 File:    bundles/creator-engine-phase9.bundle
-Size:    11651612 bytes
+Size:    11651618 bytes
 Phase:   Phase 9 - fleet manager and GPU providers
 HEAD:    1949d108ecda47b3064c94e59091474dcac974d7
 Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5, phase-6, phase-7, phase-8, phase-9
 Notes:   refs/notes/audit
-SHA256:  aaff9925253d5af895d2a1e19f3165b4e551f8d0673bede0a8aeba2ca4fae58a
+SHA256:  b658ee00b6a345c36afda7b2531e08db445be69cee3e51fa842a658c4bce20b9
 
 File:    bundles/creator-engine-phase10.bundle
-Size:    11758324 bytes
+Size:    11758328 bytes
 Phase:   Phase 10 - Creator Studio and World Studio
 HEAD:    8be739c19e85084432e7aeed2942028719ade53d
 Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5, phase-6, phase-7, phase-8, phase-9, phase-10
 Notes:   refs/notes/audit
-SHA256:  22b59484e5c271c17516432a9ad741e28dadef5960721aa3474f6befd229affb
+SHA256:  159aaf4f87df958f9175b2bfcf7d97bf92891b06a0688cbd2fa0ca6edf6a8b84
 
 File:    bundles/creator-engine-phase11.bundle
-Size:    11900542 bytes
+Size:    11900545 bytes
 Phase:   Phase 11 - QC gate, Performance QA, Creative Director, benchmarks
 HEAD:    5d6ba91967c8097ff75d78108e8610ba46c3bebe
 Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5, phase-6, phase-7, phase-8, phase-9, phase-10, phase-11, phase-11-implementation
 Notes:   refs/notes/audit
-SHA256:  1ea918ef8840e24fe206edf8dee704b9c3db99f7c9bcba7426680cf4860a1f45
+SHA256:  793efa1fe9cde37ed31317c6bcba26f1c4dd689935d64f17e4e0c98cb3ad8202
 
 File:    bundles/creator-engine-phase12.bundle
-Size:    12129900 bytes
+Size:    12129899 bytes
 Phase:   Phase 12 - memory loop, research and claims, templates, exports
 HEAD:    755bdcb5af05470fc99da650aef0b44d95a7222e
 Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5, phase-6, phase-7, phase-8, phase-9, phase-10, phase-11, phase-12, phase-11-implementation
 Notes:   refs/notes/audit
-SHA256:  f7974478c6733d64a710723ad7a2f7891eccac7cbb9808dedd95f0fe09189e53
+SHA256:  c660ba50337170324ab8be8d645a2caf4d63921940ce864ea9ca6c4c531116b7
 
 File:    bundles/creator-engine-phase14.bundle
-Size:    24650990 bytes
+Size:    24650993 bytes
 Phase:   Phase 14 - hardening, operations, documentation - plus the 2026-10 technical and product audit corrections
-HEAD:    a4eb0cc87ee89599bde05f977dba986836d24a1f  (phase-14-audit; phase-14 = 64816c42ee3f590bf21423cef3202b70ae358604)
+HEAD:    f80ab38e3a74fd9e788381be24fff8b2d73e07d3  (phase-14-audit; phase-14 = 64816c42ee3f590bf21423cef3202b70ae358604)
 Tags:    phase-0, phase-1, phase-2, phase-3, phase-4, phase-5, phase-6, phase-7, phase-8, phase-9, phase-10, phase-11, phase-12, phase-14, phase-14-audit, phase-11-implementation
 Notes:   refs/notes/audit
-SHA256:  eae7b34f8604db71c4166b6c5e399f8668cb9deaaa10c6a166e9a2a031f45fd5
+SHA256:  cb1983c00bfe4c4151ba43c49d8e6263dc21d2f9c1ac01f7e97895915773e6df
 
 Documents (docs/):
   docs/DEMO.md  (4628 bytes)
@@ -144,7 +144,7 @@ Documents (docs/):
   docs/GPU_READINESS_REPORT.md  (15065 bytes)
   docs/MASTER_BUILD_PROMPT_v2_CHANGELOG_private.md  (30601 bytes)
   docs/MASTER_BUILD_PROMPT_v2_private.md  (308706 bytes)
-  docs/PRODUCT_LOGIC_AUDIT_REPORT.md  (81435 bytes)
+  docs/PRODUCT_LOGIC_AUDIT_REPORT.md  (81236 bytes)
   docs/README.md  (13385 bytes)
   docs/SETUP.md  (12349 bytes)
   docs/progress/phase-0.md  (7009 bytes)
@@ -152,7 +152,7 @@ Documents (docs/):
   docs/progress/phase-10.md  (8294 bytes)
   docs/progress/phase-11.md  (10470 bytes)
   docs/progress/phase-12.md  (11449 bytes)
-  docs/progress/phase-14.md  (14527 bytes)
+  docs/progress/phase-14.md  (14542 bytes)
   docs/progress/phase-2.md  (16648 bytes)
   docs/progress/phase-3.md  (14879 bytes)
   docs/progress/phase-4.md  (13818 bytes)

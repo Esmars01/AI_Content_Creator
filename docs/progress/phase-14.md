@@ -104,7 +104,7 @@ and every produced file was checked: frames, audio pitch, captions, durations an
   (E2E-RESPONSIVE) and was caught by the responsive Playwright spec and fixed.
 - **GPU readiness:** YELLOW.
 
-**Final regression:**
+**Final regression (at `b17ec34`):**
 - Python: 1907 passed, 14 skipped (CPU-engine assets), 0 failed;
 - web: 144 tests;
 - lint, typecheck, `verify-spec`, `verify-config` and `make demo` pass;
