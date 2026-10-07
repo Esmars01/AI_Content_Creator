@@ -57,7 +57,11 @@ function TemplateDetail({ id, onClose }: { id: string; onClose: () => void }) {
       ),
     onSuccess: (data, dry) => {
       if (dry) setPreview(data as never);
-      else setApplied((data as { edit_proposal_id: string }).edit_proposal_id);
+      else {
+        // proposed: a second click must not propose it again; preview again to re-apply (D13)
+        setPreview(null);
+        setApplied((data as { edit_proposal_id: string }).edit_proposal_id);
+      }
     },
   });
   const edit = useMutation({
@@ -130,7 +134,7 @@ function TemplateDetail({ id, onClose }: { id: string; onClose: () => void }) {
           <Button
             type="button"
             onClick={() => run.mutate(false)}
-            disabled={!preview?.operations.length || !can.allowed}
+            disabled={!preview?.operations.length || run.isPending || !can.allowed}
             title={can.reason}
           >
             Propose edit
@@ -168,7 +172,7 @@ function TemplateDetail({ id, onClose }: { id: string; onClose: () => void }) {
               className="mt-2"
               size="sm"
               onClick={() => edit.mutate()}
-              disabled={!body || !can.allowed}
+              disabled={!body || edit.isPending || !can.allowed}
               title={can.reason}
             >
               Save new version
@@ -194,6 +198,8 @@ function TemplateDetail({ id, onClose }: { id: string; onClose: () => void }) {
   );
 }
 
+const EXAMPLE_BODY = '{\n  "captions": {"style_id": "bold_pop_highlight"}\n}';
+
 function CreateTemplate() {
   const client = useQueryClient();
   const can = useCan("write_content");
@@ -202,7 +208,8 @@ function CreateTemplate() {
   const [source, setSource] = useState<"version" | "body">("version");
   const [versionId, setVersionId] = useState("");
   const [paths, setPaths] = useState("");
-  const [body, setBody] = useState('{\n  "captions": {"style_id": "bold_pop_highlight"}\n}');
+  const [body, setBody] = useState(EXAMPLE_BODY);
+  const [saved, setSaved] = useState<string | null>(null);
   const create = useMutation({
     mutationFn: () =>
       unwrap(
@@ -217,7 +224,16 @@ function CreateTemplate() {
             : { name, kind, body: JSON.parse(body) as Record<string, unknown> }) as never,
         }),
       ),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["templates"] }),
+    onMutate: () => setSaved(null),
+    onSuccess: (row) => {
+      // a fresh form: a second click must not save the same template again (D15)
+      setName("");
+      setVersionId("");
+      setPaths("");
+      setBody(EXAMPLE_BODY);
+      setSaved(row.name);
+      void client.invalidateQueries({ queryKey: ["templates"] });
+    },
   });
   return (
     <Card>
@@ -289,6 +305,11 @@ function CreateTemplate() {
           )}
           <div className="col-span-2">
             <ErrorNote error={create.error} />
+            {saved ? (
+              <Alert tone="success" className="mb-2">
+                Template “{saved}” saved.
+              </Alert>
+            ) : null}
             <Button type="submit" disabled={create.isPending || !can.allowed} title={can.reason}>
               Save template
             </Button>
