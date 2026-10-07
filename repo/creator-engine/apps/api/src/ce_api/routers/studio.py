@@ -31,8 +31,9 @@ from ce_db.models.creators import (
 )
 from ce_db.models.videos import Video, VideoVersion
 from ce_db.models.worlds import World, WorldVersion
+from ce_director.store import voice_dna
 from fastapi import APIRouter, BackgroundTasks, Request
-from pydantic import Field
+from pydantic import Field, ValidationError
 
 from ce_api.common import audit
 from ce_api.deps import Approver, DbSession, Reader, ServicesDep, Writer
@@ -364,7 +365,12 @@ async def list_voice_candidates(voice_id: UUID, principal: Reader, session: DbSe
     "/v1/voices/{voice_id}/candidates/{candidate_id}:select", response_model=VoiceVersionDetail, status_code=201
 )
 async def select_voice_candidate(
-    voice_id: UUID, candidate_id: UUID, principal: Writer, request: Request, session: DbSession
+    voice_id: UUID,
+    candidate_id: UUID,
+    principal: Writer,
+    request: Request,
+    session: DbSession,
+    services: ServicesDep,
 ) -> VoiceVersionDetail:
     voice = await lock_scoped(session, Voice, principal.ctx, voice_id, "voice")
     candidate = await get_scoped(session, VoiceCandidate, principal.ctx, candidate_id, "voice candidate")
@@ -386,7 +392,9 @@ async def select_voice_candidate(
             {
                 "asset_id": str(asset_id),
                 "language": str(inputs.get("language", "en")),
-                "transcript": str(inputs.get("sample_text") or ""),
+                # what the candidate says: the request's sample text, else the studio's default the
+                # design job spoke (an empty transcript made every video with this voice fail to plan)
+                "transcript": str(inputs.get("sample_text") or services.config.studio.voice_test_text),
             }
         ],
         status="draft",
@@ -455,6 +463,13 @@ async def approve_voice_version(
     require_draft(row, "voice version")
     if voice.kind == "cloned" and voice.consent_id is None:
         raise ConflictError("a cloned voice needs a valid consent (§21, §32)", issues=[Issue("consent_id", "missing")])
+    try:  # what planning reads must validate, or every video with this voice fails to plan
+        voice_dna(row)
+    except ValidationError as exc:
+        raise InvalidInputError(
+            "the voice version is not usable yet",
+            issues=[Issue("voice_dna", e["msg"], path="/" + "/".join(str(p) for p in e["loc"])) for e in exc.errors()],
+        ) from exc
     row.status = "approved"
     voice.current_version_id = row.id
     await session.flush()

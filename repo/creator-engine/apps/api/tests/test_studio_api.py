@@ -157,3 +157,25 @@ async def test_creator_tests_ratings_and_world_plates(harness: ApiHarness, owner
                                                                       "weather": []}  # fmt: skip
     continuity = (await owner.client.get(f"/v1/worlds/{world['id']}/continuity")).json()
     assert continuity["uses"] == [] and "Phase 11" in continuity["note"]
+
+
+async def test_a_voice_planning_cannot_read_is_refused_at_approval(harness: ApiHarness, owner: ApiTenant) -> None:
+    """Audit CR-VOICE-TRANSCRIPT: a voice version whose reference has no transcript was approved,
+    linked to a creator, and only failed later — every video with that creator failed to plan."""
+    accepted = await owner.client.post("/v1/voices", json={"name": "V", "description": "calm", "language": "en-US"})
+    voice_id = accepted.json()["voice_id"]
+    async with harness.services.db.transaction() as session:
+        version = VoiceVersion(
+            org_id=owner.org_id,
+            voice_id=uuid.UUID(voice_id),
+            number=1,
+            status="draft",
+            references=[{"asset_id": str(uuid.uuid4()), "language": "en-US", "transcript": ""}],
+        )
+        session.add(version)
+        await session.flush()
+        version_id = str(version.id)
+    refused = await owner.client.post(f"/v1/voice-versions/{version_id}:approve")
+    assert refused.status_code == 422, refused.text
+    assert any(i["path"] == "/references/0/transcript" for i in refused.json()["issues"]), refused.json()
+    assert (await owner.client.get(f"/v1/voice-versions/{version_id}")).json()["status"] == "draft"
