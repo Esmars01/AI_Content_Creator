@@ -32,17 +32,51 @@ import {
   usePlatforms,
   useRenders,
 } from "@/lib/queries";
+import { startDownload } from "@/lib/utils";
 
 type Platform = Schemas["PlatformOut"];
 type PackagingRow = Schemas["PackagingOut"];
+type CaptionRow = Schemas["CaptionOut"];
 
 // ====================================================================== captions
+/** One caption file as a download: the presigned link is fetched on click (it expires). */
+function CaptionDownloadButton({ caption, onError }: { caption: CaptionRow; onError: (error: unknown) => void }) {
+  const [busy, setBusy] = useState(false);
+  const built = Boolean(caption.artifact_id);
+  return (
+    <button
+      type="button"
+      className="text-blue-800 underline disabled:text-slate-500 disabled:no-underline"
+      aria-label={`Download ${caption.language} ${caption.format} captions`}
+      title={built ? `Download captions.${caption.language}.${caption.format}` : "The caption file is not built yet"}
+      disabled={!built || busy}
+      onClick={async () => {
+        setBusy(true);
+        onError(null);
+        try {
+          const out = await unwrap(
+            api.GET("/v1/captions/{caption_id}/download", { params: { path: { caption_id: caption.id } } }),
+          );
+          startDownload(out.url, out.filename);
+        } catch (error) {
+          onError(error);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {caption.format}
+    </button>
+  );
+}
+
 export function CaptionsPanel({ versionId, videoId }: { versionId: string; videoId: string }) {
   const client = useQueryClient();
   const captions = useCaptions(versionId);
   const options = useCreateOptions();
   const [language, setLanguage] = useState("");
   const [created, setCreated] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<unknown>(null);
   const refresh = () => client.invalidateQueries({ queryKey: keys.captions(versionId) });
   const translate = useMutation({
     mutationFn: () =>
@@ -79,7 +113,7 @@ export function CaptionsPanel({ versionId, videoId }: { versionId: string; video
         <CardTitle>Captions</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
-        <ErrorNote error={translate.error ?? review.error} />
+        <ErrorNote error={translate.error ?? review.error ?? downloadError} />
         {created ? (
           <Alert tone="info">
             The translation builds in a new version.{" "}
@@ -108,7 +142,13 @@ export function CaptionsPanel({ versionId, videoId }: { versionId: string; video
                 return (
                   <tr key={lang} data-testid="caption-language">
                     <Td>{lang}</Td>
-                    <Td className="text-xs">{files.map((f) => f.format).join(", ")}</Td>
+                    <Td className="text-xs">
+                      <span className="flex flex-wrap gap-2">
+                        {files.map((f) => (
+                          <CaptionDownloadButton key={f.id} caption={f} onError={setDownloadError} />
+                        ))}
+                      </span>
+                    </Td>
                     <Td>
                       {state === "n/a" ? (
                         <span className="text-xs text-slate-600">spoken language</span>
@@ -199,17 +239,25 @@ function PackagingEditor({ row, platform }: { row: PackagingRow; platform: Platf
   const limits = row.limits as Record<string, number> & { sources?: Record<string, string> };
   const sources = limits.sources ?? {};
   const refresh = () => client.invalidateQueries({ queryKey: keys.packaging(row.version_id) });
-  const save = useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      unwrap(
-        api.PATCH("/v1/packaging/{packaging_id}", { params: { path: { packaging_id: row.id } }, body: body as never }),
-      ),
-    onSuccess: refresh,
-  });
+  // The editor remounts when the row changes (keyed on `updated_at`), so every save sends the text
+  // as typed: choosing a thumbnail or approving never discards unsaved edits (D7, D8).
+  const fields = { title, description, hashtags: parseHashtags(hashtags), cta_text: cta };
+  const dirty =
+    title !== row.title ||
+    description !== row.description ||
+    cta !== row.cta_text ||
+    fields.hashtags.join(" ") !== row.hashtags.join(" ");
+  const patch = (body: Record<string, unknown>) =>
+    unwrap(
+      api.PATCH("/v1/packaging/{packaging_id}", { params: { path: { packaging_id: row.id } }, body: body as never }),
+    );
+  const save = useMutation({ mutationFn: patch, onSuccess: refresh });
   const approve = useMutation({
-    mutationFn: () =>
-      unwrap(api.POST("/v1/packaging/{packaging_id}:approve", { params: { path: { packaging_id: row.id } } })),
-    onSuccess: refresh,
+    mutationFn: async () => {
+      if (dirty) await patch(fields); // approve what is on screen, not the stored copy
+      return unwrap(api.POST("/v1/packaging/{packaging_id}:approve", { params: { path: { packaging_id: row.id } } }));
+    },
+    onSettled: refresh,
   });
   const candidates = (row.thumbnail_candidates ?? []) as { artifact_id: string; text?: string; at_s?: number }[];
   const generator = row.generator as { kind?: string; fallback?: string };
@@ -262,7 +310,7 @@ function PackagingEditor({ row, platform }: { row: PackagingRow; platform: Platf
                   type="radio"
                   name={`thumb-${row.id}`}
                   checked={row.thumbnail_artifact_ids.includes(c.artifact_id)}
-                  onChange={() => save.mutate({ thumbnail_artifact_id: c.artifact_id })}
+                  onChange={() => save.mutate({ ...fields, thumbnail_artifact_id: c.artifact_id })}
                 />
                 <ThumbnailLink
                   packagingId={row.id}
@@ -285,15 +333,14 @@ function PackagingEditor({ row, platform }: { row: PackagingRow; platform: Platf
         </Alert>
       ) : null}
       <div className="flex gap-2">
-        <Button
-          variant="outline"
-          onClick={() => save.mutate({ title, description, hashtags: parseHashtags(hashtags), cta_text: cta })}
-          disabled={save.isPending}
-        >
+        <Button variant="outline" onClick={() => save.mutate(fields)} disabled={save.isPending}>
           Save
         </Button>
-        <Button onClick={() => approve.mutate()} disabled={approve.isPending || row.status === "approved"}>
-          Approve
+        <Button
+          onClick={() => approve.mutate()}
+          disabled={approve.isPending || save.isPending || (row.status === "approved" && !dirty)}
+        >
+          {dirty ? "Save and approve" : "Approve"}
         </Button>
       </div>
     </div>
