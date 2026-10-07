@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -63,5 +63,29 @@ describe("VersionsPanel", () => {
     expect(within(never).getByRole("link", { name: "Previz" }).getAttribute("href")).toBe(
       "/videos/vid/versions/v1/previz",
     );
+  });
+
+  it("drops an earlier action's error once another action is started (D21)", async () => {
+    // Regression: a refused Resume kept its error under the panel after a later Restore succeeded.
+    get.mockImplementation((path: string, init?: { params?: { query?: Record<string, unknown> } }) => {
+      if (path === "/v1/jobs" && init?.params?.query?.kind === "generate")
+        return ok({ items: [{ id: "j2", kind: "generate", video_version_id: "v2" }], next_cursor: null });
+      return ok({ items: [] });
+    });
+    post.mockImplementation((path: string) =>
+      path.endsWith(":resume")
+        ? Promise.resolve({
+            error: { status: 409, title: "Conflict", detail: "nothing to resume" },
+            response: new Response(null, { status: 409 }),
+          })
+        : ok({ version_id: "v4", job_id: "j4" }),
+    );
+    const versions = [version("v1", 1, "ready"), version("v2", 2, "failed")];
+    render(wrap(<VersionsPanel videoId="vid" versions={versions as never[]} currentId="v2" />));
+    fireEvent.click(await within(row("v2 · Plan")).findByRole("button", { name: "Resume" }));
+    expect(await screen.findByText("nothing to resume")).toBeTruthy();
+    fireEvent.click(within(row("v1 · Plan")).getByRole("button", { name: "Restore" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/videos/vid?version=v4"));
+    expect(screen.queryByText("nothing to resume")).toBeNull();
   });
 });

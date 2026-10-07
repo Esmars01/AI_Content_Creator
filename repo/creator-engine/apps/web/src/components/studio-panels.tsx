@@ -118,6 +118,8 @@ export function VersionsPanel({
       await client.invalidateQueries({ queryKey: keys.version(accepted.version_id) });
     },
   });
+  // one error line for the panel: starting an action clears the previous action's error (D21)
+  const clearErrors = () => [restore, branch, resume, duplicate].forEach((m) => m.reset());
   const nodes = flatten(versionTree(versions));
   const current = versions.find((v) => v.id === currentId);
   // only a failed or cancelled version needs to know whether it started generating (D5)
@@ -162,7 +164,10 @@ export function VersionsPanel({
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => restore.mutate(v.id)}
+                    onClick={() => {
+                      clearErrors();
+                      restore.mutate(v.id);
+                    }}
                     disabled={restore.isPending || !can.allowed}
                     title={can.reason}
                   >
@@ -173,7 +178,10 @@ export function VersionsPanel({
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => resume.mutate(v.id)}
+                    onClick={() => {
+                      clearErrors();
+                      resume.mutate(v.id);
+                    }}
                     disabled={resume.isPending || !can.allowed}
                     title={can.reason}
                   >
@@ -216,7 +224,9 @@ export function VersionsPanel({
           className="flex items-center gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (branchName.trim() && can.allowed) branch.mutate();
+            if (!branchName.trim() || !can.allowed) return;
+            clearErrors();
+            branch.mutate();
           }}
         >
           <Input
@@ -239,7 +249,10 @@ export function VersionsPanel({
           <Button
             size="sm"
             variant="outline"
-            onClick={() => duplicate.mutate()}
+            onClick={() => {
+              clearErrors();
+              duplicate.mutate();
+            }}
             disabled={duplicate.isPending || !can.allowed}
             title={can.reason ?? `Copy v${current?.number ?? "?"} into a new video`}
           >
