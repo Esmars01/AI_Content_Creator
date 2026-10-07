@@ -1139,7 +1139,7 @@ function VoiceCard({ voiceId, name }: { voiceId: string; name: string }) {
   );
 }
 
-function VoiceVersionBench({ versionId, current = false }: { versionId: string; current?: boolean }) {
+export function VoiceVersionBench({ versionId, current = false }: { versionId: string; current?: boolean }) {
   const client = useQueryClient();
   const version = useQuery({
     queryKey: ["voice-version", versionId],
@@ -1221,8 +1221,19 @@ function VoiceVersionBench({ versionId, current = false }: { versionId: string; 
         <h4 className="text-xs font-medium uppercase text-slate-600">Lexicon</h4>
         <ul className="text-sm">
           {lexicon.map((e) => (
-            <li key={e.term}>
+            <li key={e.term} className="flex items-center gap-2">
               {e.term} → {e.respelling}
+              {draft ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-label={`Remove ${e.term}`}
+                  disabled={patch.isPending}
+                  onClick={() => patch.mutate(lexicon.filter((x) => x.term !== e.term))}
+                >
+                  Remove
+                </Button>
+              ) : null}
             </li>
           ))}
         </ul>
