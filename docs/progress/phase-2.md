@@ -105,3 +105,9 @@ New or extended in Phase 2:
 - **A1** — a generation that could not start left its version `approved` forever. **A3** — concurrent render requests raced. **D1** — `make dev` never rebuilt the service images (the stale-orchestrator `PlanRequest.sources` failure). **D6** — the services image lacked plugins that native mode has.
 
 The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-2`).
+
+## Product-audit corrections (2026-10-07)
+
+- OUT-LABELS (the mock keyframe never named the outfit, world or acting state, so their propagation could not be checked by eye; a mock plate edit drew a person into the world plate).
+
+Found by the product-level audit; evidence, regression tests and fixes in [`PRODUCT_LOGIC_AUDIT_REPORT.md`](../PRODUCT_LOGIC_AUDIT_REPORT.md) (corrected in tag `phase-14-audit`).

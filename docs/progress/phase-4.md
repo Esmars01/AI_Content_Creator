@@ -85,3 +85,9 @@ Changed: `config/default.yaml` (`research:`), `config/intent_policies.yaml`, `co
 - **A4** — version numbers were allocated MAX+1 without a lock (concurrent replans/edits collided). **A6** — more sources than the Director's `PlanRequest` accepts answered 500 instead of 422.
 
 The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-4`).
+
+## Product-audit corrections (2026-10-07)
+
+- PLAN-FAIL (a plan the router could not route, e.g. a language no voice speaks, left its job `running` at 5 % forever: the workflow had no failure handler).
+
+Found by the product-level audit; evidence, regression tests and fixes in [`PRODUCT_LOGIC_AUDIT_REPORT.md`](../PRODUCT_LOGIC_AUDIT_REPORT.md) (corrected in tag `phase-14-audit`).

@@ -92,3 +92,18 @@ Verified on 2026-10-06:
 - **Validation of the corrected system** (report section 21): from a fresh clone of the regenerated Phase 14 bundle on fresh volumes, 1 890 Python tests pass, 0 fail, 14 skip (CPU-engine assets); 90 web tests, lint, typecheck, `verify-spec` and `verify-config` pass; `make demo` passes end to end; 8 of 9 Playwright specs pass, and `create-to-play` stops only at H.264 playback in Chromium. Mock mode only; nothing was validated on a GPU.
 
 The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-14`).
+
+## Product-level audit (2026-10-07)
+
+This was a black-box audit on top of the technical one. A real browser drove every journey through the UI,
+and every produced file was checked: frames, audio pitch, captions, durations and downloads.
+
+- **Result:** 109 scenarios. 47 defects were found and fixed (4 P1, 13 P2, 27 P3, 3 P4), each with a
+  regression test and a re-test.
+- **Defects introduced by this phase:** none. One regression came from the audit's own Cancel button
+  (E2E-RESPONSIVE) and was caught by the responsive Playwright spec and fixed.
+- **GPU readiness:** YELLOW.
+
+Details: [`PRODUCT_LOGIC_AUDIT_REPORT.md`](../PRODUCT_LOGIC_AUDIT_REPORT.md). The final regression numbers are
+in its section 29.
+

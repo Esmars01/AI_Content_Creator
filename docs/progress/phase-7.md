@@ -108,3 +108,9 @@ Changed: `ce_contracts` (manifest assets and CPU engines, `provenance.verify`, T
 - **W12** — the mock adapters' FFmpeg was not killed on cancellation. **D14** — the API container received a host path as `MODEL_CACHE_DIR`.
 
 The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-7`).
+
+## Product-audit corrections (2026-10-07)
+
+- CAM-MOVES (six of nine camera move types were silently ignored by `post.camera`), OUT-ROOM (the room sound did not key on the camera's microphone), DL-02 (caption files listed but not downloadable).
+
+Found by the product-level audit; evidence, regression tests and fixes in [`PRODUCT_LOGIC_AUDIT_REPORT.md`](../PRODUCT_LOGIC_AUDIT_REPORT.md) (corrected in tag `phase-14-audit`).

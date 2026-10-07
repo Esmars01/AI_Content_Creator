@@ -4,6 +4,12 @@
 · **Base:** workspace commit `58c131e` (= Phase 14 checkpoint `64816c4` sources) · **Result:** tag `phase-14-audit`
 in `bundles/creator-engine-phase14.bundle` · **Companion:** [`GPU_READINESS_REPORT.md`](GPU_READINESS_REPORT.md)
 
+> **Follow-up (2026-10-07):** a product-level audit on top of this one, with black-box user journeys and
+> artifact checks, found and fixed 47 more defects. That includes 4 P1s: an edit proposal applied to another
+> video, creators whose voice or look could never change, a plan that hung forever, and designed voices that
+> could not plan. See [`PRODUCT_LOGIC_AUDIT_REPORT.md`](PRODUCT_LOGIC_AUDIT_REPORT.md). Tag `phase-14-audit`
+> now points at the commit that includes that work, and this report's text is unchanged below.
+
 > Every measurement below was taken on this audit's host: 4 vCPU, 15 GiB, **no GPU**, Docker for the
 > infrastructure, the services run as host processes (native mode). Nothing here was validated on a GPU, with a
 > paid provider or with a hosted LLM.

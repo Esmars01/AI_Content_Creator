@@ -81,3 +81,9 @@ Changed: `config/default.yaml` (`behavior:`), `ce_config` (schemas, loader check
 3. Memory retrieval with budgets and snapshot pinning (I7), contradiction checks, repetition guard; research with the SSRF-guarded fetcher.
 4. The previz gate and `PlanVideoWorkflow`; `POST /v1/projects/{id}/videos`, `GET /v1/versions/{id}/previz`, `:replan`, `:approve`.
 5. Acceptance fixtures: the section-2 creation examples and the §15.5 situational examples in fixture mode; invariants I7, I10, I13.
+
+## Product-audit corrections (2026-10-07)
+
+- OUT-PROSODY (a cast member's voice offsets, rate, energy and pitch, were hashed into the voice nodes but dropped by `compile_voice`).
+
+Found by the product-level audit; evidence, regression tests and fixes in [`PRODUCT_LOGIC_AUDIT_REPORT.md`](../PRODUCT_LOGIC_AUDIT_REPORT.md) (corrected in tag `phase-14-audit`).
