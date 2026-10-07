@@ -34,6 +34,7 @@ from ce_behavior.qa import decide, take_behavior_score
 from ce_behavior.resolve import CastInput, WorldInput, resolve
 from ce_behavior.scene import SceneWords
 from ce_contracts import models as m
+from ce_contracts.behavior import BehaviorDirectives
 from ce_core.behavior.cbs import CBSContent, RequestedControl
 from ce_core.behavior.compiled import CompiledBehavior
 from ce_core.behavior.observed import AnalyzerRef, ItemObservation, ObservedBehavior
@@ -137,6 +138,29 @@ def _node_target_fields(run: NodeRun) -> dict[str, Any]:
     }
 
 
+def _with_voice_prosody(run: NodeRun, directives: BehaviorDirectives) -> BehaviorDirectives:
+    """The cast member's per-video offset on the voice (§10.6 `voice_prosody`): rate multiplies,
+    energy shifts around its neutral 0.5, pitch rides along in semitones. It was hashed into this
+    node's key but never applied, so "speak faster" rebuilt the voice unchanged (audit OUT-PROSODY)."""
+    member = next((c for c in run.spec.cast if c.key == run.node.character_key), None)
+    if member is None or member.voice_prosody is None:
+        return directives
+    offset = member.voice_prosody
+    prosody = [
+        p.model_copy(
+            update={
+                "rate": min(2.9, max(0.31, p.rate * offset.rate)),
+                "energy": min(1.0, max(0.0, p.energy + offset.energy - 0.5)),
+                "pitch_semitones": p.pitch_semitones + offset.pitch_semitones,
+            }
+        )
+        if p.character_key == member.key
+        else p
+        for p in directives.prosody
+    ]
+    return directives.model_copy(update={"prosody": prosody})
+
+
 async def compile_voice_node(run: NodeRun) -> NodeOutput:
     cbs = _cbs(run.dep("behavior.resolve:"))
     scene = run.scene
@@ -153,7 +177,9 @@ async def compile_voice_node(run: NodeRun) -> NodeOutput:
         **_node_target_fields(run),
     )
     compiled, downgrades = _compile_with_downgrades(run, cbs, target, words)
-    directives = to_directives(compiled, cbs, words=words, word_times={}, vocab=run.svc.bundle.vocab)
+    directives = _with_voice_prosody(
+        run, to_directives(compiled, cbs, words=words, word_times={}, vocab=run.svc.bundle.vocab)
+    )
     return NodeOutput(
         node_kind=run.node.kind,
         data={

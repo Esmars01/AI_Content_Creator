@@ -337,6 +337,7 @@ def synth_speech(
     energy: float = 0.6,
     pitch_variation: float = 0.5,
     f0: float | None = None,
+    pitch_semitones: float = 0.0,
     pauses_ms: dict[int, int] | None = None,
     emphasis: Iterable[int] = (),
     lead_s: float = 0.12,
@@ -348,7 +349,7 @@ def synth_speech(
     given word index; emphasized words are louder and slightly longer.
     """
     rng = np.random.default_rng(seed)
-    base_f0 = f0 if f0 is not None else float(110 + seed % 90)
+    base_f0 = (f0 if f0 is not None else float(110 + seed % 90)) * 2 ** (pitch_semitones / 12)
     per_word = 60.0 / max(40.0, wpm * max(0.3, rate))
     lengths = np.array([max(1, len(w.strip(".,!?;:…\"'"))) for w in words], dtype=np.float32)
     weights = np.clip(lengths / max(1.0, float(lengths.mean())), 0.6, 1.6)

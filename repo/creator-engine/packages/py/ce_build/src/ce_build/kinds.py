@@ -53,7 +53,7 @@ KINDS: dict[str, NodeKind] = {
             "behavior.compile_voice",
             "cpu",
             None,
-            "2",
+            "3",
             "scene",
             reads_requests=True,
             spec_reads=("/script/segments[*]",),

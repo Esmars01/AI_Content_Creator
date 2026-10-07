@@ -40,6 +40,7 @@
     "pauses_ms": {
       "3": 350
     },
+    "pitch_semitones": 0.0,
     "pitch_variation": 0.35,
     "rate": 0.9,
     "syntax": "mock_voice_params",

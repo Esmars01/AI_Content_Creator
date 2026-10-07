@@ -57,6 +57,7 @@ class MockVoice(MockAdapter, VoiceEngine):
             energy=float(engine.get("energy", 0.6)),
             pitch_variation=float(engine.get("pitch_variation", 0.5)),
             f0=await self._f0(request, ctx),
+            pitch_semitones=float(engine.get("pitch_semitones", 0.0)),
             pauses_ms=pauses,
             emphasis=engine.get("emphasis") or (),
         )

@@ -42,6 +42,7 @@ class MockVoiceTranslator:
             "rate": plan.rate if plan else 1.0,
             "energy": plan.energy if plan else 0.6,
             "pitch_variation": plan.pitch_variation if plan else 0.5,
+            "pitch_semitones": plan.pitch_semitones if plan else 0.0,
             "pauses_ms": {str(p["after_word"]): int(p["ms"]) for p in plan.pauses} if plan else {},
             "emphasis": list(plan.emphasis_words) if plan else [],
             "emotion": plan.emotion if plan else None,
