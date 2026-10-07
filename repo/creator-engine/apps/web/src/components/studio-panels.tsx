@@ -22,13 +22,13 @@ import {
   lockLabel,
   locksBody,
   locksOf,
-  RESUMABLE,
+  resumeAction,
   sameLock,
   versionTree,
   type VersionSummary,
 } from "@/lib/edits";
 import { humanize } from "@/lib/format";
-import { keys, useTakes, useVocabulary } from "@/lib/queries";
+import { keys, useGeneratedVersionIds, useTakes, useVocabulary } from "@/lib/queries";
 import { useCan } from "@/lib/roles";
 import { usePendingVersions, useStudio } from "@/lib/store";
 
@@ -104,6 +104,8 @@ export function VersionsPanel({
   });
   const nodes = flatten(versionTree(versions));
   const current = versions.find((v) => v.id === currentId);
+  // only a failed or cancelled version needs to know whether it started generating (D5)
+  const generated = useGeneratedVersionIds(versions.some((v) => v.state === "failed" || v.state === "cancelled"));
   return (
     <Card>
       <CardHeader>
@@ -151,7 +153,7 @@ export function VersionsPanel({
                     Restore
                   </Button>
                 ) : null}
-                {RESUMABLE.has(v.state) ? (
+                {resumeAction(v, generated.data) === "resume" ? (
                   <Button
                     size="sm"
                     variant="ghost"
@@ -160,6 +162,15 @@ export function VersionsPanel({
                     title={can.reason}
                   >
                     Resume
+                  </Button>
+                ) : resumeAction(v, generated.data) === "previz" ? (
+                  <Button size="sm" variant="ghost" asChild>
+                    <Link
+                      href={`/videos/${videoId}/versions/${v.id}/previz`}
+                      title="This version never started generating: replan or approve it on its previz page."
+                    >
+                      Previz
+                    </Link>
                   </Button>
                 ) : null}
               </span>

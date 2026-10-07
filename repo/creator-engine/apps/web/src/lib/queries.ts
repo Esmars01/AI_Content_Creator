@@ -248,6 +248,21 @@ export const useJobs = (status: string | null = null, poll = false) =>
     ...opts,
   });
 
+/**
+ * The versions a generation job ran for (among the newest 100 generation jobs): a failed or
+ * cancelled version resumes only if it started generating (the API's `passed_approval`).
+ */
+export const useGeneratedVersionIds = (enabled: boolean) =>
+  useQuery({
+    queryKey: [...keys.jobs(), "generated-versions"],
+    enabled,
+    queryFn: async () => {
+      const page = await unwrap(api.GET("/v1/jobs", { params: { query: { kind: "generate", limit: 100 } } }));
+      return page.items.map((job) => job.video_version_id).filter((id): id is string => Boolean(id));
+    },
+    ...opts,
+  });
+
 export const useJob = (id: string | null, poll = false) =>
   useQuery({
     queryKey: keys.job(id ?? ""),
