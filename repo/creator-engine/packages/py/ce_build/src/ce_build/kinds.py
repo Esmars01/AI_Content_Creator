@@ -92,7 +92,7 @@ KINDS: dict[str, NodeKind] = {
             reads_requests=True,
             spec_reads=("/scenes[*]/shots[*]", "/audio/sfx", "/audio/music", "/captions", "/meta/mode"),
         ),
-        _K("world.plate", "model", "image.edit", "1", "scene", spec_reads=("/scenes[*]/world",)),
+        _K("world.plate", "model", "image.edit", "2", "scene", spec_reads=("/scenes[*]/world",)),
         _K(
             "behavior.keyframe_state",
             "cpu",
@@ -106,7 +106,7 @@ KINDS: dict[str, NodeKind] = {
             "image.keyframe",
             "model",
             "image.edit",
-            "1",
+            "2",
             "scene",
             spec_reads=(
                 "/scenes[*]/shots[*]/camera",
@@ -114,7 +114,7 @@ KINDS: dict[str, NodeKind] = {
                 "/scenes[*]/cast[*]/wardrobe_version_id",
             ),
         ),
-        _K("avatar.render", "model", "avatar.a2v", "1", "scene", spec_reads=("/scenes[*]/shots[*]/takes",)),
+        _K("avatar.render", "model", "avatar.a2v", "2", "scene", spec_reads=("/scenes[*]/shots[*]/takes",)),
         _K("lipsync.patch", "model", "lipsync.dub", "1", "scene"),
         _K(
             "post.expression",

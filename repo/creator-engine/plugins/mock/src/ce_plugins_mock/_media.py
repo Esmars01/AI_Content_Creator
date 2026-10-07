@@ -488,7 +488,9 @@ async def render_avatar_clip(
         path = workdir / f"label_{index}.txt"
         path.write_text(text, encoding="utf-8")
         enable = f"between(t,{start:.3f},{end:.3f})"
-        chain.append(f"[{label}]{_drawtext(path, x='12', y=f'h-{size * 3}', size=size, enable=enable)}[t{index}]")
+        # inside the frame a punch-in or the camera margin keeps (at the bottom edge, post.camera's zoom
+        # cropped it away, so acting changes were invisible on punched-in shots — audit OUT-LABELS)
+        chain.append(f"[{label}]{_drawtext(path, x='w*0.08', y='h*0.64', size=size, enable=enable)}[t{index}]")
         label = f"t{index}"
     await run_ffmpeg(
         [

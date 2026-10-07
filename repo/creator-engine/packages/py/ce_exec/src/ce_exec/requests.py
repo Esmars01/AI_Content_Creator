@@ -165,7 +165,15 @@ async def _world_plate(run: NodeRun) -> Prepared:
     width, height = int(run.node.params["width"]), int(run.node.params["height"])
     binding = run.scene.world
     assert binding is not None
-    labels = {"kind": "plate", "camera": binding.camera_position_key, "time": str(binding.time_of_day)}
+    world = run.data.refs.worlds.get(binding.world_version_id)
+    # the keys the mock image engine prints on the plate (it read `camera_position`/`time_of_day` while
+    # this sent `camera`/`time`, so plates were unlabelled — audit OUT-LABELS)
+    labels = {
+        "kind": "plate",
+        "world": str(world.dna.get("name", "")) if world is not None else "",
+        "camera_position": binding.camera_position_key,
+        "time_of_day": str(binding.time_of_day),
+    }
     prompt = _world_prompt(run)
     if run.node.capability == "image.generate":
         return Prepared(m.ImageGenerateRequest(prompt=prompt, width=width, height=height, labels=labels))
@@ -195,6 +203,7 @@ async def _keyframe(run: NodeRun) -> Prepared:
         for asset in wardrobe.reference_assets:
             references.append(await run.adopt(asset, kind="image", role="wardrobe_reference"))
     profile = run.svc.bundle.camera_profiles.get(shot.camera.profile_id)
+    plate_world = run.data.refs.worlds.get(run.scene.world.world_version_id) if run.scene.world is not None else None
     dna = dict(appearance.dna) if appearance is not None else {}
     prompt_parts = [
         creator.display_name,
@@ -218,6 +227,9 @@ async def _keyframe(run: NodeRun) -> Prepared:
         labels={
             "kind": "keyframe",
             "creator": creator.display_name,
+            # what the mock engine prints, so an outfit or world change shows in the frame (audit OUT-LABELS)
+            "wardrobe": str(wardrobe.spec.get("name", "")) if wardrobe is not None else "",
+            "world": str(plate_world.dna.get("name", "")) if plate_world is not None else "",
             "shot": shot.key,
             "expression": str(state.get("expression", "")),
         },
