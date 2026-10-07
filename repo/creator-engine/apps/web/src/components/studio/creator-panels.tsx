@@ -462,6 +462,85 @@ function ScopedKeep({
   );
 }
 
+/**
+ * Authors a memory item of the two kinds people add by hand most: a fact the creator keeps, and a
+ * topic the creator avoids (other kinds stay with the API). The panel promised "or authored" with
+ * no way to author (audit MEM-CRUD).
+ */
+export function AddMemory({ creatorId }: { creatorId: string }) {
+  const client = useQueryClient();
+  const can = useCan("write_content");
+  const [kind, setKind] = useState<"persona_fact" | "avoidance.topic">("persona_fact");
+  const [fact, setFact] = useState({ subject: "", predicate: "", object: "" });
+  const [topic, setTopic] = useState("");
+  const value = kind === "persona_fact" ? fact : { topic: topic.trim() };
+  const text =
+    kind === "persona_fact" ? `${fact.subject} ${fact.predicate} ${fact.object}`.trim() : `Avoids: ${topic.trim()}`;
+  const complete =
+    kind === "persona_fact" ? Boolean(fact.subject && fact.predicate && fact.object) : Boolean(topic.trim());
+  const add = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.POST("/v1/creators/{creator_id}/memory", {
+          params: { path: { creator_id: creatorId } },
+          body: { kind, value, text } as never,
+        }),
+      ),
+    onSuccess: async () => {
+      setFact({ subject: "", predicate: "", object: "" });
+      setTopic("");
+      await client.invalidateQueries({ queryKey: keys.memory(creatorId) });
+    },
+  });
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Add to memory</CardTitle>
+        <CardDescription>Authored items are used when planning this creator&apos;s next videos.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form
+          className="flex flex-wrap items-end gap-2 text-sm"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (complete && can.allowed) add.mutate();
+          }}
+        >
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="memory-kind">Kind</Label>
+            <Select id="memory-kind" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+              <option value="persona_fact">A fact about the creator</option>
+              <option value="avoidance.topic">A topic the creator avoids</option>
+            </Select>
+          </div>
+          {kind === "persona_fact" ? (
+            (["subject", "predicate", "object"] as const).map((field) => (
+              <div key={field} className="flex flex-col gap-1">
+                <Label htmlFor={`memory-${field}`}>{humanize(field)}</Label>
+                <Input
+                  id={`memory-${field}`}
+                  value={fact[field]}
+                  placeholder={{ subject: "Alex", predicate: "owns", object: "a grey cat" }[field]}
+                  onChange={(e) => setFact({ ...fact, [field]: e.target.value })}
+                />
+              </div>
+            ))
+          ) : (
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="memory-topic">Topic</Label>
+              <Input id="memory-topic" value={topic} onChange={(e) => setTopic(e.target.value)} />
+            </div>
+          )}
+          <Button type="submit" disabled={!complete || add.isPending || !can.allowed} title={can.reason}>
+            Add
+          </Button>
+        </form>
+        <ErrorNote error={add.error} />
+      </CardContent>
+    </Card>
+  );
+}
+
 export function MemoryPanel({ creatorId }: { creatorId: string }) {
   const client = useQueryClient();
   const memory = useMemory(creatorId);
@@ -479,14 +558,26 @@ export function MemoryPanel({ creatorId }: { creatorId: string }) {
       ),
     onSuccess: () => client.invalidateQueries({ queryKey: keys.memory(creatorId) }),
   });
+  const remove = useMutation({
+    mutationFn: (id: string) =>
+      unwrap(api.DELETE("/v1/memory-items/{memory_item_id}", { params: { path: { memory_item_id: id } } })),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.memory(creatorId) }),
+  });
+  const can = useCan("write_content");
   const items = useMemo(() => (memory.data?.items ?? []) as unknown as MemoryItem[], [memory.data]);
   const groups = useMemo(() => memoryGroups(items), [items]);
   if (memory.isLoading) return <Skeleton className="h-48" />;
   if (!items.length)
-    return <Empty>No memory items yet: they are proposed after approvals and exports, or authored.</Empty>;
+    return (
+      <div className="flex flex-col gap-4">
+        <AddMemory creatorId={creatorId} />
+        <Empty>No memory items yet: they are proposed after approvals and exports, or authored above.</Empty>
+      </div>
+    );
   return (
     <div className="flex flex-col gap-4">
-      <ErrorNote error={act.error} />
+      <AddMemory creatorId={creatorId} />
+      <ErrorNote error={act.error ?? remove.error} />
       {groups.map(([category, list]) => (
         <Card key={category}>
           <CardHeader>
@@ -580,6 +671,20 @@ export function MemoryPanel({ creatorId }: { creatorId: string }) {
                               </option>
                             ))}
                         </Select>
+                      ) : null}
+                      {item.status !== "forgotten" ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={remove.isPending || !can.allowed}
+                          title={can.reason}
+                          onClick={() => {
+                            if (window.confirm(`Delete “${item.text || humanize(item.kind)}” from memory?`))
+                              remove.mutate(item.id);
+                          }}
+                        >
+                          Delete
+                        </Button>
                       ) : null}
                     </Td>
                   </tr>
