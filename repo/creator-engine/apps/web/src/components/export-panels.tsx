@@ -13,6 +13,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { NOT_RENDERED, RENDERED } from "@/components/qc-panels";
 import { ErrorNote } from "@/components/studio/common";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -388,13 +389,23 @@ function ThumbnailLink({ packagingId, artifactId, label }: { packagingId: string
   );
 }
 
-export function PackagingPanel({ versionId, targets }: { versionId: string; targets: string[] }) {
+export function PackagingPanel({
+  versionId,
+  targets,
+  versionState,
+}: {
+  versionId: string;
+  targets: string[];
+  versionState: string;
+}) {
   const client = useQueryClient();
   const platforms = usePlatforms();
   const [polling, setPolling] = useState(false);
   const packaging = usePackaging(versionId, polling);
   const known = platforms.data ?? [];
   const can = useCan("write_content");
+  // packaging reads the final render (thumbnails): not while the version is generating (D4)
+  const rendered = RENDERED.has(versionState);
   const [chosen, setChosen] = useState<string[]>(targets);
   const start = useMutation({
     mutationFn: () =>
@@ -421,7 +432,7 @@ export function PackagingPanel({ versionId, targets }: { versionId: string; targ
           className="flex flex-wrap items-end gap-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (can.allowed) start.mutate();
+            if (can.allowed && rendered) start.mutate();
           }}
         >
           <fieldset className="flex flex-wrap gap-2">
@@ -437,10 +448,15 @@ export function PackagingPanel({ versionId, targets }: { versionId: string; targ
               </label>
             ))}
           </fieldset>
-          <Button type="submit" disabled={!chosen.length || start.isPending || !can.allowed} title={can.reason}>
+          <Button
+            type="submit"
+            disabled={!chosen.length || start.isPending || !can.allowed || !rendered}
+            title={rendered ? can.reason : NOT_RENDERED}
+          >
             Write packaging
           </Button>
         </form>
+        {!rendered ? <p className="text-xs text-slate-600">{NOT_RENDERED}</p> : null}
         <ErrorNote error={start.error} />
         {packaging.isLoading ? (
           <Skeleton className="h-24" />

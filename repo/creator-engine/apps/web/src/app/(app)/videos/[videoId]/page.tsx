@@ -325,10 +325,12 @@ function Studio({ videoId }: { videoId: string }) {
           ) : null}
           <ClaimLedger versionId={versionId} />
           {built ? <CaptionsPanel versionId={versionId} videoId={videoId} /> : null}
-          {built ? <PackagingPanel versionId={versionId} targets={spec.meta.platform_targets ?? []} /> : null}
+          {built ? (
+            <PackagingPanel versionId={versionId} targets={spec.meta.platform_targets ?? []} versionState={state} />
+          ) : null}
           {built ? <ExportPanel versionId={versionId} versionState={state} /> : null}
           {built ? <QCReportPanel versionId={versionId} /> : null}
-          {built ? <CritiquePanel versionId={versionId} /> : null}
+          {built ? <CritiquePanel versionId={versionId} versionState={state} /> : null}
           {built ? <VersionConsistency versionId={versionId} /> : null}
           <Card>
             <CardHeader>

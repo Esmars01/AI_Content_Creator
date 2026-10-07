@@ -16,6 +16,10 @@ import { type Json, ladderSteps, metricRows, scoreBars, statusTone, triadRows } 
 import { useCan } from "@/lib/roles";
 
 type Tone = "success" | "warning" | "danger" | "info" | "neutral";
+
+/** Version states with a finished render (critique, packaging and consistency read it). */
+export const RENDERED = new Set(["ready", "partial", "needs_review"]);
+export const NOT_RENDERED = "Available when the version is rendered.";
 const badge = (tone: Tone) => (tone === "neutral" ? "muted" : tone);
 
 export function QCReportPanel({ versionId }: { versionId: string }) {
@@ -187,9 +191,11 @@ export function QCReportPanel({ versionId }: { versionId: string }) {
   );
 }
 
-export function CritiquePanel({ versionId }: { versionId: string }) {
+export function CritiquePanel({ versionId, versionState }: { versionId: string; versionState: string }) {
   const client = useQueryClient();
   const can = useCan("write_content");
+  // a critique reads the rendered video: not while the version is still generating (D4)
+  const rendered = RENDERED.has(versionState);
   const critiques = useQuery({
     queryKey: keys.critiques(versionId),
     queryFn: () =>
@@ -222,11 +228,16 @@ export function CritiquePanel({ versionId }: { versionId: string }) {
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <div className="flex items-center gap-2">
-          <Button onClick={() => run.mutate()} disabled={run.isPending || !can.allowed} title={can.reason}>
+          <Button
+            onClick={() => run.mutate()}
+            disabled={run.isPending || !can.allowed || !rendered}
+            title={rendered ? can.reason : NOT_RENDERED}
+          >
             Critique this version
           </Button>
           <JobLine status={job.status} job={job.job} />
         </div>
+        {!rendered ? <p className="text-xs text-slate-600">{NOT_RENDERED}</p> : null}
         <ErrorNote error={run.error ?? propose.error} />
         {!latest ? (
           <Empty>No critique yet. Findings are only proposals: nothing changes until you apply an edit.</Empty>

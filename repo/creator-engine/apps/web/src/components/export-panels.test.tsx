@@ -25,6 +25,7 @@ vi.mock("@/lib/utils", async (importOriginal) => {
 });
 
 const { CaptionsPanel, PackagingPanel } = await import("./export-panels");
+const { CritiquePanel } = await import("./qc-panels");
 
 type Json = Record<string, unknown>;
 type Init = { params?: { path?: Record<string, string> }; body?: Json };
@@ -87,7 +88,7 @@ describe("PackagingPanel", () => {
   it("keeps unsaved text when a thumbnail is chosen (D7)", async () => {
     // Regression: choosing a thumbnail saved only the thumbnail and the editor remounted on the new
     // updated_at, discarding the unsaved title.
-    render(wrap(<PackagingPanel versionId="v1" targets={[]} />));
+    render(wrap(<PackagingPanel versionId="v1" targets={[]} versionState="ready" />));
     const title = (await screen.findByLabelText("Title")) as HTMLInputElement;
     fireEvent.change(title, { target: { value: "My new title" } });
     fireEvent.click(screen.getAllByRole("radio")[1] as HTMLElement);
@@ -100,7 +101,7 @@ describe("PackagingPanel", () => {
   it("approves what is on screen: unsaved edits are saved first (D8)", async () => {
     // Regression: Approve approved the stored copy and ignored the edited description.
     post.mockImplementation(() => ok({ ...row, status: "approved" }));
-    render(wrap(<PackagingPanel versionId="v1" targets={[]} />));
+    render(wrap(<PackagingPanel versionId="v1" targets={[]} versionState="ready" />));
     fireEvent.change(await screen.findByLabelText("Description"), { target: { value: "Edited description" } });
     fireEvent.click(screen.getByRole("button", { name: "Save and approve" }));
     await waitFor(() => expect(post).toHaveBeenCalledOnce());
@@ -113,10 +114,44 @@ describe("PackagingPanel", () => {
 
   it("approves directly when nothing changed", async () => {
     post.mockImplementation(() => ok({ ...row, status: "approved" }));
-    render(wrap(<PackagingPanel versionId="v1" targets={[]} />));
+    render(wrap(<PackagingPanel versionId="v1" targets={[]} versionState="ready" />));
     fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
     await waitFor(() => expect(post).toHaveBeenCalledOnce());
     expect(patch).not.toHaveBeenCalled();
+  });
+
+  it("waits for the render before packaging is written (D4)", async () => {
+    // Regression: Write packaging was active while the version generated, and the API answered 409.
+    get.mockImplementation((path: string) => {
+      if (path === "/v1/platforms") return ok([{ id: "tiktok", label: "TikTok", presets: [], checklist: [] }]);
+      if (path === "/v1/versions/{version_id}/packaging") return ok([]);
+      return ok(null);
+    });
+    const { unmount } = render(wrap(<PackagingPanel versionId="v1" targets={["tiktok"]} versionState="generating" />));
+    const write = (await screen.findByRole("button", { name: "Write packaging" })) as HTMLButtonElement;
+    expect(write.disabled).toBe(true);
+    expect(write.title).toBe("Available when the version is rendered.");
+    expect(screen.getByText("Available when the version is rendered.")).toBeTruthy();
+    unmount();
+    render(wrap(<PackagingPanel versionId="v1" targets={["tiktok"]} versionState="ready" />));
+    expect(((await screen.findByRole("button", { name: "Write packaging" })) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
+});
+
+describe("CritiquePanel", () => {
+  it("waits for the render before a critique (D4)", async () => {
+    // Regression: "Critique this version" ran while generating: "a critique needs a rendered version".
+    get.mockReset();
+    get.mockImplementation(() => ok([]));
+    const { unmount } = render(wrap(<CritiquePanel versionId="v1" versionState="generating" />));
+    const run = screen.getByRole("button", { name: "Critique this version" }) as HTMLButtonElement;
+    expect(run.disabled).toBe(true);
+    expect(run.title).toBe("Available when the version is rendered.");
+    unmount();
+    render(wrap(<CritiquePanel versionId="v1" versionState="needs_review" />));
+    expect((screen.getByRole("button", { name: "Critique this version" }) as HTMLButtonElement).disabled).toBe(false);
   });
 });
 
