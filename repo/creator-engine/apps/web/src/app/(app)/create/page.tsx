@@ -16,7 +16,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Alert, Skeleton } from "@/components/ui/misc";
 import { api, ApiError, idempotencyKey, unwrap } from "@/lib/api";
-import { type Aspect, EMPTY, type Form, type InputMode, STEPS, toRequest, withField } from "@/lib/create-form";
+import {
+  type Aspect,
+  durationProblem,
+  EMPTY,
+  type Form,
+  type InputMode,
+  STEPS,
+  toRequest,
+  withField,
+} from "@/lib/create-form";
 import { humanize } from "@/lib/format";
 import {
   keys,
@@ -92,7 +101,8 @@ function CreateWizard() {
       router.push(`/videos/${accepted.video_id}/versions/${accepted.version_id}/previz?job=${accepted.job_id}`),
   });
 
-  const canPlan = form.input.trim().length > 0;
+  const durationIssue = durationProblem(form.duration);
+  const canPlan = form.input.trim().length > 0 && !durationIssue;
   const issues = useMemo(() => (plan.error instanceof ApiError ? plan.error.issues : []), [plan.error]);
 
   if (options.isLoading) return <Skeleton className="h-64" />;
@@ -511,7 +521,14 @@ function CreateWizard() {
               >
                 {plan.isPending ? "Starting…" : "Plan video"}
               </Button>
-              {!canPlan ? <p className="text-sm text-amber-900">Write an idea or a script in step 1 first.</p> : null}
+              {!form.input.trim() ? (
+                <p className="text-sm text-amber-900">Write an idea or a script in step 1 first.</p>
+              ) : null}
+              {durationIssue ? (
+                <p className="text-sm text-amber-900" data-testid="duration-problem">
+                  {durationIssue}
+                </p>
+              ) : null}
               <RoleNote />
             </>
           ) : null}

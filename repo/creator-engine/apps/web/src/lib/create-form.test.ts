@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { EMPTY, STEPS, toRequest } from "./create-form";
+import { durationProblem, EMPTY, STEPS, toRequest } from "./create-form";
 
 describe("create form", () => {
   it("has the ten §31 steps", () => {
@@ -42,5 +42,13 @@ describe("create form", () => {
     expect(body.style?.caption_style_id).toBe("bold_pop_highlight");
     expect(body.advanced?.acting_hints).toEqual(["deadpan", "then a crack of a smile"]);
     expect(body.budget_usd).toBe(2.5);
+  });
+
+  it("refuses a target duration the API would reject (BREAK-DURATION)", () => {
+    // Regression: -5, 0 or 100000 went to the API and came back as a schema error.
+    expect(durationProblem("")).toBeNull();
+    expect(durationProblem("45")).toBeNull();
+    expect(durationProblem("600")).toBeNull();
+    for (const bad of ["-5", "0", "601", "100000", "abc"]) expect(durationProblem(bad)).toContain("between 1 and 600");
   });
 });

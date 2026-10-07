@@ -88,6 +88,17 @@ export function withField<K extends keyof Form>(form: Form, key: K, value: Form[
   return next;
 }
 
+/**
+ * Why the target duration cannot be sent, or null; empty leaves it to the input or the mode. The
+ * API takes more than 0 and at most 600 seconds; the wizard sent anything and showed the schema
+ * error (audit BREAK-DURATION).
+ */
+export function durationProblem(duration: string): string | null {
+  if (!duration.trim()) return null;
+  const s = Number(duration);
+  return Number.isFinite(s) && s > 0 && s <= 600 ? null : "Set a target duration between 1 and 600 seconds in step 7.";
+}
+
 /** The request body for the form; empty choices are left to the Director. */
 export function toRequest(form: Form): CreateVideo {
   return {
