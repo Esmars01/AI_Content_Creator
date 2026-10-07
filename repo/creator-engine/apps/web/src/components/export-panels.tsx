@@ -662,6 +662,7 @@ export function ExportPanel({ versionId, versionState }: { versionId: string; ve
                 <Th>Exported</Th>
                 <Th>Platform</Th>
                 <Th>Preset</Th>
+                <Th>Files</Th>
               </tr>
             </thead>
             <tbody>
@@ -670,6 +671,9 @@ export function ExportPanel({ versionId, versionState }: { versionId: string; ve
                   <Td className="text-xs">{when(e.created_at)}</Td>
                   <Td>{humanize(e.platform)}</Td>
                   <Td className="text-xs">{e.preset_id}</Td>
+                  <Td>
+                    <PastExportDownloads exportId={e.id} />
+                  </Td>
                 </tr>
               ))}
             </tbody>
@@ -677,5 +681,34 @@ export function ExportPanel({ versionId, versionState }: { versionId: string; ve
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Fresh download links for an earlier export (the links expire, so they are fetched on demand).
+ * Past exports could not be downloaded again: links appeared only right after Export (audit EXPORT-REDL).
+ */
+function PastExportDownloads({ exportId }: { exportId: string }) {
+  const links = useMutation({
+    mutationFn: () => unwrap(api.GET("/v1/exports/{export_id}", { params: { path: { export_id: exportId } } })),
+  });
+  if (links.data) {
+    return (
+      <span className="flex flex-wrap gap-2 text-xs">
+        {Object.entries(links.data.downloads ?? {}).map(([name, d]) => (
+          <a key={name} className="underline" href={d.url}>
+            {name}
+          </a>
+        ))}
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-2">
+      <Button size="sm" variant="outline" onClick={() => links.mutate()} disabled={links.isPending}>
+        Download
+      </Button>
+      <ErrorNote error={links.error} />
+    </span>
   );
 }

@@ -24,7 +24,7 @@ vi.mock("@/lib/utils", async (importOriginal) => {
   return { ...actual, startDownload: (...args: unknown[]) => startDownload(...args) };
 });
 
-const { CaptionsPanel, PackagingPanel } = await import("./export-panels");
+const { CaptionsPanel, ExportPanel, PackagingPanel } = await import("./export-panels");
 const { CritiquePanel } = await import("./qc-panels");
 
 type Json = Record<string, unknown>;
@@ -193,5 +193,27 @@ describe("CaptionsPanel", () => {
     expect(get).toHaveBeenCalledWith("/v1/captions/{caption_id}/download", { params: { path: { caption_id: "c3" } } });
     expect(screen.getByRole("button", { name: "Download en srt captions" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Download en vtt captions" })).toBeTruthy();
+  });
+});
+
+describe("ExportPanel history (EXPORT-REDL)", () => {
+  it("fetches fresh download links for an earlier export", async () => {
+    // Regression: links appeared only right after Export; a past export could not be downloaded again.
+    get.mockReset();
+    get.mockImplementation((path: string, init: Init) => {
+      if (path === "/v1/versions/{version_id}/exports")
+        return ok([
+          { id: "e1", platform: "tiktok", preset_id: "tiktok_1080x1920_30", created_at: "2026-10-07T10:00:00Z" },
+        ]);
+      if (path === "/v1/exports/{export_id}")
+        return ok({ id: init.params?.path?.export_id, downloads: { video: { url: "https://s3.test/e1.mp4" } } });
+      if (path === "/v1/me") return ok({ role: "editor", user: { id: "u1" }, org: { id: "o1" }, memberships: [] });
+      return ok([]);
+    });
+    render(wrap(<ExportPanel versionId="v1" versionState="ready" />));
+    fireEvent.click(await screen.findByRole("button", { name: "Download" }));
+    const link = await screen.findByRole("link", { name: "video" });
+    expect(link.getAttribute("href")).toBe("https://s3.test/e1.mp4");
+    expect(get).toHaveBeenCalledWith("/v1/exports/{export_id}", { params: { path: { export_id: "e1" } } });
   });
 });
