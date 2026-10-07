@@ -84,7 +84,7 @@ Observability as code (ADR 0060): metrics on side ports, API spans, row-derived 
 - Product shots by compositing and reference-conditioned generation.
 - Wan VACE outfit and background edits.
 - Full brand kits and a shared spec-template library.
-- Vast.ai and SkyPilot providers.
+- SkyPilot provider. (Vast.ai: the `vast` plugin exists, mocked tests only, not yet live-validated.)
 - Autonomous suggest-then-approve.
 - Share links with takedown.
 - The OIDC adapter.

@@ -267,7 +267,8 @@ Report: `docs/progress/phase-9.md`. ADR 0054, DECISIONS D103–D108.
 - [ ] Milestone M2 (a GPU-validated golden video on smoke-promoted routes) — needs a GPU.
 - [ ] `flock` semantics on each provider's network volume [RV].
 - [ ] Failed attempts' GPU time is not billed to orgs (it appears as fleet idle overhead).
-- [ ] Vast.ai and SkyPilot providers — V1.
+- [ ] SkyPilot provider — V1. (Vast.ai: the `vast` provider plugin exists since 2026-10-07, mocked tests only;
+  its first live session — read-only search, then one approved rental — is still open: `plugins/providers/gpu/vast/README.md`.)
 
 ## Phase 10 — Creator Studio and World Studio — done (2026-10-05) in mock mode
 

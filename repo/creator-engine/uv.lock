@@ -45,6 +45,7 @@ members = [
     "ce-plugin-gpu-local-docker",
     "ce-plugin-gpu-mock",
     "ce-plugin-gpu-runpod",
+    "ce-plugin-gpu-vast",
     "ce-plugin-image-qwen-edit",
     "ce-plugin-image-z-image",
     "ce-plugin-kit",
@@ -1164,6 +1165,23 @@ requires-dist = [
 ]
 
 [[package]]
+name = "ce-plugin-gpu-vast"
+version = "0.1.0"
+source = { editable = "plugins/providers/gpu/vast" }
+dependencies = [
+    { name = "ce-contracts" },
+    { name = "ce-gpu" },
+    { name = "httpx" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "ce-contracts", editable = "packages/py/ce_contracts" },
+    { name = "ce-gpu", editable = "packages/py/ce_gpu" },
+    { name = "httpx", specifier = ">=0.27" },
+]
+
+[[package]]
 name = "ce-plugin-image-qwen-edit"
 version = "0.1.0"
 source = { editable = "plugins/image/qwen_image_edit" }
@@ -1725,6 +1743,7 @@ dependencies = [
     { name = "ce-plugin-gpu-local-docker" },
     { name = "ce-plugin-gpu-mock" },
     { name = "ce-plugin-gpu-runpod" },
+    { name = "ce-plugin-gpu-vast" },
     { name = "ce-plugin-storage-local-fs" },
     { name = "ce-plugin-storage-s3" },
     { name = "ce-plugin-voice-kokoro" },
@@ -1749,6 +1768,7 @@ requires-dist = [
     { name = "ce-plugin-gpu-local-docker", editable = "plugins/providers/gpu/local_docker" },
     { name = "ce-plugin-gpu-mock", editable = "plugins/providers/gpu/mock" },
     { name = "ce-plugin-gpu-runpod", editable = "plugins/providers/gpu/runpod" },
+    { name = "ce-plugin-gpu-vast", editable = "plugins/providers/gpu/vast" },
     { name = "ce-plugin-storage-local-fs", editable = "plugins/providers/storage/local_fs" },
     { name = "ce-plugin-storage-s3", editable = "plugins/providers/storage/s3" },
     { name = "ce-plugin-voice-kokoro", editable = "plugins/voice/kokoro_cpu" },
@@ -2245,6 +2265,7 @@ dependencies = [
     { name = "ce-plugin-gpu-local-docker" },
     { name = "ce-plugin-gpu-mock" },
     { name = "ce-plugin-gpu-runpod" },
+    { name = "ce-plugin-gpu-vast" },
     { name = "ce-plugin-image-qwen-edit" },
     { name = "ce-plugin-image-z-image" },
     { name = "ce-plugin-kit" },
@@ -2342,6 +2363,7 @@ requires-dist = [
     { name = "ce-plugin-gpu-local-docker", editable = "plugins/providers/gpu/local_docker" },
     { name = "ce-plugin-gpu-mock", editable = "plugins/providers/gpu/mock" },
     { name = "ce-plugin-gpu-runpod", editable = "plugins/providers/gpu/runpod" },
+    { name = "ce-plugin-gpu-vast", editable = "plugins/providers/gpu/vast" },
     { name = "ce-plugin-image-qwen-edit", editable = "plugins/image/qwen_image_edit" },
     { name = "ce-plugin-image-z-image", editable = "plugins/image/z_image" },
     { name = "ce-plugin-kit", editable = "packages/py/ce_plugin_kit" },

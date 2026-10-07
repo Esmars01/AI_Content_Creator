@@ -47,6 +47,7 @@ dependencies = [
     "ce-plugin-gpu-local",
     "ce-plugin-gpu-local-docker",
     "ce-plugin-gpu-runpod",
+    "ce-plugin-gpu-vast",
     "ce-plugin-gpu-example-cloud",
     "ce-plugin-voice-kokoro",
     "ce-plugin-asr-faster-whisper",
@@ -155,6 +156,7 @@ members = [
     "plugins/providers/gpu/local",
     "plugins/providers/gpu/local_docker",
     "plugins/providers/gpu/runpod",
+    "plugins/providers/gpu/vast",
     "plugins/providers/gpu/example_cloud",
     "plugins/voice/kokoro_cpu",
     "plugins/asr/faster_whisper_cpu",
@@ -232,6 +234,7 @@ ce-plugin-embed-text = { workspace = true }
 ce-plugin-gpu-local = { workspace = true }
 ce-plugin-gpu-local-docker = { workspace = true }
 ce-plugin-gpu-runpod = { workspace = true }
+ce-plugin-gpu-vast = { workspace = true }
 ce-plugin-gpu-example-cloud = { workspace = true }
 ce-plugin-voice-kokoro = { workspace = true }
 ce-plugin-asr-faster-whisper = { workspace = true }
