@@ -157,7 +157,7 @@ KINDS: dict[str, NodeKind] = {
             "post.camera",
             "render",
             None,
-            "3",
+            "4",
             "scene",
             spec_reads=("/scenes[*]/shots[*]/camera", "/meta/primary_aspect", "/render/reframe"),
         ),
