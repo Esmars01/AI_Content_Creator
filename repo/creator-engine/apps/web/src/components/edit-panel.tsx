@@ -24,10 +24,11 @@ import {
   readablePath,
   short,
   summarizeImpact,
+  timeRange,
 } from "@/lib/edits";
 import { humanize, usd, when } from "@/lib/format";
-import { keys, useEdit, useEdits } from "@/lib/queries";
-import { useStudio } from "@/lib/store";
+import { keys, useEdit, useEdits, useVersion } from "@/lib/queries";
+import { useActiveProposal, useStudio } from "@/lib/store";
 
 const STATUS_TONE: Record<string, "info" | "success" | "danger" | "muted" | "warning"> = {
   proposing: "info",
@@ -161,19 +162,16 @@ function CoverageBlock({ proposal }: { proposal: EditProposal }) {
   );
 }
 
-/** One proposal: what it does, what it costs, and Apply / Reject. */
-export function ProposalCard({
-  proposalId,
-  videoId,
-  onClose,
-}: {
-  proposalId: string;
-  videoId: string;
-  onClose?: () => void;
-}) {
+/**
+ * One proposal: what it does, what it costs, and Apply / Reject. Applying opens the new version of
+ * the proposal's own video (from the version it was proposed on), never the page it is shown on.
+ */
+export function ProposalCard({ proposalId, onClose }: { proposalId: string; onClose?: () => void }) {
   const router = useRouter();
   const client = useQueryClient();
   const edit = useEdit(proposalId);
+  const source = useVersion(edit.data?.version_id ?? null);
+  const videoId = source.data?.video_id ?? null;
   const [alternative, setAlternative] = useState("full_reperformance");
   const apply = useMutation({
     mutationFn: () =>
@@ -188,8 +186,10 @@ export function ProposalCard({
         }),
       ),
     onSuccess: (accepted) => {
-      router.replace(`/videos/${videoId}?version=${accepted.new_version_id}`);
-      void client.invalidateQueries({ queryKey: keys.versions(videoId) });
+      if (videoId) {
+        router.replace(`/videos/${videoId}?version=${accepted.new_version_id}`);
+        void client.invalidateQueries({ queryKey: keys.versions(videoId) });
+      }
       void client.invalidateQueries({ queryKey: keys.edit(proposalId) });
     },
   });
@@ -292,7 +292,7 @@ export function ProposalCard({
         ) : null}
         {apply.error ? <ErrorAlert error={apply.error} /> : null}
         {reject.error ? <ErrorAlert error={reject.error} /> : null}
-        {p.status === "applied" && p.result_version_id ? (
+        {p.status === "applied" && p.result_version_id && videoId ? (
           <Alert tone="success">
             Applied as a new version.{" "}
             <button
@@ -306,11 +306,12 @@ export function ProposalCard({
         ) : null}
         <div className="flex gap-2">
           {p.status === "proposed" ? (
-            <Button onClick={() => apply.mutate()} disabled={apply.isPending} data-testid="apply-edit">
+            <Button onClick={() => apply.mutate()} disabled={apply.isPending || !videoId} data-testid="apply-edit">
               {apply.isPending ? "Applying…" : "Apply"}
             </Button>
           ) : null}
-          {p.status === "proposed" || p.status === "failed" ? (
+          {/* a failed proposal changed nothing: there is nothing to reject, only to close */}
+          {p.status === "proposed" ? (
             <Button variant="outline" onClick={() => reject.mutate()} disabled={reject.isPending}>
               Reject
             </Button>
@@ -327,30 +328,22 @@ export function ProposalCard({
 }
 
 /** "make him more skeptical": the instruction box, the selection, the proposal and the history. */
-export function EditPanel({
-  versionId,
-  videoId,
-  sceneKeys,
-}: {
-  versionId: string;
-  videoId: string;
-  sceneKeys: string[];
-}) {
+export function EditPanel({ versionId, sceneKeys }: { versionId: string; sceneKeys: string[] }) {
   const client = useQueryClient();
-  const { activeProposal, showProposal } = useStudio();
+  const showProposal = useStudio((s) => s.showProposal);
+  const activeProposal = useActiveProposal(versionId);
   const history = useEdits(versionId);
   const [instruction, setInstruction] = useState("");
   const [scenes, setScenes] = useState<string[]>([]);
   const [range, setRange] = useState<{ start: string; end: string }>({ start: "", end: "" });
+  const span = timeRange(range);
   const propose = useMutation({
     mutationFn: () => {
-      const start = Number.parseFloat(range.start);
-      const end = Number.parseFloat(range.end);
       const selection =
-        scenes.length || (range.start && range.end)
+        scenes.length || span.value
           ? {
               ...(scenes.length ? { scene_keys: scenes } : {}),
-              ...(range.start && range.end && end > start ? { time_range_s: [start, end] as [number, number] } : {}),
+              ...(span.value ? { time_range_s: span.value } : {}),
             }
           : null;
       return unwrap(
@@ -362,7 +355,7 @@ export function EditPanel({
       );
     },
     onSuccess: async (accepted) => {
-      showProposal(accepted.edit_proposal_id);
+      showProposal(versionId, accepted.edit_proposal_id);
       setInstruction("");
       await client.invalidateQueries({ queryKey: keys.edits(versionId) });
     },
@@ -381,7 +374,7 @@ export function EditPanel({
           className="flex flex-col gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (instruction.trim()) propose.mutate();
+            if (instruction.trim() && !span.error) propose.mutate();
           }}
         >
           <Label htmlFor="edit-instruction">Instruction</Label>
@@ -427,15 +420,24 @@ export function EditPanel({
               onChange={(e) => setRange((r) => ({ ...r, end: e.target.value }))}
             />
           </div>
+          {span.error ? (
+            <p className="text-xs text-red-800" data-testid="range-error">
+              {span.error}
+            </p>
+          ) : null}
           {propose.error ? <ErrorAlert error={propose.error} /> : null}
           <div>
-            <Button type="submit" disabled={!instruction.trim() || propose.isPending} data-testid="propose-edit">
+            <Button
+              type="submit"
+              disabled={!instruction.trim() || Boolean(span.error) || propose.isPending}
+              data-testid="propose-edit"
+            >
               {propose.isPending ? "Sending…" : "Propose"}
             </Button>
           </div>
         </form>
         {activeProposal ? (
-          <ProposalCard proposalId={activeProposal} videoId={videoId} onClose={() => showProposal(null)} />
+          <ProposalCard proposalId={activeProposal} onClose={() => showProposal(versionId, null)} />
         ) : null}
         {past.length ? (
           <section aria-label="Earlier proposals" className="text-sm">
@@ -446,7 +448,7 @@ export function EditPanel({
                   <button
                     type="button"
                     className="truncate text-left text-blue-800 hover:underline"
-                    onClick={() => showProposal(e.id)}
+                    onClick={() => showProposal(versionId, e.id)}
                   >
                     {e.instruction || humanize(String((e.selection as Record<string, unknown>).kind ?? "edit"))}
                   </button>
@@ -464,7 +466,7 @@ export function EditPanel({
 /** Sends structured operations (the Advanced editors) as an edit and shows its proposal. */
 export function useStructuredEdit(versionId: string) {
   const client = useQueryClient();
-  const { showProposal } = useStudio();
+  const showProposal = useStudio((s) => s.showProposal);
   return useMutation({
     mutationFn: (operations: Operation[]) =>
       unwrap(
@@ -475,7 +477,7 @@ export function useStructuredEdit(versionId: string) {
         }),
       ),
     onSuccess: async (accepted) => {
-      showProposal(accepted.edit_proposal_id);
+      showProposal(versionId, accepted.edit_proposal_id);
       await client.invalidateQueries({ queryKey: keys.edits(versionId) });
     },
   });

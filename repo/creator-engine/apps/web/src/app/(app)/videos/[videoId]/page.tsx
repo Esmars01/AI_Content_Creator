@@ -219,7 +219,6 @@ function Studio({ videoId }: { videoId: string }) {
           <EditPanel
             key={`edit-${versionId}`}
             versionId={versionId}
-            videoId={videoId}
             sceneKeys={scenesOf(spec).map((scene) => scene.key)}
           />
           {advanced ? (

@@ -197,7 +197,7 @@ export function VersionsPanel({
 
 export function LocksPanel({ spec, versionId }: { spec: Json; versionId: string }) {
   const client = useQueryClient();
-  const { showProposal } = useStudio();
+  const showProposal = useStudio((s) => s.showProposal);
   const vocab = useVocabulary();
   const current = locksOf(spec);
   const [rows, setRows] = useState<LockRow[]>(current);
@@ -222,7 +222,7 @@ export function LocksPanel({ spec, versionId }: { spec: Json; versionId: string 
         }),
       ),
     onSuccess: async (accepted) => {
-      showProposal(accepted.edit_proposal_id);
+      showProposal(versionId, accepted.edit_proposal_id);
       await client.invalidateQueries({ queryKey: keys.edits(versionId) });
     },
   });
@@ -303,7 +303,7 @@ const SHOT_COMPONENTS = ["avatar_video", "keyframe", "camera_post", "broll", "li
 
 export function TakesGallery({ spec, versionId }: { spec: Json; versionId: string }) {
   const client = useQueryClient();
-  const { showProposal } = useStudio();
+  const showProposal = useStudio((s) => s.showProposal);
   const takes = useTakes(versionId);
   const [component, setComponent] = useState<string>("avatar_video");
   const shots = ((spec.scenes ?? []) as Json[]).flatMap((scene) =>
@@ -314,7 +314,7 @@ export function TakesGallery({ spec, versionId }: { spec: Json; versionId: strin
     })),
   );
   const onAccepted = async (accepted: { edit_proposal_id: string }) => {
-    showProposal(accepted.edit_proposal_id);
+    showProposal(versionId, accepted.edit_proposal_id);
     await client.invalidateQueries({ queryKey: keys.edits(versionId) });
   };
   const select = useMutation({
