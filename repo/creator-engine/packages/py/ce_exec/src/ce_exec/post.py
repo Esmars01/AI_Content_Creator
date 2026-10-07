@@ -23,7 +23,7 @@ from ce_realism.audio import ambient_bed, process_dialogue
 from ce_realism.video import realism_plan
 from ce_render.audio import SAMPLE_RATE, decode, encode_wav
 from ce_render.ffmpeg import probe
-from ce_render.video import camera_post, realism_post
+from ce_render.video import RAMP_TYPES, CameraRamp, camera_post, realism_post
 
 from ce_exec.noderun import NodeRun
 from ce_exec.outputs import NodeOutput
@@ -125,6 +125,15 @@ async def post_camera_node(run: NodeRun) -> NodeOutput:
             t = float(words[flat.index(at)][0])
             scale = float(move.scale or (1.12 if str(move.type) == "punch_in" else 1.0))
             punch_ins.append((t, scale if str(move.type) == "punch_in" else 1.0))
+    # the slow moves, turns and holds from their anchored word to the end of the shot (audit CAM-MOVES:
+    # only punches and drift were read, every other planned move was dropped without a trace)
+    anchored: list[tuple[str, float, float | None]] = []
+    for move in shot.camera.moves:
+        if str(move.type) not in RAMP_TYPES or not isinstance(move.at, WordRef):
+            continue
+        at = (move.at.segment_key, move.at.word)
+        if at in flat and words:
+            anchored.append((str(move.type), float(words[flat.index(at)][0]), move.scale))
     params = run.node.params
     width, height, fps = int(params["width"]), int(params["height"]), float(params["fps"])
     punch_ins += _cadence_cuts(run, words, punch_ins)
@@ -170,6 +179,7 @@ async def post_camera_node(run: NodeRun) -> NodeOutput:
         exposure=exposure,
         blur_frames=blur,
         duration_s=duration,
+        ramps=[CameraRamp(kind, at, max(duration, at + 0.5), scale) for kind, at, scale in anchored],
     )
     result = await probe(out)
     ref = await run.write(out, "video", role="mezzanine", mime="video/mp4")
@@ -182,6 +192,7 @@ async def post_camera_node(run: NodeRun) -> NodeOutput:
             "duration_s": result.duration_s,
             "frame": [width, height],
             "punch_ins": punch_ins,
+            "moves": [{"type": kind, "at_s": at, "scale": scale} for kind, at, scale in anchored],
             "motion": {
                 "profile": profile.id if profile is not None else None,
                 "type": str(profile.motion.type) if profile is not None else "static",

@@ -11,7 +11,7 @@ from ce_core.text import tokenize
 from ce_render.audio import SAMPLE_RATE, MixInput, assemble, decode, duck_envelope, mix
 from ce_render.ffmpeg import measure_loudness, probe, run_ffmpeg
 from ce_render.timeline import SegmentAudio, build_timeline, chunk_windows, shot_audio
-from ce_render.video import ComposeJob, Encode, Placement, Title, camera_post, compose, concat, make_proxy
+from ce_render.video import CameraRamp, ComposeJob, Encode, Placement, Title, camera_post, compose, concat, make_proxy
 from ce_testing.fixtures import example_spec
 
 pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is not installed")
@@ -220,3 +220,65 @@ async def test_a_thumbnail_is_the_frame_with_its_text(tmp_path: Path) -> None:
     a, b = await _frame_rgb(plain, 0, 320, 180), await _frame_rgb(texted, 0, 320, 180)
     changed = np.nonzero(np.abs(a.astype(int) - b.astype(int)).max(axis=2) > 40)[0]
     assert changed.size and changed.min() >= 180 * 0.6  # the text sits in the lower part
+
+
+# ---------------------------------------------------------------------- camera moves (audit CAM-MOVES)
+async def _pattern(path: Path, lum: str, seconds: float = 2.0) -> Path:
+    """A still synthetic picture (`lum` is a geq luma expression) as an H.264 clip."""
+    await run_ffmpeg(
+        ["-f", "lavfi", "-i", f"nullsrc=s=640x1136:r=25:d={seconds},geq=lum='{lum}':cb=128:cr=128",
+         "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", str(path)]
+    )  # fmt: skip
+    return path
+
+
+async def _luma(path: Path, at_s: float) -> float:
+    return float((await _frame_rgb(path, at_s, 540, 960)).mean())
+
+
+@pytest.mark.parametrize(
+    ("move", "lum", "brighter_at_end"),
+    [
+        ("push_in", "255*hypot(X-W/2,Y-H/2)/hypot(W/2,H/2)", False),  # closer to the dark centre
+        ("pull_out", "255*hypot(X-W/2,Y-H/2)/hypot(W/2,H/2)", True),
+        ("pan", "255*X/W", True),  # turns from the dark left to the bright right
+        ("tilt", "255*Y/H", True),
+        ("whip", "255*X/W", True),
+    ],
+)
+async def test_planned_camera_moves_change_the_picture(
+    tmp_path: Path, move: str, lum: str, brighter_at_end: bool
+) -> None:
+    """Every `camera.move_type` the Director or an edit may plan is rendered: before the audit only
+    punch-ins and handheld drift were, and push/pull/pan/tilt/whip left the shot unchanged."""
+    src = await _pattern(tmp_path / "src.mp4", lum)
+    still = await camera_post(src, tmp_path / "still.mp4", width=540, height=960, fps=25, duration_s=2.0)
+    moved = await camera_post(
+        src,
+        tmp_path / "moved.mp4",
+        width=540,
+        height=960,
+        fps=25,
+        duration_s=2.0,
+        ramps=[CameraRamp(move, 0.4, 1.9, 1.3 if move in ("push_in", "pull_out") else None)],
+    )
+    assert abs(await _luma(still, 0.2) - await _luma(still, 1.95)) < 1.0  # no move: the frame holds
+    delta = await _luma(moved, 1.95) - await _luma(moved, 0.2)
+    assert (delta > 3.0) if brighter_at_end else (delta < -3.0), delta
+    if move == "whip":  # fast: done a quarter second after it starts
+        assert abs(await _luma(moved, 0.8) - await _luma(moved, 1.95)) < 1.0
+
+
+async def test_a_static_hold_stops_the_handheld_motion(tmp_path: Path) -> None:
+    from ce_camera.motion import motion_for
+    from ce_testing.build import config_bundle
+
+    src = await _pattern(tmp_path / "src.mp4", "255*X/W", seconds=3.0)
+    motion = motion_for(config_bundle().camera_profiles["pov"], seed=7)
+    kwargs = {"width": 540, "height": 960, "fps": 25, "motion": motion, "duration_s": 3.0}
+    shaky = await camera_post(src, tmp_path / "shaky.mp4", **kwargs)  # type: ignore[arg-type]
+    held = await camera_post(src, tmp_path / "held.mp4", ramps=[CameraRamp("static_hold", 1.0, 3.0)], **kwargs)  # type: ignore[arg-type]
+    after = [await _luma(held, t) for t in (1.6, 2.2, 2.8)]
+    assert max(after) - min(after) < 0.3  # still after the hold
+    moving = [await _luma(shaky, t) for t in (1.6, 2.2, 2.8)]
+    assert max(moving) - min(moving) > max(after) - min(after)

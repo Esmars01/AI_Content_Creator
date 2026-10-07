@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { PageHeader } from "@/components/app-shell";
 import { StateBadge } from "@/components/state-badge";
+import { NewCreatorForm } from "@/components/studio/new-identity";
 import { Card, CardContent } from "@/components/ui/card";
 import { Empty, LoadError, Skeleton, Table, Td, Th } from "@/components/ui/misc";
 import { humanize, when } from "@/lib/format";
@@ -54,6 +55,7 @@ export default function CreatorsPage() {
           )}
         </CardContent>
       </Card>
+      <NewCreatorForm />
     </>
   );
 }

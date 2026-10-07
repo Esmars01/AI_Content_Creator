@@ -116,6 +116,9 @@ class TranslateContext:
     worlds: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)  # world_version_id → WorldDNA JSON
     camera_profiles: frozenset[str] | None = None
     render_presets: frozenset[str] | None = None
+    # platform id → its render presets as (preset id, aspect), in config order: `set_meta` re-derives
+    # the outputs from it when the platforms or the aspect change (audit OUT-ASPECT)
+    platform_presets: Mapping[str, Sequence[tuple[str, str]]] | None = None
     node_keys: Sequence[str] = ()  # the parent's graph (regenerate, reroute)
     emotion_range: Callable[[str, str], tuple[float, float] | None] | None = None  # DNA bounds per character
     actor: str = "user"  # user | director | system
@@ -1163,6 +1166,23 @@ class _T:
         for template_id in op.add_template_ids:
             if str(template_id) not in meta.setdefault("template_ids", []):
                 meta["template_ids"].append(str(template_id))
+        if (op.platform_targets is not None or op.primary_aspect is not None) and self.ctx.platform_presets:
+            # the render follows: before, "make it 16:9" changed meta only and rendered 9:16 again,
+            # because the graph renders `render.outputs` (audit OUT-ASPECT)
+            self.doc["render"]["outputs"] = self._outputs_for(
+                list(meta["platform_targets"]), str(meta["primary_aspect"])
+            )
+
+    def _outputs_for(self, platform_targets: list[str], aspect: str) -> list[dict[str, str]]:
+        """The first target platform's preset in `aspect` (the Director's rule, `render_outputs`)."""
+        presets = self.ctx.platform_presets or {}
+        for platform_id in [*platform_targets, *sorted(presets)]:
+            preset = next((p for p, a in presets.get(platform_id, ()) if a == aspect), None)
+            if preset is not None:
+                return [{"preset_id": preset, "aspect": aspect}]
+        raise self.fail(
+            "unknown_preset", f"no render preset for {', '.join(platform_targets) or 'any platform'} in {aspect}"
+        )
 
     def op_set_render_outputs(self, op: SetRenderOutputs) -> None:
         if op.outputs is not None:

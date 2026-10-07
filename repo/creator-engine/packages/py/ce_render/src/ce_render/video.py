@@ -22,6 +22,8 @@ from ce_render.ffmpeg import escape_filter_path, escape_text, font_file, measure
 from ce_render.fonts import fonts_dir
 
 __all__ = [
+    "RAMP_TYPES",
+    "CameraRamp",
     "ComposeJob",
     "Encode",
     "Logo",
@@ -81,6 +83,31 @@ async def concat(paths: Sequence[Path], out: Path) -> Path:
     return out
 
 
+@dataclass(frozen=True)
+class CameraRamp:
+    """A planned camera move that unfolds over time (§22 `camera.move_type`), from `start_s` (its
+    anchored word) to `end_s`: `push_in` / `pull_out` ease the scale to / from `scale`; `pan` / `tilt`
+    turn the frame across the crop margin; `whip` is a fast blurred pan; `static_hold` settles the
+    procedural camera motion to a still frame. Punch-ins are cuts and stay `punch_ins`."""
+
+    type: str
+    start_s: float
+    end_s: float
+    scale: float | None = None
+
+
+RAMP_TYPES = frozenset({"push_in", "pull_out", "pan", "tilt", "whip", "static_hold"})
+TURN_MARGIN = 1.12  # extra scale while a pan, tilt or whip needs room to travel
+WHIP_S = 0.25
+
+
+def _ease(a: float, b: float) -> str:
+    """Smoothstep from 0 at `a` to 1 at `b` (an FFmpeg expression in `t`, commas unescaped)."""
+    span = max(b - a, 1e-3)
+    p = f"clip((t-{a:.3f})/{span:.3f},0,1)"
+    return f"({p}*{p}*(3-2*{p}))"
+
+
 def _motion_margin(motion: CameraMotion | None, width: int, height: int, duration_s: float) -> float:
     """Extra scale so camera shake and rotation never reveal the frame edge."""
     if motion is None or motion.still:
@@ -120,6 +147,7 @@ async def camera_post(
     exposure: str | None = None,
     blur_frames: int = 0,
     duration_s: float = 10.0,
+    ramps: Sequence[CameraRamp] = (),
 ) -> Path:
     """Post camera (§22, `ce_camera`): an optional subject-aware pre-crop (reframing, or the
     blurred-fill layout when the crop loses too much of the subject), scale to cover
@@ -130,18 +158,36 @@ async def camera_post(
     margin = _motion_margin(motion, width, height, duration_s)
     if drift_px > 0:
         margin *= 1.0 + 2.5 * drift_px / min(width, height)
+    if any(r.type in ("pan", "tilt", "whip") for r in ramps):
+        margin *= TURN_MARGIN
     zoom = f"{margin:.4f}"
     for t, scale in sorted(punch_ins):
         zoom = f"if(gte(t\\,{t:.3f})\\,{scale * margin:.4f}\\,{zoom})"
+    for r in ramps:  # slow moves multiply the scale over their span (audit CAM-MOVES)
+        s = float(r.scale or 1.08)
+        ease = _ease(r.start_s, r.end_s).replace(",", "\\,")
+        if r.type == "push_in":
+            zoom = f"({zoom})*(1+{s - 1:.4f}*{ease})"
+        elif r.type == "pull_out":
+            zoom = f"({zoom})*({s:.4f}-{s - 1:.4f}*{ease})"
     x = f"(iw-{width})/2"
     y = f"(ih-{height})/2"
     k = height / REFERENCE_HEIGHT
+    # a static hold settles the procedural motion and the drift to a still frame over 0.3 s
+    hold = next((r.start_s for r in sorted(ramps, key=lambda r: r.start_s) if r.type == "static_hold"), None)
+    still = f"*(1-{_ease(hold, hold + 0.3)})".replace(",", "\\,") if hold is not None else ""
     if motion is not None and not motion.still:
-        x += "+" + motion.x.expression(f"{k:.4f}").replace(",", "\\,")
-        y += "+" + motion.y.expression(f"{k:.4f}").replace(",", "\\,")
+        x += "+(" + motion.x.expression(f"{k:.4f}").replace(",", "\\,") + ")" + still
+        y += "+(" + motion.y.expression(f"{k:.4f}").replace(",", "\\,") + ")" + still
     if drift_px > 0:
-        x += f"+{drift_px:.2f}*sin(2*PI*0.37*t)"
-        y += f"+{drift_px:.2f}*cos(2*PI*0.29*t+0.7)"
+        x += f"+{drift_px:.2f}*sin(2*PI*0.37*t){still}"
+        y += f"+{drift_px:.2f}*cos(2*PI*0.29*t+0.7){still}"
+    for r in ramps:  # turns travel across 80 % of the free margin (half of it each side of centre)
+        if r.type in ("pan", "whip"):
+            end = r.start_s + WHIP_S if r.type == "whip" else r.end_s
+            x += f"+0.8*(iw-{width})/2*(2*{_ease(r.start_s, end)}-1)".replace(",", "\\,")
+        elif r.type == "tilt":
+            y += f"+0.8*(ih-{height})/2*(2*{_ease(r.start_s, r.end_s)}-1)".replace(",", "\\,")
     chain: list[str] = []
     if crop is not None and (crop.layout == "blurred_fill" or crop.path):
         chain.append(_reframe_filter(crop, width, height))
@@ -155,6 +201,10 @@ async def camera_post(
     if blur_frames >= 2:
         weights = " ".join(["1"] * blur_frames)
         chain.append(f"tmix=frames={blur_frames}:weights='{weights}'")
+    for r in ramps:  # the whip's motion blur, horizontal, while it travels
+        if r.type == "whip":
+            a, b = r.start_s, r.start_s + WHIP_S
+            chain.append(f"avgblur=sizeX={max(8, width // 40)}:sizeY=1:enable='between(t,{a:.3f},{b:.3f})'")
     for hunt in focus:
         a, b = hunt.start_s, hunt.start_s + hunt.duration_s
         mid = (a + b) / 2

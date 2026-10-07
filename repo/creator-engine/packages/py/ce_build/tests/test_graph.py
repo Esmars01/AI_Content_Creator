@@ -301,3 +301,17 @@ def test_brand_kits_enter_the_final_render_by_content() -> None:
     assert key(final(True, new_logo)) != key(on)
     same_content = replace(kit, kit_id=UUID(int=73))  # ids never enter keys (§12.2)
     assert key(final(True, same_content)) == key(on)
+
+
+def test_the_room_sound_keys_on_the_camera_mic() -> None:
+    """Audit OUT-ROOM: `audio.room` records through the first shot's camera-profile mic when the
+    spec names none, but its key held only the acoustics — switching that camera (phone mic →
+    a DSLR's lavalier) reused the cached room sound, and a cold build of the same spec differed."""
+    data = example_spec_dict()
+    assert data["audio"]["acoustics"].get("mic_profile") is None
+    before = build(VideoSpec.model_validate(data)).by_key()
+    data["scenes"][0]["shots"][0]["camera"]["profile_id"] = "dslr"
+    after = build(VideoSpec.model_validate(data)).by_key()
+    mics = {BUNDLE.camera_profiles[p].audio.mic_profile for p in ("phone_front_selfie", "dslr")}
+    assert len(mics) == 2  # the two cameras record through different mics
+    assert after["audio.room:scn_hook"].static_digest() != before["audio.room:scn_hook"].static_digest()

@@ -3,6 +3,7 @@ import { useQueries } from "@tanstack/react-query";
 import Link from "next/link";
 
 import { PageHeader } from "@/components/app-shell";
+import { CancelJobButton } from "@/components/cancel-job";
 import { StateBadge } from "@/components/state-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -82,11 +83,14 @@ function RunningJobs() {
     <ul className="flex flex-col gap-3">
       {jobs.map((job) => (
         <li key={job.id} className="flex flex-col gap-1">
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-1 text-sm">
             <Link className="text-blue-800 hover:underline" href={`/jobs/${job.id}`}>
               {humanize(job.kind)}
             </Link>
-            <StateBadge state={job.status} />
+            <span className="flex items-center gap-2">
+              <StateBadge state={job.status} />
+              <CancelJobButton job={job} />
+            </span>
           </div>
           <Progress value={job.progress} label={`${job.kind} progress`} />
         </li>

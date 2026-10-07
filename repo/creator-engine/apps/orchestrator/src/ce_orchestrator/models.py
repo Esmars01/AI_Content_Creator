@@ -125,6 +125,15 @@ class CompleteInput(BaseModel):
     render_only: bool = False
 
 
+class FailJobInput(BaseModel):
+    """A job whose workflow could not finish it: ends it as failed with the reason (audit PLAN-FAIL)."""
+
+    org_id: str
+    job_id: str
+    code: str
+    message: str
+
+
 class AssetValidationInput(BaseModel):
     org_id: str
     job_id: str

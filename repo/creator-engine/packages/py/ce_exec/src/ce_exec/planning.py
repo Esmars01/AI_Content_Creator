@@ -14,6 +14,7 @@ from typing import Any
 from uuid import UUID
 
 import sqlalchemy as sa
+from ce_build.graph import GraphError
 from ce_build.refs import SnapshotRef
 from ce_core.behavior.plan_report import Finding, PlanReport, StateTiming, event_timings
 from ce_core.canonical import canonical_json
@@ -39,6 +40,28 @@ from ce_exec.refs_loader import load_refs
 __all__ = ["complete_previz", "read_plan_report", "run_plan"]
 
 _log = get_logger("ce.exec.planning")
+
+
+def _planning_message(exc: Exception) -> str:
+    """What the previz page shows: a routing failure says which step no engine can do, in words."""
+    text = str(exc)
+    if isinstance(exc, GraphError) and text.startswith("no route for "):
+        capability, _, detail = text.removeprefix("no route for ").partition(": ")
+        return (f"No available engine can do {capability} for this video ({detail})")[:2000]
+    return text[:2000]
+
+
+async def fail_job(svc: ExecServices, org_id: UUID, job_id: UUID, code: str, message: str) -> None:
+    """Ends a job as failed with its reason, unless it already reached a final state: the fallback of
+    every workflow whose activity failed for good, so no job stays `running` (audit PLAN-FAIL)."""
+    async with svc.db.transaction() as session:
+        job = await session.get(GenerationJob, job_id, with_for_update=True)
+        if job is None or job.org_id != org_id or job.status in ("succeeded", "failed", "cancelled", "partial"):
+            return
+        job = await rec.set_job(
+            session, org_id, job_id, status="failed", progress=1.0, error={"code": code, "message": message[:2000]}
+        )
+    await svc.publish(org_id, EventType.JOB_UPDATED, _job_event(job))
 
 
 def _job_event(job: GenerationJob) -> dict[str, Any]:
@@ -118,19 +141,12 @@ async def run_plan(svc: ExecServices, org_id: UUID, job_id: UUID) -> dict[str, A
     )
     try:
         outcome = await Director(deps).plan(request, ctx)
-    except (PlanningError, LookupError) as exc:
-        message = str(exc)[:2000]
+    except (PlanningError, LookupError, GraphError) as exc:
+        # GraphError: no engine can serve a node of this plan (a language no voice speaks, a tier
+        # without a route); it fails the same way on every retry (audit PLAN-FAIL)
+        message = _planning_message(exc)
         _log.warning("planning failed", job_id=str(job_id), error=message[:300])
-        async with svc.db.transaction() as session:
-            job = await rec.set_job(
-                session,
-                org_id,
-                job_id,
-                status="failed",
-                progress=1.0,
-                error={"code": "planning_failed", "message": message},
-            )
-        await svc.publish(org_id, EventType.JOB_UPDATED, _job_event(job))
+        await fail_job(svc, org_id, job_id, "planning_failed", message)
         return {"status": "failed", "version_id": None, "previz_job_id": None}
     sha, size, key = await _store_report(svc, outcome.report)
     async with svc.db.transaction() as session:

@@ -65,3 +65,9 @@ Creators and worlds can be designed, tested and approved end to end on mock engi
 - `useStudioJob` (8 Studio panels) re-invalidated its queries on every render once a job finished — an endless refetch loop. That loop also hid a second defect: approving a world version from the Plates tab never refreshed the version shown, so the panel stayed "Draft". The creators/worlds pages still said the studios "arrive in Phase 10".
 
 The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-10`).
+
+## Product-audit corrections (2026-10-07)
+
+- CR-VOICE / CR-CREATE (a creator draft could not link a new voice, look, outfits or worlds, and no creator or world could be created in the UI), CR-VOICE-TRANSCRIPT (every video with a designed voice failed to plan: its reference transcript was empty), D14 (voice Select made a draft per click), LEXICON-REMOVE.
+
+Found by the product-level audit; evidence, regression tests and fixes in [`PRODUCT_LOGIC_AUDIT_REPORT.md`](../PRODUCT_LOGIC_AUDIT_REPORT.md) (corrected in tag `phase-14-audit`).

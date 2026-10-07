@@ -11,12 +11,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Suspense, use, useEffect, useRef } from "react";
 
 import { PageHeader, useAdvanced } from "@/components/app-shell";
+import { CancelJobButton } from "@/components/cancel-job";
 import { SceneCoverageBadge } from "@/components/coverage";
-import { EditPanel } from "@/components/edit-panel";
+import { EditPanel, SceneOrderButtons } from "@/components/edit-panel";
 import { CaptionsPanel, ExportPanel, PackagingPanel } from "@/components/export-panels";
 import { ClaimLedger } from "@/components/research-panels";
 import { IntentEditor, PerformanceEditor } from "@/components/editors";
+import { MissingVersion, useVersionLookup } from "@/components/missing-version";
 import { PerformanceLane } from "@/components/performance-lane";
+import { RoleNote } from "@/components/role-note";
 import { CritiquePanel, QCReportPanel, VersionConsistency } from "@/components/qc-panels";
 import { Player } from "@/components/player";
 import { CoveragePanel, IntentPanel, scenesOf, segmentScenes } from "@/components/plan";
@@ -25,13 +28,23 @@ import { LocksPanel, TakesGallery, VersionsPanel } from "@/components/studio-pan
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, Empty, Progress, Skeleton, Table, Td, Th } from "@/components/ui/misc";
+import { Alert, Empty, LoadError, Progress, Skeleton, Table, Td, Th } from "@/components/ui/misc";
 import type { PlanReport, VideoSpec } from "@/lib/api";
 import { bySceneKey, type CoverageEntry } from "@/lib/coverage";
 import { humanize, seconds, when } from "@/lib/format";
 import { buildLane, trajectorySentence } from "@/lib/performance";
-import { ApiError } from "@/lib/api";
-import { keys, useCoverage, useIntent, useJobs, usePreviz, useVersion, useVersions, useVideo } from "@/lib/queries";
+import { usePinShownVersion } from "@/lib/pin-version";
+import {
+  isMissing,
+  keys,
+  useCoverage,
+  useIntent,
+  useJobs,
+  usePreviz,
+  useVersion,
+  useVersions,
+  useVideo,
+} from "@/lib/queries";
 
 const BUILDING = new Set(["approved", "generating"]);
 const PREVIZ = new Set(["planned", "previz_running"]);
@@ -52,7 +65,10 @@ function ActiveJobs({ versionIds }: { versionIds: string[] }) {
               <Link className="text-blue-800 hover:underline" href={`/jobs/${job.id}`}>
                 {humanize(job.kind)}
               </Link>
-              <StateBadge state={job.status} />
+              <span className="flex items-center gap-2">
+                <StateBadge state={job.status} />
+                <CancelJobButton job={job} />
+              </span>
             </div>
             <Progress value={job.progress} label={`${job.kind} progress`} />
           </div>
@@ -86,7 +102,12 @@ function Studio({ videoId }: { videoId: string }) {
   const video = useVideo(videoId);
   const versions = useVersions(videoId);
   const versionId = params.get("version") ?? video.data?.current_version_id ?? null;
-  const version = useVersion(versionId, (v) => !v || BUILDING.has(v.state) || PREVIZ.has(v.state));
+  usePinShownVersion(versionId, params.has("version"));
+  const keepPolling = useRef(true);
+  const version = useVersion(versionId, (v) =>
+    v ? BUILDING.has(v.state) || PREVIZ.has(v.state) : keepPolling.current,
+  );
+  const lookup = useVersionLookup(versionId, version, keepPolling);
   const previz = usePreviz(versionId);
   const intent = useIntent(versionId);
   const state = version.data?.state ?? "";
@@ -95,16 +116,55 @@ function Studio({ videoId }: { videoId: string }) {
   useRefreshOnStateChange(versionId, state);
 
   if (video.isLoading) return <Skeleton className="h-64" />;
+  if (video.error && !isMissing(video.error)) {
+    return <LoadError what="this video" error={video.error} onRetry={() => void video.refetch()} />;
+  }
   if (!video.data) return <Alert tone="danger">This video does not exist.</Alert>;
   if (!versionId) {
     return (
       <>
         <PageHeader title={video.data.title || "Untitled"} />
-        <Empty>{video.data.planning ? "Planning is under way…" : "No version yet."}</Empty>
+        {video.data.planning ? (
+          <Empty>Planning is under way…</Empty>
+        ) : (
+          <Empty>
+            No version yet: its planning did not finish (see{" "}
+            <Link className="underline" href="/jobs">
+              Jobs
+            </Link>
+            ).{" "}
+            <Link className="underline" href="/create" data-testid="plan-again">
+              Plan a video again
+            </Link>
+          </Empty>
+        )}
       </>
     );
   }
-  if (version.error instanceof ApiError && version.error.status === 404) {
+  if (lookup.missing || (version.data && version.data.video_id !== videoId)) {
+    // a deep link to a version that is not there (or is another video's): never wait forever
+    return (
+      <>
+        <PageHeader title={video.data.title || "Untitled"} />
+        <MissingVersion videoId={videoId} />
+      </>
+    );
+  }
+  if (lookup.jobEnded) {
+    // the job that was to create this version failed or was cancelled: say so, never wait forever
+    return (
+      <>
+        <PageHeader title={video.data.title || "Untitled"} />
+        <Alert tone="danger">
+          This change could not be applied: its job failed or was cancelled.{" "}
+          <Link className="underline" href={`/videos/${videoId}`}>
+            Open the video&apos;s current version
+          </Link>
+        </Alert>
+      </>
+    );
+  }
+  if (lookup.creating) {
     // a derived version appears once its edit is applied (ApplyEditWorkflow)
     return (
       <>
@@ -114,6 +174,9 @@ function Studio({ videoId }: { videoId: string }) {
         </Alert>
       </>
     );
+  }
+  if (version.error && !isMissing(version.error)) {
+    return <LoadError what="this version" error={version.error} onRetry={() => void version.refetch()} />;
   }
   if (!version.data) return <Skeleton className="h-64" />;
   const spec = version.data.spec as unknown as VideoSpec;
@@ -147,6 +210,7 @@ function Studio({ videoId }: { videoId: string }) {
           </div>
         }
       />
+      <RoleNote className="mb-4" />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,22rem)_1fr]">
         <div className="flex flex-col gap-4">
           <Player versionId={versionId} state={state} />
@@ -219,7 +283,6 @@ function Studio({ videoId }: { videoId: string }) {
           <EditPanel
             key={`edit-${versionId}`}
             versionId={versionId}
-            videoId={videoId}
             sceneKeys={scenesOf(spec).map((scene) => scene.key)}
           />
           {advanced ? (
@@ -237,10 +300,11 @@ function Studio({ videoId }: { videoId: string }) {
                     <Th>Purpose</Th>
                     <Th>World</Th>
                     <Th>Behavior coverage</Th>
+                    <Th>Order</Th>
                   </tr>
                 </thead>
                 <tbody>
-                  {scenesOf(spec).map((scene) => (
+                  {scenesOf(spec).map((scene, _, all) => (
                     <tr key={scene.key} data-testid="scene-row">
                       <Td className="font-mono text-xs">{scene.key}</Td>
                       <Td>{humanize(scene.purpose)}</Td>
@@ -255,6 +319,13 @@ function Studio({ videoId }: { videoId: string }) {
                       </Td>
                       <Td>
                         <SceneCoverageBadge entries={grouped[scene.key] ?? []} />
+                      </Td>
+                      <Td>
+                        <SceneOrderButtons
+                          versionId={versionId}
+                          sceneKeys={all.map((s) => s.key)}
+                          sceneKey={scene.key}
+                        />
                       </Td>
                     </tr>
                   ))}
@@ -291,11 +362,13 @@ function Studio({ videoId }: { videoId: string }) {
           ) : null}
           <ClaimLedger versionId={versionId} />
           {built ? <CaptionsPanel versionId={versionId} videoId={videoId} /> : null}
-          {built ? <PackagingPanel versionId={versionId} targets={spec.meta.platform_targets ?? []} /> : null}
+          {built ? (
+            <PackagingPanel versionId={versionId} targets={spec.meta.platform_targets ?? []} versionState={state} />
+          ) : null}
           {built ? <ExportPanel versionId={versionId} versionState={state} /> : null}
           {built ? <QCReportPanel versionId={versionId} /> : null}
-          {built ? <CritiquePanel versionId={versionId} /> : null}
-          {built ? <VersionConsistency versionId={versionId} /> : null}
+          {built ? <CritiquePanel versionId={versionId} versionState={state} /> : null}
+          {built ? <VersionConsistency versionId={versionId} versionState={state} /> : null}
           <Card>
             <CardHeader>
               <CardTitle>Creator and world</CardTitle>

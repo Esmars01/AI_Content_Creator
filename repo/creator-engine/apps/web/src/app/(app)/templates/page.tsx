@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { PageHeader } from "@/components/app-shell";
+import { RoleNote } from "@/components/role-note";
 import { ErrorNote } from "@/components/studio/common";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,8 @@ import { Alert, Empty, Skeleton, Table, Td, Th } from "@/components/ui/misc";
 import { api, idempotencyKey, unwrap } from "@/lib/api";
 import { humanize, when } from "@/lib/format";
 import { TEMPLATE_KINDS, templateSlots } from "@/lib/phase12";
-import { useTemplate, useTemplates } from "@/lib/queries";
+import { useProjectVideos, useProjects, useTemplate, useTemplates } from "@/lib/queries";
+import { useCan } from "@/lib/roles";
 
 function SlotList({ body }: { body: Record<string, unknown> }) {
   const slots = templateSlots(body);
@@ -35,9 +37,53 @@ function SlotList({ body }: { body: Record<string, unknown> }) {
   );
 }
 
+/**
+ * Picks a video's current version by project and title, so a template is applied or saved without
+ * copying a version UUID from the address bar (audit TPL-UUID). The id field stays for any version.
+ */
+function VersionPicker({ idPrefix, onPick }: { idPrefix: string; onPick: (versionId: string) => void }) {
+  const projects = useProjects();
+  const [projectId, setProjectId] = useState("");
+  const videos = useProjectVideos(projectId || null);
+  const items = (videos.data?.items ?? []).filter((v) => v.current_version_id);
+  return (
+    <div className="flex flex-wrap items-end gap-2 text-sm">
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`${idPrefix}-project`}>Project</Label>
+        <Select id={`${idPrefix}-project`} value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+          <option value="">Choose…</option>
+          {(projects.data?.items ?? []).map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`${idPrefix}-video`}>Video (its current version)</Label>
+        <Select
+          id={`${idPrefix}-video`}
+          defaultValue=""
+          disabled={!projectId}
+          onChange={(e) => e.target.value && onPick(e.target.value)}
+          key={projectId}
+        >
+          <option value="">Choose…</option>
+          {items.map((v) => (
+            <option key={v.id} value={v.current_version_id ?? ""}>
+              {v.title || "Untitled"}
+            </option>
+          ))}
+        </Select>
+      </div>
+    </div>
+  );
+}
+
 function TemplateDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const client = useQueryClient();
   const template = useTemplate(id);
+  const can = useCan("write_content");
   const [versionId, setVersionId] = useState("");
   const [preview, setPreview] = useState<{ operations: Record<string, unknown>[] } | null>(null);
   const [applied, setApplied] = useState<string | null>(null);
@@ -54,7 +100,11 @@ function TemplateDetail({ id, onClose }: { id: string; onClose: () => void }) {
       ),
     onSuccess: (data, dry) => {
       if (dry) setPreview(data as never);
-      else setApplied((data as { edit_proposal_id: string }).edit_proposal_id);
+      else {
+        // proposed: a second click must not propose it again; preview again to re-apply (D13)
+        setPreview(null);
+        setApplied((data as { edit_proposal_id: string }).edit_proposal_id);
+      }
     },
   });
   const edit = useMutation({
@@ -105,6 +155,7 @@ function TemplateDetail({ id, onClose }: { id: string; onClose: () => void }) {
             {t.conflicts.map((c) => `${c.path} → ${JSON.stringify(c.winner)}`).join("; ")}
           </Alert>
         ) : null}
+        <VersionPicker idPrefix="apply" onPick={setVersionId} />
         <form
           className="flex items-end gap-2"
           onSubmit={(e) => {
@@ -124,7 +175,12 @@ function TemplateDetail({ id, onClose }: { id: string; onClose: () => void }) {
           <Button type="submit" variant="outline">
             Preview
           </Button>
-          <Button type="button" onClick={() => run.mutate(false)} disabled={!preview?.operations.length}>
+          <Button
+            type="button"
+            onClick={() => run.mutate(false)}
+            disabled={!preview?.operations.length || run.isPending || !can.allowed}
+            title={can.reason}
+          >
             Propose edit
           </Button>
         </form>
@@ -156,13 +212,25 @@ function TemplateDetail({ id, onClose }: { id: string; onClose: () => void }) {
               value={body || JSON.stringify(t.body, null, 2)}
               onChange={(e) => setBody(e.target.value)}
             />
-            <Button className="mt-2" size="sm" onClick={() => edit.mutate()} disabled={!body}>
+            <Button
+              className="mt-2"
+              size="sm"
+              onClick={() => edit.mutate()}
+              disabled={!body || edit.isPending || !can.allowed}
+              title={can.reason}
+            >
               Save new version
             </Button>
           </details>
         ) : null}
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => archive.mutate()}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => archive.mutate()}
+            disabled={archive.isPending || !can.allowed}
+            title={can.reason}
+          >
             Archive
           </Button>
           <Button size="sm" variant="ghost" onClick={onClose}>
@@ -174,14 +242,18 @@ function TemplateDetail({ id, onClose }: { id: string; onClose: () => void }) {
   );
 }
 
+const EXAMPLE_BODY = '{\n  "captions": {"style_id": "bold_pop_highlight"}\n}';
+
 function CreateTemplate() {
   const client = useQueryClient();
+  const can = useCan("write_content");
   const [name, setName] = useState("");
   const [kind, setKind] = useState<(typeof TEMPLATE_KINDS)[number]>("caption");
   const [source, setSource] = useState<"version" | "body">("version");
   const [versionId, setVersionId] = useState("");
   const [paths, setPaths] = useState("");
-  const [body, setBody] = useState('{\n  "captions": {"style_id": "bold_pop_highlight"}\n}');
+  const [body, setBody] = useState(EXAMPLE_BODY);
+  const [saved, setSaved] = useState<string | null>(null);
   const create = useMutation({
     mutationFn: () =>
       unwrap(
@@ -196,7 +268,16 @@ function CreateTemplate() {
             : { name, kind, body: JSON.parse(body) as Record<string, unknown> }) as never,
         }),
       ),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["templates"] }),
+    onMutate: () => setSaved(null),
+    onSuccess: (row) => {
+      // a fresh form: a second click must not save the same template again (D15)
+      setName("");
+      setVersionId("");
+      setPaths("");
+      setBody(EXAMPLE_BODY);
+      setSaved(row.name);
+      void client.invalidateQueries({ queryKey: ["templates"] });
+    },
   });
   return (
     <Card>
@@ -208,7 +289,7 @@ function CreateTemplate() {
           className="grid grid-cols-2 gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            create.mutate();
+            if (can.allowed) create.mutate();
           }}
         >
           <div className="flex flex-col gap-1">
@@ -236,6 +317,9 @@ function CreateTemplate() {
           </div>
           {source === "version" ? (
             <>
+              <div className="col-span-2">
+                <VersionPicker idPrefix="tpl" onPick={setVersionId} />
+              </div>
               <div className="flex flex-col gap-1">
                 <Label htmlFor="tpl-version">Version id</Label>
                 <Input
@@ -268,7 +352,12 @@ function CreateTemplate() {
           )}
           <div className="col-span-2">
             <ErrorNote error={create.error} />
-            <Button type="submit" disabled={create.isPending}>
+            {saved ? (
+              <Alert tone="success" className="mb-2">
+                Template “{saved}” saved.
+              </Alert>
+            ) : null}
+            <Button type="submit" disabled={create.isPending || !can.allowed} title={can.reason}>
               Save template
             </Button>
           </div>
@@ -322,6 +411,7 @@ export default function TemplatesPage() {
           </>
         }
       />
+      <RoleNote />
       <div className="flex items-center gap-2">
         <Label htmlFor="kind-filter">Kind</Label>
         <Select id="kind-filter" className="w-48" value={kind} onChange={(e) => setKind(e.target.value)}>

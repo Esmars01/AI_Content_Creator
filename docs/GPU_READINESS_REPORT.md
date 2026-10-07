@@ -8,6 +8,21 @@
 
 ## 1. Verdict
 
+> **Update 2026-10-07, after the product-level audit
+> ([`PRODUCT_LOGIC_AUDIT_REPORT.md`](PRODUCT_LOGIC_AUDIT_REPORT.md)): YELLOW, go for GPU testing with a known
+> list.** The audit ran every user journey a GPU run depends on end to end in mock mode, and verified it on the
+> produced files:
+> - planning, approval and generation, with cancel, resume and recovery from a worker kill;
+> - scoped edits that change only their scope;
+> - new creators whose voice and look reach the video.
+>
+> Two of its findings matter for GPU sessions:
+> - `pitch_semitones` (a cast voice offset) is honoured only by the mock voice (PITCH-REAL). Check it first with
+>   a real TTS.
+> - `post.realism` encodes are not byte-deterministic (REALISM-ABR). Compare GPU re-runs with PSNR/SSIM, not SHA.
+>
+> Identity, acting, take variety and voice quality cannot be judged on mock output (report section 25).
+
 **Ready to *start* real GPU testing; not GPU-validated.** The control plane that GPU workers depend on —
 the scheduler, leases, completion back to Temporal, worker lifecycle, presigned I/O, the fleet manager — was
 audited, and the defects that would have broken or silently stalled the first GPU runs were fixed and

@@ -7,35 +7,51 @@
  */
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, use } from "react";
+import { Suspense, use, useRef } from "react";
 
 import { PageHeader } from "@/components/app-shell";
 import { FindingsList } from "@/components/findings";
+import { MissingVersion, useVersionLookup } from "@/components/missing-version";
 import { PerformanceLane } from "@/components/performance-lane";
+import { RoleNote } from "@/components/role-note";
 import { ClaimLedger } from "@/components/research-panels";
 import { ApprovePanel, CoveragePanel, IntentPanel, ReplanPanel, ScriptView, Storyboard } from "@/components/plan";
 import { StateBadge } from "@/components/state-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, Empty, Progress, Skeleton } from "@/components/ui/misc";
+import { Alert, Empty, LoadError, Progress, Skeleton } from "@/components/ui/misc";
 import type { PlanReport, VideoSpec } from "@/lib/api";
 import type { CoverageEntry } from "@/lib/coverage";
 import { humanize, seconds, usd } from "@/lib/format";
 import { buildLane, trajectorySentence } from "@/lib/performance";
-import { useIntent, useJob, usePreviz, useSnapshots, useVersion } from "@/lib/queries";
+import { isMissing, useIntent, useJob, usePreviz, useSnapshots, useVersion, useWorldVersion } from "@/lib/queries";
 
 const WAITING = new Set(["planned", "previz_running"]);
+
+/** The world version the plan's scenes bind (the proposed one, when the plan needs its approval). */
+function worldVersionOf(spec: Record<string, unknown> | undefined): string | null {
+  const scenes = (spec?.scenes ?? []) as { world?: { world_version_id?: string } | null }[];
+  return scenes.find((scene) => scene.world?.world_version_id)?.world?.world_version_id ?? null;
+}
 
 function Waiting({ jobId, state }: { jobId: string | null; state: string | null }) {
   const job = useJob(jobId, true);
   const failed = job.data?.status === "failed";
+  const cancelled = job.data?.status === "cancelled";
   return (
     <Card>
       <CardContent className="flex flex-col gap-3 py-6">
-        {failed ? (
-          <Alert tone="danger">
-            Planning failed: {String((job.data?.error as { message?: string } | null)?.message ?? "see the job")}
-          </Alert>
+        {failed || cancelled ? (
+          <>
+            <Alert tone="danger">
+              {cancelled
+                ? "Planning was cancelled."
+                : `Planning failed: ${String((job.data?.error as { message?: string } | null)?.message ?? "see the job")}`}
+            </Alert>
+            <Link className="text-sm text-blue-800 underline" href="/create">
+              Plan a video again
+            </Link>
+          </>
         ) : (
           <>
             <p className="text-sm" aria-live="polite">
@@ -58,14 +74,39 @@ function Waiting({ jobId, state }: { jobId: string | null; state: string | null 
 
 function Review({ videoId, versionId }: { videoId: string; versionId: string }) {
   const params = useSearchParams();
-  const version = useVersion(versionId, (v) => !v || WAITING.has(v.state));
+  const keepPolling = useRef(true);
+  const version = useVersion(versionId, (v) => (v ? WAITING.has(v.state) : keepPolling.current));
+  // a link from Create or Regenerate plan carries the plan job: while it runs, a 404 means "not yet"
+  const lookup = useVersionLookup(versionId, version, keepPolling, params.get("job"));
   const state = version.data?.state ?? null;
   const waiting = !state || WAITING.has(state);
   const previz = usePreviz(state ? versionId : null, waiting);
   const intent = useIntent(state ? versionId : null);
   const snapshots = useSnapshots(state ? versionId : null);
   const notPlanned = !version.data;
+  // a plan that binds a proposed world version waits for that world version's approval (§19.2)
+  const needsWorldApproval = (version.data?.flags ?? []).includes("needs_world_approval");
+  const world = useWorldVersion(needsWorldApproval ? worldVersionOf(version.data?.spec) : null);
 
+  if (lookup.missing || (version.data && version.data.video_id !== videoId)) {
+    return (
+      <>
+        <PageHeader title="Previz review" />
+        <MissingVersion videoId={videoId} />
+      </>
+    );
+  }
+  if (version.error && !isMissing(version.error)) {
+    return <LoadError what="this version" error={version.error} onRetry={() => void version.refetch()} />;
+  }
+  if (lookup.jobEnded) {
+    return (
+      <>
+        <PageHeader title="Planning stopped" />
+        <Waiting jobId={params.get("job")} state={null} />
+      </>
+    );
+  }
   if (notPlanned || (state && WAITING.has(state) && previz.data?.state !== "previz_ready")) {
     return (
       <>
@@ -100,6 +141,7 @@ function Review({ videoId, versionId }: { videoId: string; versionId: string }) 
           </span>
         }
       />
+      <RoleNote className="mb-4" />
       {previz.data.state === "failed" ? <Alert tone="danger">Previz failed; regenerate the plan.</Alert> : null}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="col-span-2 flex flex-col gap-4">
@@ -175,8 +217,15 @@ function Review({ videoId, versionId }: { videoId: string; versionId: string }) 
             blocking={previz.data.blocking}
             disabled={!ready}
             state={previz.data.state}
+            needsWorldApproval={needsWorldApproval}
+            worldHref={world.data ? `/worlds/${world.data.world_id}` : "/worlds"}
           />
-          <ReplanPanel versionId={versionId} videoId={videoId} disabled={!ready && previz.data.state !== "failed"} />
+          <ReplanPanel
+            versionId={versionId}
+            videoId={videoId}
+            disabled={!ready && previz.data.state !== "failed"}
+            origin={version.data.origin}
+          />
           <ClaimLedger versionId={versionId} />
           <Card>
             <CardHeader>

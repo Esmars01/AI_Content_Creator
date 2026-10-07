@@ -22,6 +22,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
+import { OfflineNotice } from "@/components/offline-notice";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
 import { api, ApiError } from "@/lib/api";
@@ -206,6 +207,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Button>
         </header>
         <main id="main" tabIndex={-1} className="min-w-0 flex-1 p-4 outline-none md:p-6">
+          <OfflineNotice />
           {children}
         </main>
       </div>

@@ -22,14 +22,15 @@ import {
   lockLabel,
   locksBody,
   locksOf,
-  RESUMABLE,
+  resumeAction,
   sameLock,
   versionTree,
   type VersionSummary,
 } from "@/lib/edits";
 import { humanize } from "@/lib/format";
-import { keys, useTakes, useVocabulary } from "@/lib/queries";
-import { useStudio } from "@/lib/store";
+import { keys, useGeneratedVersionIds, useTakes, useVocabulary } from "@/lib/queries";
+import { useCan } from "@/lib/roles";
+import { usePendingVersions, useStudio } from "@/lib/store";
 
 type Json = Record<string, unknown>;
 
@@ -56,12 +57,14 @@ export function VersionsPanel({
 }) {
   const router = useRouter();
   const client = useQueryClient();
+  const can = useCan("write_content");
   const [compare, setCompare] = useState<string[]>([]);
   const [branchName, setBranchName] = useState("");
-  const done = async (versionId: string) => {
+  const done = async (accepted: { version_id: string; job_id: string }) => {
+    usePendingVersions.getState().expectVersion(accepted.version_id, accepted.job_id);
     await client.invalidateQueries({ queryKey: keys.versions(videoId) });
     await client.invalidateQueries({ queryKey: keys.video(videoId) });
-    router.replace(`/videos/${videoId}?version=${versionId}`);
+    router.replace(`/videos/${videoId}?version=${accepted.version_id}`);
   };
   const restore = useMutation({
     mutationFn: (id: string) =>
@@ -71,7 +74,7 @@ export function VersionsPanel({
           headers: idempotencyKey(),
         }),
       ),
-    onSuccess: (accepted) => done(accepted.version_id),
+    onSuccess: (accepted) => done(accepted),
   });
   const branch = useMutation({
     mutationFn: () =>
@@ -84,7 +87,23 @@ export function VersionsPanel({
       ),
     onSuccess: async (accepted) => {
       setBranchName("");
-      await done(accepted.version_id);
+      await done(accepted);
+    },
+  });
+  // a copy of the version shown, as a new video in the same project (it reuses every cached artifact)
+  const duplicate = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.POST("/v1/videos/{video_id}:duplicate", {
+          params: { path: { video_id: videoId } },
+          headers: idempotencyKey(),
+          body: { version_id: currentId },
+        }),
+      ),
+    onSuccess: async (accepted) => {
+      usePendingVersions.getState().expectVersion(accepted.version_id, accepted.job_id);
+      await client.invalidateQueries({ queryKey: keys.videosAll() });
+      router.push(`/videos/${accepted.video_id}?version=${accepted.version_id}`);
     },
   });
   const resume = useMutation({
@@ -99,8 +118,12 @@ export function VersionsPanel({
       await client.invalidateQueries({ queryKey: keys.version(accepted.version_id) });
     },
   });
+  // one error line for the panel: starting an action clears the previous action's error (D21)
+  const clearErrors = () => [restore, branch, resume, duplicate].forEach((m) => m.reset());
   const nodes = flatten(versionTree(versions));
   const current = versions.find((v) => v.id === currentId);
+  // only a failed or cancelled version needs to know whether it started generating (D5)
+  const generated = useGeneratedVersionIds(versions.some((v) => v.state === "failed" || v.state === "cancelled"));
   return (
     <Card>
       <CardHeader>
@@ -138,13 +161,40 @@ export function VersionsPanel({
               <span className="flex items-center gap-1">
                 <StateBadge state={v.state} />
                 {v.id !== currentId ? (
-                  <Button size="sm" variant="ghost" onClick={() => restore.mutate(v.id)} disabled={restore.isPending}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      clearErrors();
+                      restore.mutate(v.id);
+                    }}
+                    disabled={restore.isPending || !can.allowed}
+                    title={can.reason}
+                  >
                     Restore
                   </Button>
                 ) : null}
-                {RESUMABLE.has(v.state) ? (
-                  <Button size="sm" variant="ghost" onClick={() => resume.mutate(v.id)} disabled={resume.isPending}>
+                {resumeAction(v, generated.data) === "resume" ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      clearErrors();
+                      resume.mutate(v.id);
+                    }}
+                    disabled={resume.isPending || !can.allowed}
+                    title={can.reason}
+                  >
                     Resume
+                  </Button>
+                ) : resumeAction(v, generated.data) === "previz" ? (
+                  <Button size="sm" variant="ghost" asChild>
+                    <Link
+                      href={`/videos/${videoId}/versions/${v.id}/previz`}
+                      title="This version never started generating: replan or approve it on its previz page."
+                    >
+                      Previz
+                    </Link>
                   </Button>
                 ) : null}
               </span>
@@ -174,7 +224,9 @@ export function VersionsPanel({
           className="flex items-center gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (branchName.trim()) branch.mutate();
+            if (!branchName.trim() || !can.allowed) return;
+            clearErrors();
+            branch.mutate();
           }}
         >
           <Input
@@ -183,11 +235,31 @@ export function VersionsPanel({
             value={branchName}
             onChange={(e) => setBranchName(e.target.value.toLowerCase())}
           />
-          <Button type="submit" size="sm" variant="outline" disabled={!branchName.trim() || branch.isPending}>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            disabled={!branchName.trim() || branch.isPending || !can.allowed}
+            title={can.reason}
+          >
             Branch
           </Button>
         </form>
-        <ErrorText error={restore.error ?? branch.error ?? resume.error} />
+        <div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              clearErrors();
+              duplicate.mutate();
+            }}
+            disabled={duplicate.isPending || !can.allowed}
+            title={can.reason ?? `Copy v${current?.number ?? "?"} into a new video`}
+          >
+            {duplicate.isPending ? "Duplicating…" : "Duplicate video"}
+          </Button>
+        </div>
+        <ErrorText error={restore.error ?? branch.error ?? resume.error ?? duplicate.error} />
       </CardContent>
     </Card>
   );
@@ -197,7 +269,8 @@ export function VersionsPanel({
 
 export function LocksPanel({ spec, versionId }: { spec: Json; versionId: string }) {
   const client = useQueryClient();
-  const { showProposal } = useStudio();
+  const showProposal = useStudio((s) => s.showProposal);
+  const can = useCan("write_content");
   const vocab = useVocabulary();
   const current = locksOf(spec);
   const [rows, setRows] = useState<LockRow[]>(current);
@@ -222,7 +295,7 @@ export function LocksPanel({ spec, versionId }: { spec: Json; versionId: string 
         }),
       ),
     onSuccess: async (accepted) => {
-      showProposal(accepted.edit_proposal_id);
+      showProposal(versionId, accepted.edit_proposal_id);
       await client.invalidateQueries({ queryKey: keys.edits(versionId) });
     },
   });
@@ -277,7 +350,7 @@ export function LocksPanel({ spec, versionId }: { spec: Json; versionId: string 
               ))}
             </Select>
           ) : null}
-          <Button size="sm" variant="outline" onClick={add} disabled={!group}>
+          <Button size="sm" variant="outline" onClick={add} disabled={!group || !can.allowed} title={can.reason}>
             Add
           </Button>
         </div>
@@ -286,7 +359,8 @@ export function LocksPanel({ spec, versionId }: { spec: Json; versionId: string 
           <Button
             size="sm"
             onClick={() => save.mutate()}
-            disabled={!changed || save.isPending}
+            disabled={!changed || save.isPending || !can.allowed}
+            title={can.reason}
             data-testid="save-locks"
           >
             Save locks
@@ -303,7 +377,8 @@ const SHOT_COMPONENTS = ["avatar_video", "keyframe", "camera_post", "broll", "li
 
 export function TakesGallery({ spec, versionId }: { spec: Json; versionId: string }) {
   const client = useQueryClient();
-  const { showProposal } = useStudio();
+  const showProposal = useStudio((s) => s.showProposal);
+  const can = useCan("write_content");
   const takes = useTakes(versionId);
   const [component, setComponent] = useState<string>("avatar_video");
   const shots = ((spec.scenes ?? []) as Json[]).flatMap((scene) =>
@@ -314,7 +389,7 @@ export function TakesGallery({ spec, versionId }: { spec: Json; versionId: strin
     })),
   );
   const onAccepted = async (accepted: { edit_proposal_id: string }) => {
-    showProposal(accepted.edit_proposal_id);
+    showProposal(versionId, accepted.edit_proposal_id);
     await client.invalidateQueries({ queryKey: keys.edits(versionId) });
   };
   const select = useMutation({
@@ -371,7 +446,8 @@ export function TakesGallery({ spec, versionId }: { spec: Json; versionId: strin
                   size="sm"
                   variant="ghost"
                   onClick={() => regenerate.mutate(shot.key)}
-                  disabled={regenerate.isPending}
+                  disabled={regenerate.isPending || !can.allowed}
+                  title={can.reason}
                 >
                   Regenerate
                 </Button>
@@ -409,7 +485,8 @@ export function TakesGallery({ spec, versionId }: { spec: Json; versionId: strin
                           size="sm"
                           variant="outline"
                           onClick={() => select.mutate({ shot: shot.key, take: `tk_${take.take_index}` })}
-                          disabled={select.isPending}
+                          disabled={select.isPending || !can.allowed}
+                          title={can.reason}
                         >
                           Select
                         </Button>

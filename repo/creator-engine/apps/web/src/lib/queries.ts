@@ -79,6 +79,14 @@ function retry(count: number, error: Error): boolean {
 
 const opts = { retry } as const;
 
+/** The API says the resource is not there (404) or the id cannot name one (422, e.g. not a UUID). */
+export function isMissing(error: unknown): error is ApiError {
+  return error instanceof ApiError && (error.status === 404 || error.status === 422);
+}
+
+/** Failed fetches of a 404 before a page says the thing does not exist (it may be being created). */
+export const MISSING_AFTER = 5;
+
 export const useMe = () =>
   useQuery({ queryKey: keys.me(), queryFn: () => unwrap(api.GET("/v1/me")), retry: false, staleTime: 60_000 });
 
@@ -130,13 +138,19 @@ export const useVersions = (videoId: string) =>
     ...opts,
   });
 
-/** `pollWhile` keeps refetching (every 2 s) while it returns true, e.g. until planning finishes. */
-export const useVersion = (id: string | null, pollWhile?: (version: Schemas["VersionOut"] | undefined) => boolean) =>
+/**
+ * `pollWhile` keeps refetching (every 2 s) while it returns true, e.g. until planning finishes;
+ * `failures` counts the failed fetches so far (a version that does not exist yet answers 404).
+ */
+export const useVersion = (
+  id: string | null,
+  pollWhile?: (version: Schemas["VersionOut"] | undefined, failures: number) => boolean,
+) =>
   useQuery({
     queryKey: keys.version(id ?? ""),
     enabled: Boolean(id),
     queryFn: () => unwrap(api.GET("/v1/versions/{version_id}", { params: { path: { version_id: id ?? "" } } })),
-    refetchInterval: (query) => (pollWhile?.(query.state.data) ? 2000 : false),
+    refetchInterval: (query) => (pollWhile?.(query.state.data, query.state.errorUpdateCount) ? 2000 : false),
     ...opts,
   });
 
@@ -231,6 +245,21 @@ export const useJobs = (status: string | null = null, poll = false) =>
     queryKey: keys.jobList(status),
     queryFn: () => unwrap(api.GET("/v1/jobs", { params: { query: { limit: 50, ...(status ? { status } : {}) } } })),
     refetchInterval: poll ? 5000 : false,
+    ...opts,
+  });
+
+/**
+ * The versions a generation job ran for (among the newest 100 generation jobs): a failed or
+ * cancelled version resumes only if it started generating (the API's `passed_approval`).
+ */
+export const useGeneratedVersionIds = (enabled: boolean) =>
+  useQuery({
+    queryKey: [...keys.jobs(), "generated-versions"],
+    enabled,
+    queryFn: async () => {
+      const page = await unwrap(api.GET("/v1/jobs", { params: { query: { kind: "generate", limit: 100 } } }));
+      return page.items.map((job) => job.video_version_id).filter((id): id is string => Boolean(id));
+    },
     ...opts,
   });
 

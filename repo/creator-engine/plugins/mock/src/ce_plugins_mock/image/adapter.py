@@ -59,15 +59,17 @@ class MockImage(MockAdapter, ImageGenerator):
         faceless = request.labels.get("kind") == "keyframe" and (seed % 10_000) / 10_000 < env_float(
             "MOCK_IMAGE_FACELESS_RATE", 0.0
         )
+        plate = request.labels.get("kind") == "plate"  # a plate edit (world overrides) is still an empty room
+        head = "MOCK WORLD PLATE" if plate else "MOCK KEYFRAME (FACELESS)" if faceless else "MOCK KEYFRAME"
         draw_face_image(
             out,
             width=request.width,
             height=request.height,
             seed=seed,
-            lines=_lines(request.labels, "MOCK KEYFRAME (FACELESS)" if faceless else "MOCK KEYFRAME"),
+            lines=_lines(request.labels, head),
             background=base,
             expression=request.labels.get("expression", "neutral"),
-            figure=not faceless,
+            figure=not (faceless or plate),
         )
         ref = await self.write(
             ctx, out, "image", role="image", mime="image/png", width=request.width, height=request.height

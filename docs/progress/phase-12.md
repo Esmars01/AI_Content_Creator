@@ -67,3 +67,9 @@ Verified on 2026-10-05:
 - **A7** — a retried export returned expired presigned URLs. **A6** — the API's `sources` field did not carry `PlanRequest`'s limit of 50.
 
 The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-12`).
+
+## Product-audit corrections (2026-10-07)
+
+- PKG-D7/D8 (packaging edits lost or approved stale), PKG-MSG, D12, D13/D15 (double submits), D20 (a ledger override still showed as blocking), TPL-UUID (templates needed a pasted UUID), MEM-CRUD (memory could not be authored or deleted), EXPORT-REDL, EXTRA-RENDER (extra platform renders unreachable).
+
+Found by the product-level audit; evidence, regression tests and fixes in [`PRODUCT_LOGIC_AUDIT_REPORT.md`](../PRODUCT_LOGIC_AUDIT_REPORT.md) (corrected in tag `phase-14-audit`).

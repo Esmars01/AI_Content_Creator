@@ -30,6 +30,7 @@ from ce_orchestrator.models import (
     EditJobInput,
     EditJobResult,
     FailInput,
+    FailJobInput,
     FinalizeInput,
     LocalInput,
     MemoryEnqueueInput,
@@ -85,6 +86,10 @@ class Activities:
     @activity.defn(name="plan_video")
     async def plan_video(self, inp: PlanVideoInput) -> PlanVideoResult:
         return PlanVideoResult.model_validate(await planning.run_plan(self.svc, UUID(inp.org_id), UUID(inp.job_id)))
+
+    @activity.defn(name="fail_job")
+    async def fail_job(self, inp: FailJobInput) -> None:
+        await planning.fail_job(self.svc, UUID(inp.org_id), UUID(inp.job_id), inp.code, inp.message)
 
     @activity.defn(name="complete_previz")
     async def complete_previz(self, inp: PrevizCompleteInput) -> dict[str, Any]:
@@ -250,6 +255,7 @@ class Activities:
             self.studio_fail,
             self.plan_build,
             self.plan_video,
+            self.fail_job,
             self.complete_previz,
             self.propose_edit,
             self.apply_edit,

@@ -13,7 +13,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-import { ErrorNote } from "@/components/studio/common";
+import { NOT_RENDERED, RENDERED } from "@/components/qc-panels";
+import { ErrorNote, JobLine, useStudioJob } from "@/components/studio/common";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,17 +33,54 @@ import {
   usePlatforms,
   useRenders,
 } from "@/lib/queries";
+import { useCan } from "@/lib/roles";
+import { usePendingVersions } from "@/lib/store";
+import { startDownload } from "@/lib/utils";
 
 type Platform = Schemas["PlatformOut"];
 type PackagingRow = Schemas["PackagingOut"];
+type CaptionRow = Schemas["CaptionOut"];
 
 // ====================================================================== captions
+/** One caption file as a download: the presigned link is fetched on click (it expires). */
+function CaptionDownloadButton({ caption, onError }: { caption: CaptionRow; onError: (error: unknown) => void }) {
+  const [busy, setBusy] = useState(false);
+  const built = Boolean(caption.artifact_id);
+  return (
+    <button
+      type="button"
+      className="text-blue-800 underline disabled:text-slate-500 disabled:no-underline"
+      aria-label={`Download ${caption.language} ${caption.format} captions`}
+      title={built ? `Download captions.${caption.language}.${caption.format}` : "The caption file is not built yet"}
+      disabled={!built || busy}
+      onClick={async () => {
+        setBusy(true);
+        onError(null);
+        try {
+          const out = await unwrap(
+            api.GET("/v1/captions/{caption_id}/download", { params: { path: { caption_id: caption.id } } }),
+          );
+          startDownload(out.url, out.filename);
+        } catch (error) {
+          onError(error);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {caption.format}
+    </button>
+  );
+}
+
 export function CaptionsPanel({ versionId, videoId }: { versionId: string; videoId: string }) {
   const client = useQueryClient();
   const captions = useCaptions(versionId);
   const options = useCreateOptions();
   const [language, setLanguage] = useState("");
   const [created, setCreated] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<unknown>(null);
+  const can = useCan("write_content");
   const refresh = () => client.invalidateQueries({ queryKey: keys.captions(versionId) });
   const translate = useMutation({
     mutationFn: () =>
@@ -53,7 +91,10 @@ export function CaptionsPanel({ versionId, videoId }: { versionId: string; video
           headers: idempotencyKey(),
         }),
       ),
-    onSuccess: (data) => setCreated(data.new_version_id),
+    onSuccess: (data) => {
+      usePendingVersions.getState().expectVersion(data.new_version_id, data.job_id);
+      setCreated(data.new_version_id);
+    },
   });
   const review = useMutation({
     mutationFn: ({ id, approve }: { id: string; approve: boolean }) =>
@@ -79,7 +120,7 @@ export function CaptionsPanel({ versionId, videoId }: { versionId: string; video
         <CardTitle>Captions</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
-        <ErrorNote error={translate.error ?? review.error} />
+        <ErrorNote error={translate.error ?? review.error ?? downloadError} />
         {created ? (
           <Alert tone="info">
             The translation builds in a new version.{" "}
@@ -108,7 +149,13 @@ export function CaptionsPanel({ versionId, videoId }: { versionId: string; video
                 return (
                   <tr key={lang} data-testid="caption-language">
                     <Td>{lang}</Td>
-                    <Td className="text-xs">{files.map((f) => f.format).join(", ")}</Td>
+                    <Td className="text-xs">
+                      <span className="flex flex-wrap gap-2">
+                        {files.map((f) => (
+                          <CaptionDownloadButton key={f.id} caption={f} onError={setDownloadError} />
+                        ))}
+                      </span>
+                    </Td>
                     <Td>
                       {state === "n/a" ? (
                         <span className="text-xs text-slate-600">spoken language</span>
@@ -125,6 +172,8 @@ export function CaptionsPanel({ versionId, videoId }: { versionId: string; video
                             size="sm"
                             variant="outline"
                             onClick={() => review.mutate({ id: first.id, approve: true })}
+                            disabled={review.isPending || !can.allowed}
+                            title={can.reason}
                           >
                             Approve
                           </Button>
@@ -132,6 +181,8 @@ export function CaptionsPanel({ versionId, videoId }: { versionId: string; video
                             size="sm"
                             variant="outline"
                             onClick={() => review.mutate({ id: first.id, approve: false })}
+                            disabled={review.isPending || !can.allowed}
+                            title={can.reason}
                           >
                             Reject
                           </Button>
@@ -150,7 +201,7 @@ export function CaptionsPanel({ versionId, videoId }: { versionId: string; video
           className="flex items-end gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            translate.mutate();
+            if (can.allowed) translate.mutate();
           }}
         >
           <div className="flex flex-col gap-1">
@@ -167,7 +218,7 @@ export function CaptionsPanel({ versionId, videoId }: { versionId: string; video
                 ))}
             </Select>
           </div>
-          <Button type="submit" disabled={!language || translate.isPending}>
+          <Button type="submit" disabled={!language || translate.isPending || !can.allowed} title={can.reason}>
             Translate
           </Button>
         </form>
@@ -198,18 +249,27 @@ function PackagingEditor({ row, platform }: { row: PackagingRow; platform: Platf
   const [cta, setCta] = useState(row.cta_text);
   const limits = row.limits as Record<string, number> & { sources?: Record<string, string> };
   const sources = limits.sources ?? {};
+  const can = useCan("write_content");
   const refresh = () => client.invalidateQueries({ queryKey: keys.packaging(row.version_id) });
-  const save = useMutation({
-    mutationFn: (body: Record<string, unknown>) =>
-      unwrap(
-        api.PATCH("/v1/packaging/{packaging_id}", { params: { path: { packaging_id: row.id } }, body: body as never }),
-      ),
-    onSuccess: refresh,
-  });
+  // The editor remounts when the row changes (keyed on `updated_at`), so every save sends the text
+  // as typed: choosing a thumbnail or approving never discards unsaved edits (D7, D8).
+  const fields = { title, description, hashtags: parseHashtags(hashtags), cta_text: cta };
+  const dirty =
+    title !== row.title ||
+    description !== row.description ||
+    cta !== row.cta_text ||
+    fields.hashtags.join(" ") !== row.hashtags.join(" ");
+  const patch = (body: Record<string, unknown>) =>
+    unwrap(
+      api.PATCH("/v1/packaging/{packaging_id}", { params: { path: { packaging_id: row.id } }, body: body as never }),
+    );
+  const save = useMutation({ mutationFn: patch, onSuccess: refresh });
   const approve = useMutation({
-    mutationFn: () =>
-      unwrap(api.POST("/v1/packaging/{packaging_id}:approve", { params: { path: { packaging_id: row.id } } })),
-    onSuccess: refresh,
+    mutationFn: async () => {
+      if (dirty) await patch(fields); // approve what is on screen, not the stored copy
+      return unwrap(api.POST("/v1/packaging/{packaging_id}:approve", { params: { path: { packaging_id: row.id } } }));
+    },
+    onSettled: refresh,
   });
   const candidates = (row.thumbnail_candidates ?? []) as { artifact_id: string; text?: string; at_s?: number }[];
   const generator = row.generator as { kind?: string; fallback?: string };
@@ -262,7 +322,9 @@ function PackagingEditor({ row, platform }: { row: PackagingRow; platform: Platf
                   type="radio"
                   name={`thumb-${row.id}`}
                   checked={row.thumbnail_artifact_ids.includes(c.artifact_id)}
-                  onChange={() => save.mutate({ thumbnail_artifact_id: c.artifact_id })}
+                  disabled={!can.allowed}
+                  title={can.reason}
+                  onChange={() => save.mutate({ ...fields, thumbnail_artifact_id: c.artifact_id })}
                 />
                 <ThumbnailLink
                   packagingId={row.id}
@@ -287,13 +349,18 @@ function PackagingEditor({ row, platform }: { row: PackagingRow; platform: Platf
       <div className="flex gap-2">
         <Button
           variant="outline"
-          onClick={() => save.mutate({ title, description, hashtags: parseHashtags(hashtags), cta_text: cta })}
-          disabled={save.isPending}
+          onClick={() => save.mutate(fields)}
+          disabled={save.isPending || !can.allowed}
+          title={can.reason}
         >
           Save
         </Button>
-        <Button onClick={() => approve.mutate()} disabled={approve.isPending || row.status === "approved"}>
-          Approve
+        <Button
+          onClick={() => approve.mutate()}
+          disabled={approve.isPending || save.isPending || (row.status === "approved" && !dirty) || !can.allowed}
+          title={can.reason}
+        >
+          {dirty ? "Save and approve" : "Approve"}
         </Button>
       </div>
     </div>
@@ -322,12 +389,23 @@ function ThumbnailLink({ packagingId, artifactId, label }: { packagingId: string
   );
 }
 
-export function PackagingPanel({ versionId, targets }: { versionId: string; targets: string[] }) {
+export function PackagingPanel({
+  versionId,
+  targets,
+  versionState,
+}: {
+  versionId: string;
+  targets: string[];
+  versionState: string;
+}) {
   const client = useQueryClient();
   const platforms = usePlatforms();
   const [polling, setPolling] = useState(false);
   const packaging = usePackaging(versionId, polling);
   const known = platforms.data ?? [];
+  const can = useCan("write_content");
+  // packaging reads the final render (thumbnails): not while the version is generating (D4)
+  const rendered = RENDERED.has(versionState);
   const [chosen, setChosen] = useState<string[]>(targets);
   const start = useMutation({
     mutationFn: () =>
@@ -354,7 +432,7 @@ export function PackagingPanel({ versionId, targets }: { versionId: string; targ
           className="flex flex-wrap items-end gap-3"
           onSubmit={(e) => {
             e.preventDefault();
-            start.mutate();
+            if (can.allowed && rendered) start.mutate();
           }}
         >
           <fieldset className="flex flex-wrap gap-2">
@@ -370,10 +448,15 @@ export function PackagingPanel({ versionId, targets }: { versionId: string; targ
               </label>
             ))}
           </fieldset>
-          <Button type="submit" disabled={!chosen.length || start.isPending}>
+          <Button
+            type="submit"
+            disabled={!chosen.length || start.isPending || !can.allowed || !rendered}
+            title={rendered ? can.reason : NOT_RENDERED}
+          >
             Write packaging
           </Button>
         </form>
+        {!rendered ? <p className="text-xs text-slate-600">{NOT_RENDERED}</p> : null}
         <ErrorNote error={start.error} />
         {packaging.isLoading ? (
           <Skeleton className="h-24" />
@@ -402,6 +485,7 @@ export function ExportPanel({ versionId, versionState }: { versionId: string; ve
   const captions = useCaptions(versionId);
   const claims = useClaims(versionId);
   const exports = useExports(versionId);
+  const can = useCan("write_content");
   const [platformId, setPlatformId] = useState("");
   const [renderId, setRenderId] = useState("");
   const [checked, setChecked] = useState<Record<string, boolean>>({});
@@ -425,6 +509,24 @@ export function ExportPanel({ versionId, versionState }: { versionId: string; ve
     pendingTranslations: pending,
     chosenLanguages: null,
   });
+  // the platform's presets have no finished render yet: render one (extra renders need a ready version)
+  const presetIds = (platform?.presets ?? []).map((p) => p.id);
+  const missingRender =
+    Boolean(platform) &&
+    presetIds.length > 0 &&
+    !finals.some((r) => r.status === "ready" && presetIds.includes(r.preset_id));
+  const renderJob = useStudioJob([keys.renders(versionId)]);
+  const renderFor = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.POST("/v1/versions/{version_id}/renders", {
+          params: { path: { version_id: versionId } },
+          body: { preset_ids: presetIds.slice(0, 1), proxy: false },
+        }),
+      ),
+    onSuccess: (data) => renderJob.setJobId(data.job_id),
+  });
+  const rendering = renderJob.status === "queued" || renderJob.status === "running";
   const create = useMutation({
     mutationFn: () =>
       unwrap(
@@ -476,6 +578,22 @@ export function ExportPanel({ versionId, versionState }: { versionId: string; ve
             </Select>
           </div>
         </div>
+        {missingRender && platform ? (
+          <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="render-for-platform">
+            <span>No render in a {platform.label} preset yet.</span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => renderFor.mutate()}
+              disabled={renderFor.isPending || rendering || versionState !== "ready" || !can.allowed}
+              title={versionState !== "ready" ? "Extra renders need a ready version." : can.reason}
+            >
+              Render for {platform.label}
+            </Button>
+            <JobLine status={renderJob.status} job={renderJob.job} />
+            <ErrorNote error={renderFor.error} />
+          </div>
+        ) : null}
         {render ? (
           <p className="text-sm">
             Provenance:{" "}
@@ -521,7 +639,8 @@ export function ExportPanel({ versionId, versionState }: { versionId: string; ve
         <div>
           <Button
             onClick={() => create.mutate()}
-            disabled={!platformId || !renderId || blockers.length > 0 || create.isPending}
+            disabled={!platformId || !renderId || blockers.length > 0 || create.isPending || !can.allowed}
+            title={can.reason}
           >
             Export
           </Button>
@@ -543,6 +662,7 @@ export function ExportPanel({ versionId, versionState }: { versionId: string; ve
                 <Th>Exported</Th>
                 <Th>Platform</Th>
                 <Th>Preset</Th>
+                <Th>Files</Th>
               </tr>
             </thead>
             <tbody>
@@ -551,6 +671,9 @@ export function ExportPanel({ versionId, versionState }: { versionId: string; ve
                   <Td className="text-xs">{when(e.created_at)}</Td>
                   <Td>{humanize(e.platform)}</Td>
                   <Td className="text-xs">{e.preset_id}</Td>
+                  <Td>
+                    <PastExportDownloads exportId={e.id} />
+                  </Td>
                 </tr>
               ))}
             </tbody>
@@ -558,5 +681,34 @@ export function ExportPanel({ versionId, versionState }: { versionId: string; ve
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Fresh download links for an earlier export (the links expire, so they are fetched on demand).
+ * Past exports could not be downloaded again: links appeared only right after Export (audit EXPORT-REDL).
+ */
+function PastExportDownloads({ exportId }: { exportId: string }) {
+  const links = useMutation({
+    mutationFn: () => unwrap(api.GET("/v1/exports/{export_id}", { params: { path: { export_id: exportId } } })),
+  });
+  if (links.data) {
+    return (
+      <span className="flex flex-wrap gap-2 text-xs">
+        {Object.entries(links.data.downloads ?? {}).map(([name, d]) => (
+          <a key={name} className="underline" href={d.url}>
+            {name}
+          </a>
+        ))}
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-2">
+      <Button size="sm" variant="outline" onClick={() => links.mutate()} disabled={links.isPending}>
+        Download
+      </Button>
+      <ErrorNote error={links.error} />
+    </span>
   );
 }

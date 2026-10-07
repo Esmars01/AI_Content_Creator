@@ -150,8 +150,9 @@ def test_wire_directives_stay_in_sync_with_compiled_behavior() -> None:
     )
     wire = ProsodyDirectives.model_validate(plan.model_dump(mode="json"))
     assert wire.model_dump() == ProsodyDirectives.model_validate(wire.model_dump()).model_dump()
-    # `descriptions` is wire-only: to_directives adds the vocabulary text of the labels (Phase 8, ADR 0051)
-    assert set(ProsodyPlan.model_fields) == set(ProsodyDirectives.model_fields) - {"descriptions"}
+    # wire-only: `descriptions` (to_directives adds the vocabulary text of the labels, Phase 8, ADR 0051) and
+    # `pitch_semitones` (compile_voice applies the cast member's voice_prosody offset, audit OUT-PROSODY)
+    assert set(ProsodyPlan.model_fields) == set(ProsodyDirectives.model_fields) - {"descriptions", "pitch_semitones"}
     anchored = set(VisualSubSpan.model_fields) - {"span", "knobs"}  # span → start_s/end_s; knobs → floats
     assert anchored <= set(DirectiveSubSpan.model_fields)
     assert set(get_args(EditorialAction.model_fields["kind"].annotation)) and {"kind", "item_ref", "detail"} <= set(

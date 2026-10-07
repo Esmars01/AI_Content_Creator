@@ -74,3 +74,9 @@ Changed: `apps/web/package.json`, `apps/api` (planning router: create options an
 - The layout was desktop-only (fixed sidebar and grids); failed requests rendered as empty states; error alerts were not announced (`role=status`).
 
 The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-5`).
+
+## Product-audit corrections (2026-10-07)
+
+- ROLE-01 (viewers saw every write control enabled), NAV-D17 (broken links waited forever), D2/D9 (previz offered actions the API refuses), D4 (render panels while generating), D5 (Resume for never-generated versions), D6/D11 (Create retries and stale choices), D21, DL-01 (no video download), JOB-CANCEL (no cancel), BREAK-DURATION, BREAK-OFFLINE, BREAK-TWO-TABS.
+
+Found by the product-level audit; evidence, regression tests and fixes in [`PRODUCT_LOGIC_AUDIT_REPORT.md`](../PRODUCT_LOGIC_AUDIT_REPORT.md) (corrected in tag `phase-14-audit`).

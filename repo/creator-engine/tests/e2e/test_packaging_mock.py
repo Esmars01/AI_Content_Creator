@@ -92,6 +92,8 @@ async def test_translate_package_and_refuse_a_mock_export(stack: Stack, api: Api
     assert packaging["platform"] == "tiktok" and packaging["status"] == "draft"
     assert packaging["generator"]["kind"] == "template"  # the fixture LLM has no packaging answer: labelled
     assert any(i["code"] == "llm_fallback" for i in packaging["issues"])
+    # the card shows the reason in words — not the exception name and a server path (audit PKG-MSG)
+    assert packaging["generator"]["fallback"] == "no recorded LLM answer for this platform (fixture mode)"
     assert not [i for i in packaging["issues"] if i["code"] == "limit"]
     assert set(packaging["limits"]["sources"].values()) == {"design_default"}
     candidates = packaging["thumbnail_candidates"]

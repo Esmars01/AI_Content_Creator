@@ -8,14 +8,16 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
+import { RoleNote } from "@/components/role-note";
 import { AssetImage, ErrorNote } from "@/components/studio/common";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
-import { Empty, Skeleton, Table, Td, Th } from "@/components/ui/misc";
+import { Alert, Empty, Skeleton, Table, Td, Th } from "@/components/ui/misc";
 import { api, idempotencyKey, type Schemas, unwrap } from "@/lib/api";
 import { keys, useBrandKits, useCreateOptions } from "@/lib/queries";
+import { useCan } from "@/lib/roles";
 
 type Kit = Schemas["BrandKitOut"];
 
@@ -44,15 +46,21 @@ async function uploadLogo(file: File): Promise<string> {
   return initiated.asset_id;
 }
 
+const DEFAULT_PRIMARY = "#1a73e8";
+const DEFAULT_ACCENT = "#fbbc04";
+
 function KitForm({ kit, onDone }: { kit?: Kit; onDone: () => void }) {
   const client = useQueryClient();
   const options = useCreateOptions();
+  const can = useCan("write_content");
   const [name, setName] = useState(kit?.name ?? "");
-  const [primary, setPrimary] = useState(String((kit?.colors as Record<string, string>)?.primary ?? "#1a73e8"));
-  const [accent, setAccent] = useState(String((kit?.colors as Record<string, string>)?.accent ?? "#fbbc04"));
+  const [primary, setPrimary] = useState(String((kit?.colors as Record<string, string>)?.primary ?? DEFAULT_PRIMARY));
+  const [accent, setAccent] = useState(String((kit?.colors as Record<string, string>)?.accent ?? DEFAULT_ACCENT));
   const [heading, setHeading] = useState(String((kit?.fonts as Record<string, string>)?.heading ?? ""));
   const [style, setStyle] = useState(kit?.caption_style_id ?? "");
   const [logo, setLogo] = useState<File | null>(null);
+  const [logoInput, setLogoInput] = useState(0); // a new key clears the file input
+  const [created, setCreated] = useState<string | null>(null);
   const styles = (options.data?.caption_styles ?? []) as { id: string; label?: string }[];
   const save = useMutation({
     mutationFn: async () => {
@@ -72,8 +80,20 @@ function KitForm({ kit, onDone }: { kit?: Kit; onDone: () => void }) {
           )
         : unwrap(api.POST("/v1/brand-kits", { body: body as never }));
     },
-    onSuccess: () => {
+    onMutate: () => setCreated(null),
+    onSuccess: (row) => {
       void client.invalidateQueries({ queryKey: keys.brandKits() });
+      if (!kit) {
+        // a fresh form: a second click must not create the same kit again (D15)
+        setName("");
+        setPrimary(DEFAULT_PRIMARY);
+        setAccent(DEFAULT_ACCENT);
+        setHeading("");
+        setStyle("");
+        setLogo(null);
+        setLogoInput((n) => n + 1);
+        setCreated(row.name);
+      }
       onDone();
     },
   });
@@ -82,7 +102,7 @@ function KitForm({ kit, onDone }: { kit?: Kit; onDone: () => void }) {
       className="grid grid-cols-2 gap-2"
       onSubmit={(e) => {
         e.preventDefault();
-        save.mutate();
+        if (can.allowed) save.mutate();
       }}
     >
       <div className="col-span-2 flex flex-col gap-1">
@@ -115,6 +135,7 @@ function KitForm({ kit, onDone }: { kit?: Kit; onDone: () => void }) {
       <div className="col-span-2 flex flex-col gap-1">
         <Label htmlFor="kit-logo">Logo (PNG, JPEG or WebP)</Label>
         <Input
+          key={logoInput}
           id="kit-logo"
           type="file"
           accept="image/png,image/jpeg,image/webp"
@@ -123,7 +144,12 @@ function KitForm({ kit, onDone }: { kit?: Kit; onDone: () => void }) {
       </div>
       <div className="col-span-2">
         <ErrorNote error={save.error} />
-        <Button type="submit" disabled={save.isPending}>
+        {created ? (
+          <Alert tone="success" className="mb-2">
+            Brand kit “{created}” created.
+          </Alert>
+        ) : null}
+        <Button type="submit" disabled={save.isPending || !can.allowed} title={can.reason}>
           {kit ? "Save" : "Create brand kit"}
         </Button>
       </div>
@@ -134,6 +160,7 @@ function KitForm({ kit, onDone }: { kit?: Kit; onDone: () => void }) {
 export function BrandKitsManager() {
   const client = useQueryClient();
   const kits = useBrandKits();
+  const can = useCan("write_content");
   const [editing, setEditing] = useState<string | null>(null);
   const archive = useMutation({
     mutationFn: (id: string) =>
@@ -147,6 +174,7 @@ export function BrandKitsManager() {
         <CardTitle>Brand kits</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
+        <RoleNote />
         {kits.isLoading ? (
           <Skeleton className="h-24" />
         ) : items.length ? (
@@ -187,7 +215,13 @@ export function BrandKitsManager() {
                     <Button size="sm" variant="outline" onClick={() => setEditing(editing === kit.id ? null : kit.id)}>
                       {editing === kit.id ? "Close" : "Edit"}
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => archive.mutate(kit.id)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => archive.mutate(kit.id)}
+                      disabled={archive.isPending || !can.allowed}
+                      title={can.reason}
+                    >
                       Archive
                     </Button>
                   </Td>
@@ -209,6 +243,7 @@ export function BrandKitsManager() {
 export function ProjectBrandKit({ projectId, current }: { projectId: string; current: string | null }) {
   const client = useQueryClient();
   const kits = useBrandKits();
+  const can = useCan("write_content");
   const set = useMutation({
     mutationFn: (kitId: string | null) =>
       unwrap(
@@ -226,6 +261,8 @@ export function ProjectBrandKit({ projectId, current }: { projectId: string; cur
         id="project-kit"
         className="w-56"
         value={current ?? ""}
+        disabled={set.isPending || !can.allowed}
+        title={can.reason}
         onChange={(e) => set.mutate(e.target.value || null)}
       >
         <option value="">None</option>

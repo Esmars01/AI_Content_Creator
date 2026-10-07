@@ -79,9 +79,20 @@ export function Player({
       ) : (
         <Skeleton className="aspect-[9/16] max-h-[60vh]" />
       )}
-      <p className="text-xs text-slate-600">
-        {chosen.preset_id} · {chosen.is_proxy ? "proxy" : "final"} ·{" "}
-        {chosen.provenance_mode === "mock_dev" ? "mock provenance (not exportable)" : chosen.provenance_mode}
+      <p className="flex flex-wrap items-center gap-x-1 text-xs text-slate-600">
+        <span>
+          {chosen.preset_id} · {chosen.is_proxy ? "proxy" : "final"} ·{" "}
+          {chosen.provenance_mode === "mock_dev" ? "mock provenance (not exportable)" : chosen.provenance_mode}
+        </span>
+        {/* the link is signed with an attachment disposition: following it saves the file */}
+        {!chosen.is_proxy && download.data ? (
+          <>
+            ·{" "}
+            <a className="text-blue-800 underline" href={download.data.url} download data-testid="download-render">
+              Download
+            </a>
+          </>
+        ) : null}
       </p>
     </div>
   );

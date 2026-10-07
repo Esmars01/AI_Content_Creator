@@ -18,6 +18,7 @@ import { api, idempotencyKey, unwrap } from "@/lib/api";
 import { humanize, when } from "@/lib/format";
 import { claimAction, claimSummary, sourceStatus } from "@/lib/phase12";
 import { keys, useClaims, useSource, useSources } from "@/lib/queries";
+import { useCan } from "@/lib/roles";
 
 const DOCUMENT_TYPES: Record<string, "pdf" | "doc" | "transcript" | "note"> = {
   "application/pdf": "pdf",
@@ -78,8 +79,11 @@ export function SourcesPanel({ projectId }: { projectId: string }) {
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  // a file input cannot be cleared by state: a new key remounts it empty after each add (D12)
+  const [fileInput, setFileInput] = useState(0);
   const [open, setOpen] = useState<string | null>(null);
   const sources = useSources(projectId, true);
+  const can = useCan("write_content");
   const refresh = () => client.invalidateQueries({ queryKey: keys.sources(projectId) });
   const add = useMutation({
     mutationFn: async () => {
@@ -104,6 +108,7 @@ export function SourcesPanel({ projectId }: { projectId: string }) {
       setText("");
       setTitle("");
       setFile(null);
+      setFileInput((n) => n + 1);
       void refresh();
     },
   });
@@ -129,7 +134,7 @@ export function SourcesPanel({ projectId }: { projectId: string }) {
           className="flex flex-col gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            add.mutate();
+            if (can.allowed) add.mutate();
           }}
         >
           <div className="flex gap-2">
@@ -162,6 +167,7 @@ export function SourcesPanel({ projectId }: { projectId: string }) {
             <Textarea aria-label="Note text" value={text} onChange={(e) => setText(e.target.value)} required />
           ) : (
             <Input
+              key={fileInput}
               aria-label="Document"
               type="file"
               accept=".pdf,.docx,.html,.htm,.txt,.md,.srt,.vtt"
@@ -170,7 +176,7 @@ export function SourcesPanel({ projectId }: { projectId: string }) {
             />
           )}
           <div>
-            <Button type="submit" disabled={add.isPending}>
+            <Button type="submit" disabled={add.isPending || !can.allowed} title={can.reason}>
               {add.isPending ? "Adding…" : "Add source"}
             </Button>
           </div>
@@ -224,6 +230,8 @@ export function SourcesPanel({ projectId }: { projectId: string }) {
                         size="sm"
                         variant="outline"
                         onClick={() => act.mutate({ id: source.id, action: "reingest" })}
+                        disabled={act.isPending || !can.allowed}
+                        title={can.reason}
                       >
                         Re-ingest
                       </Button>
@@ -231,6 +239,8 @@ export function SourcesPanel({ projectId }: { projectId: string }) {
                         size="sm"
                         variant="outline"
                         onClick={() => act.mutate({ id: source.id, action: "delete" })}
+                        disabled={act.isPending || !can.allowed}
+                        title={can.reason}
                       >
                         Delete
                       </Button>
@@ -258,6 +268,7 @@ const VERDICT_TONE: Record<string, "success" | "danger" | "warning" | "muted"> =
 export function ClaimLedger({ versionId }: { versionId: string }) {
   const client = useQueryClient();
   const claims = useClaims(versionId);
+  const can = useCan("write_content");
   const [reason, setReason] = useState<Record<string, string>>({});
   const override = useMutation({
     mutationFn: ({ id, why }: { id: string; why: string }) =>
@@ -341,7 +352,7 @@ export function ClaimLedger({ versionId }: { versionId: string }) {
                             className="flex gap-1"
                             onSubmit={(e) => {
                               e.preventDefault();
-                              override.mutate({ id: claim.id, why: reason[claim.id] ?? "" });
+                              if (can.allowed) override.mutate({ id: claim.id, why: reason[claim.id] ?? "" });
                             }}
                           >
                             <Input
@@ -353,7 +364,13 @@ export function ClaimLedger({ versionId }: { versionId: string }) {
                               minLength={3}
                               required
                             />
-                            <Button size="sm" variant="outline" type="submit">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              type="submit"
+                              disabled={override.isPending || !can.allowed}
+                              title={can.reason}
+                            >
                               Override
                             </Button>
                           </form>

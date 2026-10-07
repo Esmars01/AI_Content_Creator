@@ -453,3 +453,40 @@ export function flatten(nodes: VersionNode[]): VersionNode[] {
 }
 
 export const RESUMABLE = new Set(["partial", "failed", "cancelled"]);
+
+/**
+ * What the versions tree offers a partial, failed or cancelled version: `resume` when it started
+ * generating (partial always did; a failed or cancelled one did when a generation job ran for it),
+ * `previz` when it never did (the API refuses to resume it: replan or approve it instead), `null`
+ * otherwise or while that is not known yet.
+ */
+export function resumeAction(
+  version: { id: string; state: string },
+  generated: readonly string[] | undefined,
+): "resume" | "previz" | null {
+  if (!RESUMABLE.has(version.state)) return null;
+  if (version.state === "partial") return "resume";
+  if (!generated) return null;
+  return generated.includes(version.id) ? "resume" : "previz";
+}
+
+/**
+ * The edit panel's time range: both empty (the whole video), or a complete range with the end after
+ * the start. A half-filled or inverted range is an error to show, never silently dropped (which
+ * would propose the edit for the whole video).
+ */
+export function timeRange(range: { start: string; end: string }): {
+  value: [number, number] | null;
+  error: string | null;
+} {
+  const start = range.start.trim();
+  const end = range.end.trim();
+  if (!start && !end) return { value: null, error: null };
+  if (!start || !end) return { value: null, error: "Enter both a start and an end, or leave both empty." };
+  const a = Number(start);
+  const b = Number(end);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return { value: null, error: "Enter the times in seconds." };
+  if (a < 0) return { value: null, error: "The start cannot be negative." };
+  if (b <= a) return { value: null, error: "The end must be after the start." };
+  return { value: [a, b], error: null };
+}

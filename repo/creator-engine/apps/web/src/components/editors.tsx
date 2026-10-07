@@ -25,6 +25,7 @@ import {
 } from "@/lib/edits";
 import { humanize } from "@/lib/format";
 import { useVocabulary } from "@/lib/queries";
+import { useCan } from "@/lib/roles";
 
 type Json = Record<string, unknown>;
 
@@ -76,6 +77,7 @@ export function PerformanceEditor({ spec, versionId }: { spec: Json; versionId: 
   const [drafts, setDrafts] = useState<StateDraft[]>(original);
   const [events, setEvents] = useState(originalEvents);
   const send = useStructuredEdit(versionId);
+  const can = useCan("write_content");
   const categories = vocab.data?.categories ?? {};
   const ops = [...actingOps(original, drafts), ...eventOps(originalEvents, events)];
   const update = (key: string, change: Partial<StateDraft>) =>
@@ -212,7 +214,8 @@ export function PerformanceEditor({ spec, versionId }: { spec: Json; versionId: 
         <div className="flex items-center gap-2">
           <Button
             onClick={() => send.mutate(ops)}
-            disabled={!ops.length || send.isPending}
+            disabled={!ops.length || send.isPending || !can.allowed}
+            title={can.reason}
             data-testid="propose-performance"
           >
             Propose {ops.length ? `${ops.length} change${ops.length > 1 ? "s" : ""}` : "changes"}
@@ -238,6 +241,7 @@ export function IntentEditor({ spec, versionId }: { spec: Json; versionId: strin
   const original = useMemo(() => intentDrafts(spec), [spec]);
   const [draft, setDraft] = useState(original);
   const send = useStructuredEdit(versionId);
+  const can = useCan("write_content");
   const ops = intentOps(original, draft);
   const categories = vocab.data?.categories ?? {};
   return (
@@ -277,7 +281,11 @@ export function IntentEditor({ spec, versionId }: { spec: Json; versionId: strin
         </Table>
         {send.error ? <Alert tone="danger">{send.error.message}</Alert> : null}
         <div>
-          <Button onClick={() => send.mutate(ops)} disabled={!ops.length || send.isPending}>
+          <Button
+            onClick={() => send.mutate(ops)}
+            disabled={!ops.length || send.isPending || !can.allowed}
+            title={can.reason}
+          >
             Propose intent changes
           </Button>
         </div>

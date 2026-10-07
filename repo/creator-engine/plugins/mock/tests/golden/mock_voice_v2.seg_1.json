@@ -33,6 +33,7 @@
     ],
     "energy": 0.65,
     "pauses_ms": {},
+    "pitch_semitones": 0.0,
     "pitch_variation": 0.5,
     "rate": 1.0,
     "syntax": "mock_voice_params",

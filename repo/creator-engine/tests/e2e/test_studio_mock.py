@@ -41,6 +41,10 @@ async def api(stack: Stack) -> AsyncIterator[ApiHarness]:
     await harness.aclose()
 
 
+def key() -> dict[str, str]:
+    return {"Idempotency-Key": str(uuid.uuid4())}
+
+
 async def finish(api: ApiHarness, editor: ApiTenant, job_id: str) -> dict[str, Any]:
     """Waits for the job's workflow (the last one this API started) and returns the job."""
     handle = api.services.workflows.handles[-1]
@@ -109,6 +113,17 @@ async def test_creator_identity_voice_wardrobe_then_test_then_approve(stack: Sta
     selected = await editor.client.post(f"/v1/voices/{voice_id}/candidates/{candidates[0]['id']}:select")
     assert selected.status_code == 201, selected.text
     voice_version = selected.json()["id"]
+    # the reference's transcript is what the candidate says (no sample text given: the studio default) —
+    # it was stored empty, and every video with this voice then failed to plan (audit CR-VOICE-TRANSCRIPT)
+    reference = selected.json()["references"][0]
+    assert reference["transcript"] == api.services.config.studio.voice_test_text
+    # a second Select of the same candidate (a double click) returns the open draft, not another one,
+    # and the list marks that candidate alone as selected (audit D14)
+    again = await editor.client.post(f"/v1/voices/{voice_id}/candidates/{candidates[0]['id']}:select")
+    assert again.status_code == 201 and again.json()["id"] == voice_version
+    marked = (await editor.client.get(f"/v1/voices/{voice_id}/candidates")).json()
+    assert [c["selected"] for c in marked] == [True, False]
+    assert len((await editor.client.get(f"/v1/voices/{voice_id}")).json()["versions"]) == 1
     patched = await editor.client.patch(
         f"/v1/voice-versions/{voice_version}", json={"lexicon": [{"term": "Robin", "respelling": "ROB-in"}]}
     )
@@ -164,6 +179,14 @@ async def test_creator_identity_voice_wardrobe_then_test_then_approve(stack: Sta
         f"/v1/creator-versions/{draft_version}:approve", json={"attest_adult_presentation": True}
     )
     assert approved.status_code == 200, approved.text
+    # the approved creator is cast in a video: planning and previz succeed with its designed voice
+    project = (await editor.client.post("/v1/projects", json={"name": "Robin's first"})).json()["id"]
+    body = {"input": "Short tip: keep your bedroom cool and dark.", "cast": [{"creator_id": creator["id"]}]}
+    planned = await editor.client.post(f"/v1/projects/{project}/videos", json=body, headers=key())
+    assert planned.status_code == 202, planned.text
+    outcome = await asyncio.wait_for(api.services.workflows.handles[-1].result(), TIMEOUT_S)
+    assert outcome["plan"]["status"] == "succeeded", outcome
+    assert outcome["previz"] == {"state": "previz_ready", "failed": []}, outcome
     async with api.services.db.session() as session:  # the studio calls ran on the worker, as nodes of their jobs
         studio_nodes = (
             await session.execute(

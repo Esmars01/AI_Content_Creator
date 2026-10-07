@@ -13,8 +13,13 @@ import { api, unwrap } from "@/lib/api";
 import { humanize } from "@/lib/format";
 import { keys } from "@/lib/queries";
 import { type Json, ladderSteps, metricRows, scoreBars, statusTone, triadRows } from "@/lib/qc";
+import { useCan } from "@/lib/roles";
 
 type Tone = "success" | "warning" | "danger" | "info" | "neutral";
+
+/** Version states with a finished render (critique, packaging and consistency read it). */
+export const RENDERED = new Set(["ready", "partial", "needs_review"]);
+export const NOT_RENDERED = "Available when the version is rendered.";
 const badge = (tone: Tone) => (tone === "neutral" ? "muted" : tone);
 
 export function QCReportPanel({ versionId }: { versionId: string }) {
@@ -186,8 +191,11 @@ export function QCReportPanel({ versionId }: { versionId: string }) {
   );
 }
 
-export function CritiquePanel({ versionId }: { versionId: string }) {
+export function CritiquePanel({ versionId, versionState }: { versionId: string; versionState: string }) {
   const client = useQueryClient();
+  const can = useCan("write_content");
+  // a critique reads the rendered video: not while the version is still generating (D4)
+  const rendered = RENDERED.has(versionState);
   const critiques = useQuery({
     queryKey: keys.critiques(versionId),
     queryFn: () =>
@@ -220,11 +228,16 @@ export function CritiquePanel({ versionId }: { versionId: string }) {
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <div className="flex items-center gap-2">
-          <Button onClick={() => run.mutate()} disabled={run.isPending}>
+          <Button
+            onClick={() => run.mutate()}
+            disabled={run.isPending || !can.allowed || !rendered}
+            title={rendered ? can.reason : NOT_RENDERED}
+          >
             Critique this version
           </Button>
           <JobLine status={job.status} job={job.job} />
         </div>
+        {!rendered ? <p className="text-xs text-slate-600">{NOT_RENDERED}</p> : null}
         <ErrorNote error={run.error ?? propose.error} />
         {!latest ? (
           <Empty>No critique yet. Findings are only proposals: nothing changes until you apply an edit.</Empty>
@@ -268,7 +281,8 @@ export function CritiquePanel({ versionId }: { versionId: string }) {
                           <Button
                             variant="outline"
                             onClick={() => propose.mutate({ critiqueId: latest.id, findingId: id })}
-                            disabled={propose.isPending}
+                            disabled={propose.isPending || !can.allowed}
+                            title={can.reason}
                           >
                             Propose edit
                           </Button>
@@ -288,20 +302,45 @@ export function CritiquePanel({ versionId }: { versionId: string }) {
   );
 }
 
-export function VersionConsistency({ versionId }: { versionId: string }) {
+/** The version's creator consistency reports, and a run when there are none yet (or again). */
+export function VersionConsistency({ versionId, versionState }: { versionId: string; versionState: string }) {
+  const can = useCan("write_content");
   const reports = useQuery({
     queryKey: keys.versionConsistency(versionId),
     queryFn: () =>
       unwrap(api.GET("/v1/versions/{version_id}/consistency", { params: { path: { version_id: versionId } } })),
   });
-  if (!reports.data?.length) return null;
+  const job = useStudioJob([keys.versionConsistency(versionId)]);
+  const run = useMutation({
+    mutationFn: () =>
+      unwrap(api.POST("/v1/versions/{version_id}/consistency:run", { params: { path: { version_id: versionId } } })),
+    onSuccess: (data) => job.setJobId(data.job_id),
+  });
+  const rendered = RENDERED.has(versionState);
+  const running = job.status === "queued" || job.status === "running";
   return (
     <Card>
       <CardHeader>
         <CardTitle>Creator consistency</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
-        {reports.data.map((r) => {
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => run.mutate()}
+            disabled={run.isPending || running || !rendered || !can.allowed}
+            title={rendered ? can.reason : NOT_RENDERED}
+          >
+            Run consistency check
+          </Button>
+          <JobLine status={job.status} job={job.job} />
+        </div>
+        {!rendered ? <p className="text-xs text-slate-600">{NOT_RENDERED}</p> : null}
+        <ErrorNote error={run.error ?? reports.error} />
+        {reports.data && !reports.data.length ? (
+          <Empty>No consistency report yet: run a check to compare this video with the creator.</Empty>
+        ) : null}
+        {(reports.data ?? []).map((r) => {
           const dims = ((r.metrics as Json).dimensions ?? {}) as Record<string, Json>;
           return (
             <div key={r.id}>

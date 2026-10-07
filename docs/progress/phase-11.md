@@ -74,3 +74,9 @@ Builds gate themselves, retry only what failed within budgets and end with their
 - **C3** — after an infrastructure failure inside the QC ladder the accepted node's row stayed `failed`. **S7** — the QC report, critiques and consistency were never refreshed after `ready`. The critique panel invalidated a query key nothing used.
 
 The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-11`).
+
+## Product-audit corrections (2026-10-07)
+
+- EXTRA-CONSIST (the consistency check could not be started from the UI).
+
+Found by the product-level audit; evidence, regression tests and fixes in [`PRODUCT_LOGIC_AUDIT_REPORT.md`](../PRODUCT_LOGIC_AUDIT_REPORT.md) (corrected in tag `phase-14-audit`).

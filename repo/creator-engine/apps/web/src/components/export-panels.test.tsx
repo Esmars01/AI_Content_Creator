@@ -1,0 +1,219 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const get = vi.fn();
+const post = vi.fn();
+const patch = vi.fn();
+vi.mock("@/lib/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api")>();
+  return {
+    ...actual,
+    api: {
+      ...actual.api,
+      GET: (...args: unknown[]) => get(...args),
+      POST: (...args: unknown[]) => post(...args),
+      PATCH: (...args: unknown[]) => patch(...args),
+    },
+  };
+});
+const startDownload = vi.fn();
+vi.mock("@/lib/utils", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/utils")>();
+  return { ...actual, startDownload: (...args: unknown[]) => startDownload(...args) };
+});
+
+const { CaptionsPanel, ExportPanel, PackagingPanel } = await import("./export-panels");
+const { CritiquePanel } = await import("./qc-panels");
+
+type Json = Record<string, unknown>;
+type Init = { params?: { path?: Record<string, string> }; body?: Json };
+const ok = (data: unknown) => Promise.resolve({ data, response: new Response(null, { status: 200 }) });
+
+const ROW = {
+  id: "pk1",
+  version_id: "v1",
+  platform: "tiktok",
+  title: "Stored title",
+  description: "Stored description",
+  hashtags: ["ai"],
+  cta_text: "Follow",
+  thumbnail_artifact_ids: ["a1"],
+  thumbnail_candidates: [
+    { artifact_id: "a1", text: "first", at_s: 1 },
+    { artifact_id: "a2", text: "second", at_s: 2 },
+  ],
+  limits: { title_max_chars: 100, description_max_chars: 2000, hashtags_max: 5, cta_max_chars: 80, sources: {} },
+  issues: [],
+  generator: { kind: "llm" },
+  status: "draft",
+  approved_by: null,
+  approved_at: null,
+  job_id: null,
+  updated_at: "2026-10-07T10:00:00Z",
+};
+
+function wrap(children: ReactNode) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+}
+
+describe("PackagingPanel", () => {
+  let row: Json;
+  beforeEach(() => {
+    get.mockReset();
+    post.mockReset();
+    patch.mockReset();
+    row = { ...ROW };
+    get.mockImplementation((path: string) => {
+      if (path === "/v1/platforms") return ok([]);
+      if (path === "/v1/versions/{version_id}/packaging") return ok([row]);
+      return ok(null);
+    });
+    // the API stores what is sent and bumps updated_at (the editor remounts on it)
+    patch.mockImplementation((_path: string, init: Init) => {
+      const body = init.body ?? {};
+      row = {
+        ...row,
+        ...Object.fromEntries(Object.entries(body).filter(([k]) => k !== "thumbnail_artifact_id")),
+        ...(body.thumbnail_artifact_id ? { thumbnail_artifact_ids: [body.thumbnail_artifact_id] } : {}),
+        status: "draft",
+        updated_at: `2026-10-07T10:0${patch.mock.calls.length}:00Z`,
+      };
+      return ok(row);
+    });
+  });
+
+  it("keeps unsaved text when a thumbnail is chosen (D7)", async () => {
+    // Regression: choosing a thumbnail saved only the thumbnail and the editor remounted on the new
+    // updated_at, discarding the unsaved title.
+    render(wrap(<PackagingPanel versionId="v1" targets={[]} versionState="ready" />));
+    const title = (await screen.findByLabelText("Title")) as HTMLInputElement;
+    fireEvent.change(title, { target: { value: "My new title" } });
+    fireEvent.click(screen.getAllByRole("radio")[1] as HTMLElement);
+    await waitFor(() => expect(patch).toHaveBeenCalledOnce());
+    const [, init] = patch.mock.calls[0] as [string, Init];
+    expect(init.body).toMatchObject({ title: "My new title", thumbnail_artifact_id: "a2" });
+    await waitFor(() => expect((screen.getByLabelText("Title") as HTMLInputElement).value).toBe("My new title"));
+  });
+
+  it("approves what is on screen: unsaved edits are saved first (D8)", async () => {
+    // Regression: Approve approved the stored copy and ignored the edited description.
+    post.mockImplementation(() => ok({ ...row, status: "approved" }));
+    render(wrap(<PackagingPanel versionId="v1" targets={[]} versionState="ready" />));
+    fireEvent.change(await screen.findByLabelText("Description"), { target: { value: "Edited description" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save and approve" }));
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
+    expect(patch).toHaveBeenCalledOnce();
+    const [, init] = patch.mock.calls[0] as [string, Init];
+    expect(init.body).toMatchObject({ description: "Edited description", title: "Stored title" });
+    expect(patch.mock.invocationCallOrder[0]).toBeLessThan(post.mock.invocationCallOrder[0] as number);
+    expect(post.mock.calls[0]?.[0]).toBe("/v1/packaging/{packaging_id}:approve");
+  });
+
+  it("approves directly when nothing changed", async () => {
+    post.mockImplementation(() => ok({ ...row, status: "approved" }));
+    render(wrap(<PackagingPanel versionId="v1" targets={[]} versionState="ready" />));
+    fireEvent.click(await screen.findByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(post).toHaveBeenCalledOnce());
+    expect(patch).not.toHaveBeenCalled();
+  });
+
+  it("waits for the render before packaging is written (D4)", async () => {
+    // Regression: Write packaging was active while the version generated, and the API answered 409.
+    get.mockImplementation((path: string) => {
+      if (path === "/v1/platforms") return ok([{ id: "tiktok", label: "TikTok", presets: [], checklist: [] }]);
+      if (path === "/v1/versions/{version_id}/packaging") return ok([]);
+      return ok(null);
+    });
+    const { unmount } = render(wrap(<PackagingPanel versionId="v1" targets={["tiktok"]} versionState="generating" />));
+    const write = (await screen.findByRole("button", { name: "Write packaging" })) as HTMLButtonElement;
+    expect(write.disabled).toBe(true);
+    expect(write.title).toBe("Available when the version is rendered.");
+    expect(screen.getByText("Available when the version is rendered.")).toBeTruthy();
+    unmount();
+    render(wrap(<PackagingPanel versionId="v1" targets={["tiktok"]} versionState="ready" />));
+    expect(((await screen.findByRole("button", { name: "Write packaging" })) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
+});
+
+describe("CritiquePanel", () => {
+  it("waits for the render before a critique (D4)", async () => {
+    // Regression: "Critique this version" ran while generating: "a critique needs a rendered version".
+    get.mockReset();
+    get.mockImplementation(() => ok([]));
+    const { unmount } = render(wrap(<CritiquePanel versionId="v1" versionState="generating" />));
+    const run = screen.getByRole("button", { name: "Critique this version" }) as HTMLButtonElement;
+    expect(run.disabled).toBe(true);
+    expect(run.title).toBe("Available when the version is rendered.");
+    unmount();
+    render(wrap(<CritiquePanel versionId="v1" versionState="needs_review" />));
+    expect((screen.getByRole("button", { name: "Critique this version" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+});
+
+describe("CaptionsPanel", () => {
+  beforeEach(() => {
+    get.mockReset();
+    startDownload.mockReset();
+  });
+
+  it("offers every caption file as a download, translations included (DL-02)", async () => {
+    // Regression: languages and formats were plain text; the files could never be fetched.
+    const caption = (id: string, language: string, format: string, review_state: string) => ({
+      id,
+      version_id: "v1",
+      language,
+      style_id: "default",
+      format,
+      review_state,
+      artifact_id: `art-${id}`,
+      created_at: "2026-10-07T10:00:00Z",
+    });
+    get.mockImplementation((path: string, init: Init) => {
+      if (path === "/v1/versions/{version_id}/captions")
+        return ok([
+          caption("c1", "en", "srt", "n/a"),
+          caption("c2", "en", "vtt", "n/a"),
+          caption("c3", "de", "ass", "approved"),
+        ]);
+      if (path === "/v1/create-options") return ok({ languages: [] });
+      if (path === "/v1/captions/{caption_id}/download") {
+        const id = init.params?.path?.caption_id;
+        return ok({ url: `https://s3.test/${id}`, filename: `captions.${id}`, expires_at: "2026-10-07T11:00:00Z" });
+      }
+      return ok(null);
+    });
+    render(wrap(<CaptionsPanel versionId="v1" videoId="vid" />));
+    fireEvent.click(await screen.findByRole("button", { name: "Download de ass captions" }));
+    await waitFor(() => expect(startDownload).toHaveBeenCalledWith("https://s3.test/c3", "captions.c3"));
+    expect(get).toHaveBeenCalledWith("/v1/captions/{caption_id}/download", { params: { path: { caption_id: "c3" } } });
+    expect(screen.getByRole("button", { name: "Download en srt captions" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Download en vtt captions" })).toBeTruthy();
+  });
+});
+
+describe("ExportPanel history (EXPORT-REDL)", () => {
+  it("fetches fresh download links for an earlier export", async () => {
+    // Regression: links appeared only right after Export; a past export could not be downloaded again.
+    get.mockReset();
+    get.mockImplementation((path: string, init: Init) => {
+      if (path === "/v1/versions/{version_id}/exports")
+        return ok([
+          { id: "e1", platform: "tiktok", preset_id: "tiktok_1080x1920_30", created_at: "2026-10-07T10:00:00Z" },
+        ]);
+      if (path === "/v1/exports/{export_id}")
+        return ok({ id: init.params?.path?.export_id, downloads: { video: { url: "https://s3.test/e1.mp4" } } });
+      if (path === "/v1/me") return ok({ role: "editor", user: { id: "u1" }, org: { id: "o1" }, memberships: [] });
+      return ok([]);
+    });
+    render(wrap(<ExportPanel versionId="v1" versionState="ready" />));
+    fireEvent.click(await screen.findByRole("button", { name: "Download" }));
+    const link = await screen.findByRole("link", { name: "video" });
+    expect(link.getAttribute("href")).toBe("https://s3.test/e1.mp4");
+    expect(get).toHaveBeenCalledWith("/v1/exports/{export_id}", { params: { path: { export_id: "e1" } } });
+  });
+});

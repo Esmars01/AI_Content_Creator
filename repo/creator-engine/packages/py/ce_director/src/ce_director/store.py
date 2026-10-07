@@ -35,12 +35,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ce_director.context import BrandDefault, CreatorOption, DirectorContext, WorldOption
 from ce_director.director import PlanOutcome
 
-__all__ = ["brand_default", "load_context", "load_facts", "persist_plan", "pinned_snapshots", "write_claim_ledger"]
+__all__ = [
+    "brand_default",
+    "load_context",
+    "load_facts",
+    "persist_plan",
+    "pinned_snapshots",
+    "voice_dna",
+    "write_claim_ledger",
+]
 
 
 def _voice(row: VoiceVersion | None) -> VoiceDNA | None:
-    if row is None:
-        return None
+    return voice_dna(row) if row is not None else None
+
+
+def voice_dna(row: VoiceVersion) -> VoiceDNA:
+    """A voice version as the Director reads it; raises ValidationError when the version is not
+    usable (the approval endpoint checks the same, audit CR-VOICE-TRANSCRIPT)."""
     return VoiceDNA.model_validate(
         {
             "description": row.description or "",

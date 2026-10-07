@@ -100,3 +100,9 @@ Licensing and downloads are checked against the license policy (non-commercial w
 - **A2** — applying an edit twice while its job ran created two derived versions and two builds. **A4** — derived version numbers (MAX+1 without a lock).
 
 The historical record above is unchanged. The corrections are in the final code (tag `phase-14-audit` in `bundles/creator-engine-phase14.bundle`, sources in `repo/creator-engine/`); IDs and evidence in [`FINAL_AUDIT_AND_FIX_REPORT.md`](../FINAL_AUDIT_AND_FIX_REPORT.md). This phase's own bundle keeps its original commits and carries an audit note (`git notes --ref=audit show phase-6`).
+
+## Product-audit corrections (2026-10-07)
+
+- EDIT-D1 (a proposal made on one video showed in another's Studio and Apply changed the first), EDIT-D16 (an incomplete time range silently edited the whole video), NL-02 ('make him more skeptical' with nothing selected failed), OUT-ASPECT (a platform or aspect edit did not change the render), BREAK-LONG; duplicate and scene reorder were unreachable (EXTRA-DUP, SCENE-ORDER).
+
+Found by the product-level audit; evidence, regression tests and fixes in [`PRODUCT_LOGIC_AUDIT_REPORT.md`](../PRODUCT_LOGIC_AUDIT_REPORT.md) (corrected in tag `phase-14-audit`).

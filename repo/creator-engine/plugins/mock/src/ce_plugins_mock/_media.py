@@ -337,6 +337,7 @@ def synth_speech(
     energy: float = 0.6,
     pitch_variation: float = 0.5,
     f0: float | None = None,
+    pitch_semitones: float = 0.0,
     pauses_ms: dict[int, int] | None = None,
     emphasis: Iterable[int] = (),
     lead_s: float = 0.12,
@@ -348,7 +349,7 @@ def synth_speech(
     given word index; emphasized words are louder and slightly longer.
     """
     rng = np.random.default_rng(seed)
-    base_f0 = f0 if f0 is not None else float(110 + seed % 90)
+    base_f0 = (f0 if f0 is not None else float(110 + seed % 90)) * 2 ** (pitch_semitones / 12)
     per_word = 60.0 / max(40.0, wpm * max(0.3, rate))
     lengths = np.array([max(1, len(w.strip(".,!?;:…\"'"))) for w in words], dtype=np.float32)
     weights = np.clip(lengths / max(1.0, float(lengths.mean())), 0.6, 1.6)
@@ -487,7 +488,9 @@ async def render_avatar_clip(
         path = workdir / f"label_{index}.txt"
         path.write_text(text, encoding="utf-8")
         enable = f"between(t,{start:.3f},{end:.3f})"
-        chain.append(f"[{label}]{_drawtext(path, x='12', y=f'h-{size * 3}', size=size, enable=enable)}[t{index}]")
+        # inside the frame a punch-in or the camera margin keeps (at the bottom edge, post.camera's zoom
+        # cropped it away, so acting changes were invisible on punched-in shots — audit OUT-LABELS)
+        chain.append(f"[{label}]{_drawtext(path, x='w*0.08', y='h*0.64', size=size, enable=enable)}[t{index}]")
         label = f"t{index}"
     await run_ffmpeg(
         [

@@ -15,7 +15,8 @@ import { Alert, Empty, Skeleton } from "@/components/ui/misc";
 import { api, ApiError, type Domain, idempotencyKey, type Schemas, unwrap, type VideoSpec } from "@/lib/api";
 import { bySceneKey, type CoverageEntry } from "@/lib/coverage";
 import { humanize } from "@/lib/format";
-import { keys, useStoryboard } from "@/lib/queries";
+import { keys, useClaims, useStoryboard } from "@/lib/queries";
+import { useCan } from "@/lib/roles";
 
 type Scene = Domain["Scene"];
 
@@ -172,22 +173,31 @@ export function CoveragePanel({ spec, entries }: { spec: VideoSpec; entries: rea
   );
 }
 
-/** Approve, with overrides for overridable blocking findings (each needs a reason, audit-logged). */
+/**
+ * Approve, with overrides for overridable blocking findings (each needs a reason, audit-logged).
+ * A version that binds a proposed world version (`needs_world_approval`) cannot be approved until
+ * that world version is: `worldHref` links to its World Studio.
+ */
 export function ApprovePanel({
   versionId,
   videoId,
   blocking,
   disabled,
   state,
+  needsWorldApproval = false,
+  worldHref = "/worlds",
 }: {
   versionId: string;
   videoId: string;
   blocking: Schemas["BlockingFinding"][];
   disabled: boolean;
   state: string;
+  needsWorldApproval?: boolean;
+  worldHref?: string;
 }) {
   const router = useRouter();
   const client = useQueryClient();
+  const can = useCan("write_content");
   const [overrides, setOverrides] = useState<string[]>([]);
   const [reason, setReason] = useState("");
   const approve = useMutation({
@@ -204,6 +214,11 @@ export function ApprovePanel({
       router.push(`/videos/${videoId}?version=${versionId}`);
     },
   });
+  // a claim overridden in the claim ledger no longer blocks: the API skips it (D20)
+  const claims = useClaims(versionId);
+  const ledgerOverridden = new Set(
+    (claims.data ?? []).filter((c) => c.override_by && c.overridable).map((c) => `claim:${c.claim_key}`),
+  );
   const nonOverridable = blocking.filter((f) => !f.overridable);
   const needsReason = overrides.length > 0 && !reason.trim();
   return (
@@ -217,7 +232,9 @@ export function ApprovePanel({
           <ul className="flex flex-col gap-2 text-sm" aria-label="Blocking findings">
             {blocking.map((finding) => (
               <li key={finding.id ?? finding.message} className="flex items-start gap-2">
-                {finding.overridable && finding.id ? (
+                {finding.id && ledgerOverridden.has(finding.id) ? (
+                  <Badge variant="success">overridden in the claim ledger</Badge>
+                ) : finding.overridable && finding.id ? (
                   <input
                     type="checkbox"
                     aria-label={`Override: ${finding.message}`}
@@ -249,6 +266,15 @@ export function ApprovePanel({
             Policy findings cannot be overridden; regenerate the plan with a different instruction.
           </Alert>
         ) : null}
+        {needsWorldApproval ? (
+          <Alert tone="warning" data-testid="needs-world-approval">
+            This plan uses a proposed world version. Approve it in the{" "}
+            <Link className="underline" href={worldHref}>
+              World Studio
+            </Link>{" "}
+            first, then approve this version.
+          </Alert>
+        ) : null}
         {approve.error ? (
           <Alert tone="danger">
             {approve.error.message}
@@ -268,7 +294,15 @@ export function ApprovePanel({
         ) : null}
         <Button
           onClick={() => approve.mutate()}
-          disabled={disabled || approve.isPending || needsReason || nonOverridable.length > 0}
+          disabled={
+            disabled ||
+            approve.isPending ||
+            needsReason ||
+            nonOverridable.length > 0 ||
+            needsWorldApproval ||
+            !can.allowed
+          }
+          title={can.reason}
         >
           {approve.isPending ? "Approving…" : "Approve and generate"}
         </Button>
@@ -277,17 +311,26 @@ export function ApprovePanel({
   );
 }
 
-/** "Regenerate plan" (`:replan`): optional instruction, optional fresh memory. */
+/** Versions planned from a request; only these can be replanned (the API needs their plan job). */
+export const PLANNED_ORIGINS = new Set(["plan", "replan"]);
+
+/**
+ * "Regenerate plan" (`:replan`): optional instruction, optional fresh memory. A derived version
+ * (an edit, restore, branch…) was not planned from a request, so it is offered the Studio instead.
+ */
 export function ReplanPanel({
   versionId,
   videoId,
   disabled,
+  origin = "plan",
 }: {
   versionId: string;
   videoId: string;
   disabled: boolean;
+  origin?: string;
 }) {
   const router = useRouter();
+  const can = useCan("write_content");
   const [instruction, setInstruction] = useState("");
   const [refresh, setRefresh] = useState(false);
   const replan = useMutation({
@@ -302,6 +345,27 @@ export function ReplanPanel({
     onSuccess: (accepted) =>
       router.push(`/videos/${videoId}/versions/${accepted.version_id}/previz?job=${accepted.job_id}`),
   });
+  const studio = (
+    <Button variant="ghost" asChild>
+      <Link href={`/videos/${videoId}?version=${versionId}#edit`}>Edit in the studio</Link>
+    </Button>
+  );
+  if (!PLANNED_ORIGINS.has(origin)) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Change this version</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          <p className="text-sm text-slate-700" data-testid="derived-version-note">
+            Derived versions are changed with edits in the Studio. Only a planned version can be replanned; this one
+            comes from: {humanize(origin)}.
+          </p>
+          {studio}
+        </CardContent>
+      </Card>
+    );
+  }
   return (
     <Card>
       <CardHeader>
@@ -322,12 +386,15 @@ export function ReplanPanel({
           Use the creator&apos;s latest memory (otherwise the pinned snapshot is reused)
         </label>
         {replan.error ? <Alert tone="danger">{replan.error.message}</Alert> : null}
-        <Button variant="outline" onClick={() => replan.mutate()} disabled={disabled || replan.isPending}>
+        <Button
+          variant="outline"
+          onClick={() => replan.mutate()}
+          disabled={disabled || replan.isPending || !can.allowed}
+          title={can.reason}
+        >
           Regenerate plan
         </Button>
-        <Button variant="ghost" asChild>
-          <Link href={`/videos/${videoId}?version=${versionId}#edit`}>Edit in the studio</Link>
-        </Button>
+        {studio}
       </CardContent>
     </Card>
   );

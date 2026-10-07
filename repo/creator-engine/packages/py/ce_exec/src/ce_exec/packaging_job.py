@@ -51,6 +51,13 @@ _log = get_logger("ce.exec.packaging")
 RENDERED = ("ready", "needs_review", "approved", "partial")
 
 
+_FALLBACK_REASONS: dict[type[Exception], str] = {
+    FixtureMiss: "no recorded LLM answer for this platform (fixture mode)",
+    LLMError: "the LLM did not answer",
+    StructuredOutputError: "the LLM's answer did not meet this platform's limits",
+}
+
+
 def thumbnail_times(shots: dict[str, list[float]], duration_s: float, n: int) -> list[float]:
     """Frame times for `n` candidates: just after the start (the hook), then the midpoints of the
     longest shots in timeline order, never at the very end."""
@@ -84,8 +91,10 @@ async def _texts(
             "packaging", platform_label=platform.label, summary=summary, limits=limits.as_dict(), thumbnails=n
         )
     except Exception as exc:  # no provider configured: the template, labelled
-        template.generator["fallback"] = f"no LLM provider: {str(exc)[:200]}"
-        template.issues.append({"code": "llm_unavailable", "message": template.generator["fallback"]})
+        template.generator["fallback"] = "no LLM is configured"
+        template.issues.append(
+            {"code": "llm_unavailable", "message": template.generator["fallback"], "detail": str(exc)[:200]}
+        )
         return template
     run = DirectorRun(
         org_id=org_id,
@@ -108,10 +117,12 @@ async def _texts(
             max_repairs=int(config.max_repairs),
         )
     except (FixtureMiss, LLMError, StructuredOutputError) as exc:
-        reason = type(exc).__name__
-        template.generator["fallback"] = f"{reason}: {str(exc)[:200]}"
-        template.issues.append({"code": "llm_fallback", "message": template.generator["fallback"]})
-        run.output = {"error": template.generator["fallback"]}
+        # the Packaging card shows the reason in words; the exception (with server paths) stays in the
+        # run record and the issue detail (audit PKG-MSG)
+        detail = f"{type(exc).__name__}: {str(exc)[:200]}"
+        template.generator["fallback"] = _FALLBACK_REASONS.get(type(exc), "the LLM's answer could not be used")
+        template.issues.append({"code": "llm_fallback", "message": template.generator["fallback"], "detail": detail})
+        run.output = {"error": detail}
         async with svc.db.transaction() as session:
             session.add(run)
         return template

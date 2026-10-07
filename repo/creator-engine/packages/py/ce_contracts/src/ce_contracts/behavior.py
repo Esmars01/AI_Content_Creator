@@ -210,6 +210,9 @@ class ProsodyDirectives(ContractModel):
     rate: float = 1.0
     energy: float = 0.5
     pitch_variation: float = 0.5
+    pitch_semitones: float = Field(
+        default=0.0, description="the cast member's per-video pitch offset (VideoSpec cast[].voice_prosody)"
+    )
     emphasis_words: list[int] = Field(default_factory=list)
     pauses: list[dict[str, int]] = Field(default_factory=list, description="[{after_word, ms}]")
     nonverbal: list[dict[str, Any]] = Field(default_factory=list)
