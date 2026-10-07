@@ -448,6 +448,13 @@ def _owner(spec: VideoSpec, refs: BuildRefs, character: str | None) -> str | Non
     return str(creator.creator_id) if creator else None
 
 
+def _unknown_reference(ref: str) -> str:
+    """The proposal card's words for a slot the plan used but this edit does not have."""
+    if ref == "@selection":
+        return "The edit is about a selection, but nothing is selected: tick the scenes or set a time range."
+    return f"The instruction refers to {ref.removeprefix('@').replace('_', ' ')}, which this video does not have."
+
+
 def expand_slots(ops: list[EditOperation], references: References) -> list[EditOperation]:
     """Resolves every slot; an operation whose slot holds several scopes (a range crossing scenes)
     becomes one operation per scope."""
@@ -457,7 +464,7 @@ def expand_slots(ops: list[EditOperation], references: References) -> list[EditO
         ref = scope.ref if isinstance(scope, EditScope) else None
         scopes = references.slots.get(ref, []) if ref else []
         if ref and not scopes:
-            raise EditError(f"unknown reference {ref}", [Issue("unknown_reference", f"no {ref} in this edit")])
+            raise EditError(f"unknown reference {ref}", [Issue("unknown_reference", _unknown_reference(ref))])
         if ref and len(scopes) > 1:
             out += [resolve_operation(op, {ref: one}, references.anchors) for one in scopes]
             continue
@@ -642,7 +649,18 @@ class EditDirector:
             out = _template_plan(request.instruction, references, ctx.spec, self.vocab)
             log.template("edit", summary, out.model_dump(mode="json"))
             planner = "template"
+        try:
+            ops = expand_slots(list(out.operations), references)
+        except EditError as exc:
+            # A recorded answer written for another selection (its slots are not in this edit, e.g. the
+            # "make him more skeptical" fixture scoped to `@selection`, typed with nothing selected) is
+            # a fixture miss, not the user's error (audit NL-02).
+            if planner != "fixture" or not self.deps.allow_template or exc.issues[0].code != "unknown_reference":
+                raise
+            out = _template_plan(request.instruction, references, ctx.spec, self.vocab)
+            log.template("edit", summary, out.model_dump(mode="json"))
+            planner = "template"
+            ops = expand_slots(list(out.operations), references)
         notes += [a for a in out.assumptions if a not in notes]
-        ops = expand_slots(list(out.operations), references)
         ops = resolve_queries(ops, ctx, notes.append)
         return EditPlan(operations=ops, assumptions=notes, planner=planner, references=references, runs=log.runs)

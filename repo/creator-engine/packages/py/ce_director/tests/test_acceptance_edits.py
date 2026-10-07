@@ -53,7 +53,7 @@ def _parent(data: dict[str, Any]) -> tuple[VideoSpec, ParentBuild]:
 
 
 def propose(
-    instruction: str, *, voice_locked: bool = False, selection: Selection | None = None
+    instruction: str, *, voice_locked: bool = False, selection: Selection | None = None, allow_template: bool = False
 ) -> tuple[EditPlan, Proposal]:
     data = two_scene_spec_dict()
     if not voice_locked:
@@ -62,7 +62,7 @@ def propose(
     refs = example_build_refs()
     ctx = EditContext(spec=spec, refs=refs, word_times=_word_times(spec), options=OPTIONS)
     plan = asyncio.run(
-        EditDirector(director_deps(allow_template=False)).plan(
+        EditDirector(director_deps(allow_template=allow_template)).plan(
             EditRequest(instruction=instruction, selection=selection), ctx
         )
     )
@@ -137,6 +137,22 @@ def test_make_him_more_skeptical_with_the_second_scene_selected() -> None:
     assert vocal["after"]["level"] == "APPROXIMATED"
     strategies = {a["strategy"] for a in p.alternatives}
     assert strategies == {"full_reperformance", "editorial_only", "lipsync_patch"}
+
+
+def test_make_him_more_skeptical_with_nothing_selected_changes_the_whole_video() -> None:
+    """Audit NL-02: the Studio's placeholder instruction typed with no scene ticked failed with
+    "no @selection in this edit" — the recorded fixture is scoped to a selection; with none, the
+    request plans like an unrecorded one (the host, every scene), as in dev and test where the
+    template planner is allowed."""
+    plan, p = propose("make him more skeptical", allow_template=True)
+    assert plan.planner == "template"
+    assert op_types(plan) == ["set_acting"]
+    assert p.status == "proposed", p.issues
+    assert p.spec is not None
+    for scene in p.spec.scenes:
+        assert scene.acting is not None
+        assert all(s.emotion is not None and s.emotion.displayed.label == "skeptical" for s in scene.acting.states)
+    assert touches(generation(p), SCENE_HOOK) and touches(generation(p), SCENE_REVEAL)
 
 
 def test_make_him_more_skeptical_with_voice_locked_keeps_the_audio() -> None:
