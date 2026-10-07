@@ -12,6 +12,7 @@ import { Suspense, use } from "react";
 import { PageHeader } from "@/components/app-shell";
 import { FindingsList } from "@/components/findings";
 import { PerformanceLane } from "@/components/performance-lane";
+import { RoleNote } from "@/components/role-note";
 import { ClaimLedger } from "@/components/research-panels";
 import { ApprovePanel, CoveragePanel, IntentPanel, ReplanPanel, ScriptView, Storyboard } from "@/components/plan";
 import { StateBadge } from "@/components/state-badge";
@@ -100,6 +101,7 @@ function Review({ videoId, versionId }: { videoId: string; versionId: string }) 
           </span>
         }
       />
+      <RoleNote className="mb-4" />
       {previz.data.state === "failed" ? <Alert tone="danger">Previz failed; regenerate the plan.</Alert> : null}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="col-span-2 flex flex-col gap-4">

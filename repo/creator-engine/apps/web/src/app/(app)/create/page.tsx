@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/app-shell";
+import { RoleNote } from "@/components/role-note";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,7 @@ import {
   useVoices,
   useWorlds,
 } from "@/lib/queries";
+import { useCan } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 
 function Field({ id, label, hint, children }: { id: string; label: string; hint?: string; children: React.ReactNode }) {
@@ -45,6 +47,7 @@ function CreateWizard() {
   const projects = useProjects();
   const creators = useCreators();
   const worlds = useWorlds();
+  const can = useCan("write_content");
   const [form, setForm] = useState<Form>({ ...EMPTY, projectId: params.get("project") ?? "" });
   const [step, setStep] = useState(0);
   const creator = useCreator(form.creatorId || null);
@@ -122,6 +125,7 @@ function CreateWizard() {
         <CardContent className="flex flex-col gap-4">
           {step === 0 ? (
             <>
+              <RoleNote />
               <Field id="project" label="Project">
                 <Select id="project" value={form.projectId} onChange={(e) => set("projectId", e.target.value)}>
                   {(projects.data?.items ?? []).map((p) => (
@@ -494,10 +498,16 @@ function CreateWizard() {
                   ) : null}
                 </Alert>
               ) : null}
-              <Button onClick={() => plan.mutate()} disabled={!canPlan || plan.isPending} size="lg">
+              <Button
+                onClick={() => plan.mutate()}
+                disabled={!canPlan || plan.isPending || !can.allowed}
+                title={can.reason}
+                size="lg"
+              >
                 {plan.isPending ? "Starting…" : "Plan video"}
               </Button>
               {!canPlan ? <p className="text-sm text-amber-900">Write an idea or a script in step 1 first.</p> : null}
+              <RoleNote />
             </>
           ) : null}
 

@@ -29,6 +29,7 @@ import {
 } from "@/lib/edits";
 import { humanize } from "@/lib/format";
 import { keys, useTakes, useVocabulary } from "@/lib/queries";
+import { useCan } from "@/lib/roles";
 import { useStudio } from "@/lib/store";
 
 type Json = Record<string, unknown>;
@@ -56,6 +57,7 @@ export function VersionsPanel({
 }) {
   const router = useRouter();
   const client = useQueryClient();
+  const can = useCan("write_content");
   const [compare, setCompare] = useState<string[]>([]);
   const [branchName, setBranchName] = useState("");
   const done = async (versionId: string) => {
@@ -138,12 +140,24 @@ export function VersionsPanel({
               <span className="flex items-center gap-1">
                 <StateBadge state={v.state} />
                 {v.id !== currentId ? (
-                  <Button size="sm" variant="ghost" onClick={() => restore.mutate(v.id)} disabled={restore.isPending}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => restore.mutate(v.id)}
+                    disabled={restore.isPending || !can.allowed}
+                    title={can.reason}
+                  >
                     Restore
                   </Button>
                 ) : null}
                 {RESUMABLE.has(v.state) ? (
-                  <Button size="sm" variant="ghost" onClick={() => resume.mutate(v.id)} disabled={resume.isPending}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => resume.mutate(v.id)}
+                    disabled={resume.isPending || !can.allowed}
+                    title={can.reason}
+                  >
                     Resume
                   </Button>
                 ) : null}
@@ -174,7 +188,7 @@ export function VersionsPanel({
           className="flex items-center gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (branchName.trim()) branch.mutate();
+            if (branchName.trim() && can.allowed) branch.mutate();
           }}
         >
           <Input
@@ -183,7 +197,13 @@ export function VersionsPanel({
             value={branchName}
             onChange={(e) => setBranchName(e.target.value.toLowerCase())}
           />
-          <Button type="submit" size="sm" variant="outline" disabled={!branchName.trim() || branch.isPending}>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            disabled={!branchName.trim() || branch.isPending || !can.allowed}
+            title={can.reason}
+          >
             Branch
           </Button>
         </form>
@@ -198,6 +218,7 @@ export function VersionsPanel({
 export function LocksPanel({ spec, versionId }: { spec: Json; versionId: string }) {
   const client = useQueryClient();
   const showProposal = useStudio((s) => s.showProposal);
+  const can = useCan("write_content");
   const vocab = useVocabulary();
   const current = locksOf(spec);
   const [rows, setRows] = useState<LockRow[]>(current);
@@ -277,7 +298,7 @@ export function LocksPanel({ spec, versionId }: { spec: Json; versionId: string 
               ))}
             </Select>
           ) : null}
-          <Button size="sm" variant="outline" onClick={add} disabled={!group}>
+          <Button size="sm" variant="outline" onClick={add} disabled={!group || !can.allowed} title={can.reason}>
             Add
           </Button>
         </div>
@@ -286,7 +307,8 @@ export function LocksPanel({ spec, versionId }: { spec: Json; versionId: string 
           <Button
             size="sm"
             onClick={() => save.mutate()}
-            disabled={!changed || save.isPending}
+            disabled={!changed || save.isPending || !can.allowed}
+            title={can.reason}
             data-testid="save-locks"
           >
             Save locks
@@ -304,6 +326,7 @@ const SHOT_COMPONENTS = ["avatar_video", "keyframe", "camera_post", "broll", "li
 export function TakesGallery({ spec, versionId }: { spec: Json; versionId: string }) {
   const client = useQueryClient();
   const showProposal = useStudio((s) => s.showProposal);
+  const can = useCan("write_content");
   const takes = useTakes(versionId);
   const [component, setComponent] = useState<string>("avatar_video");
   const shots = ((spec.scenes ?? []) as Json[]).flatMap((scene) =>
@@ -371,7 +394,8 @@ export function TakesGallery({ spec, versionId }: { spec: Json; versionId: strin
                   size="sm"
                   variant="ghost"
                   onClick={() => regenerate.mutate(shot.key)}
-                  disabled={regenerate.isPending}
+                  disabled={regenerate.isPending || !can.allowed}
+                  title={can.reason}
                 >
                   Regenerate
                 </Button>
@@ -409,7 +433,8 @@ export function TakesGallery({ spec, versionId }: { spec: Json; versionId: strin
                           size="sm"
                           variant="outline"
                           onClick={() => select.mutate({ shot: shot.key, take: `tk_${take.take_index}` })}
-                          disabled={select.isPending}
+                          disabled={select.isPending || !can.allowed}
+                          title={can.reason}
                         >
                           Select
                         </Button>

@@ -17,6 +17,7 @@ import { CaptionsPanel, ExportPanel, PackagingPanel } from "@/components/export-
 import { ClaimLedger } from "@/components/research-panels";
 import { IntentEditor, PerformanceEditor } from "@/components/editors";
 import { PerformanceLane } from "@/components/performance-lane";
+import { RoleNote } from "@/components/role-note";
 import { CritiquePanel, QCReportPanel, VersionConsistency } from "@/components/qc-panels";
 import { Player } from "@/components/player";
 import { CoveragePanel, IntentPanel, scenesOf, segmentScenes } from "@/components/plan";
@@ -147,6 +148,7 @@ function Studio({ videoId }: { videoId: string }) {
           </div>
         }
       />
+      <RoleNote className="mb-4" />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,22rem)_1fr]">
         <div className="flex flex-col gap-4">
           <Player versionId={versionId} state={state} />

@@ -5,6 +5,7 @@ import { use } from "react";
 import { PageHeader } from "@/components/app-shell";
 import { ProjectBrandKit } from "@/components/brand-kits";
 import { SourcesPanel } from "@/components/research-panels";
+import { RoleNote } from "@/components/role-note";
 import { StateBadge } from "@/components/state-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -27,6 +28,7 @@ export default function ProjectPage({ params }: { params: Promise<{ projectId: s
           </Button>
         }
       />
+      <RoleNote />
       <ProjectBrandKit projectId={projectId} current={project.data?.brand_kit_id ?? null} />
       <Card>
         <CardContent>

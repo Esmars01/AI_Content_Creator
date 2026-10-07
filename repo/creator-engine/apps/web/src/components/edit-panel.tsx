@@ -28,6 +28,7 @@ import {
 } from "@/lib/edits";
 import { humanize, usd, when } from "@/lib/format";
 import { keys, useEdit, useEdits, useVersion } from "@/lib/queries";
+import { useCan } from "@/lib/roles";
 import { useActiveProposal, useStudio } from "@/lib/store";
 
 const STATUS_TONE: Record<string, "info" | "success" | "danger" | "muted" | "warning"> = {
@@ -172,6 +173,7 @@ export function ProposalCard({ proposalId, onClose }: { proposalId: string; onCl
   const edit = useEdit(proposalId);
   const source = useVersion(edit.data?.version_id ?? null);
   const videoId = source.data?.video_id ?? null;
+  const can = useCan("write_content");
   const [alternative, setAlternative] = useState("full_reperformance");
   const apply = useMutation({
     mutationFn: () =>
@@ -306,13 +308,23 @@ export function ProposalCard({ proposalId, onClose }: { proposalId: string; onCl
         ) : null}
         <div className="flex gap-2">
           {p.status === "proposed" ? (
-            <Button onClick={() => apply.mutate()} disabled={apply.isPending || !videoId} data-testid="apply-edit">
+            <Button
+              onClick={() => apply.mutate()}
+              disabled={apply.isPending || !videoId || !can.allowed}
+              title={can.reason}
+              data-testid="apply-edit"
+            >
               {apply.isPending ? "Applying…" : "Apply"}
             </Button>
           ) : null}
           {/* a failed proposal changed nothing: there is nothing to reject, only to close */}
           {p.status === "proposed" ? (
-            <Button variant="outline" onClick={() => reject.mutate()} disabled={reject.isPending}>
+            <Button
+              variant="outline"
+              onClick={() => reject.mutate()}
+              disabled={reject.isPending || !can.allowed}
+              title={can.reason}
+            >
               Reject
             </Button>
           ) : null}
@@ -337,6 +349,7 @@ export function EditPanel({ versionId, sceneKeys }: { versionId: string; sceneKe
   const [scenes, setScenes] = useState<string[]>([]);
   const [range, setRange] = useState<{ start: string; end: string }>({ start: "", end: "" });
   const span = timeRange(range);
+  const can = useCan("write_content");
   const propose = useMutation({
     mutationFn: () => {
       const selection =
@@ -374,7 +387,7 @@ export function EditPanel({ versionId, sceneKeys }: { versionId: string; sceneKe
           className="flex flex-col gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (instruction.trim() && !span.error) propose.mutate();
+            if (instruction.trim() && !span.error && can.allowed) propose.mutate();
           }}
         >
           <Label htmlFor="edit-instruction">Instruction</Label>
@@ -429,7 +442,8 @@ export function EditPanel({ versionId, sceneKeys }: { versionId: string; sceneKe
           <div>
             <Button
               type="submit"
-              disabled={!instruction.trim() || Boolean(span.error) || propose.isPending}
+              disabled={!instruction.trim() || Boolean(span.error) || propose.isPending || !can.allowed}
+              title={can.reason}
               data-testid="propose-edit"
             >
               {propose.isPending ? "Sending…" : "Propose"}

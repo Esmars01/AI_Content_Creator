@@ -32,6 +32,7 @@ import {
   usePlatforms,
   useRenders,
 } from "@/lib/queries";
+import { useCan } from "@/lib/roles";
 import { startDownload } from "@/lib/utils";
 
 type Platform = Schemas["PlatformOut"];
@@ -77,6 +78,7 @@ export function CaptionsPanel({ versionId, videoId }: { versionId: string; video
   const [language, setLanguage] = useState("");
   const [created, setCreated] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<unknown>(null);
+  const can = useCan("write_content");
   const refresh = () => client.invalidateQueries({ queryKey: keys.captions(versionId) });
   const translate = useMutation({
     mutationFn: () =>
@@ -165,6 +167,8 @@ export function CaptionsPanel({ versionId, videoId }: { versionId: string; video
                             size="sm"
                             variant="outline"
                             onClick={() => review.mutate({ id: first.id, approve: true })}
+                            disabled={review.isPending || !can.allowed}
+                            title={can.reason}
                           >
                             Approve
                           </Button>
@@ -172,6 +176,8 @@ export function CaptionsPanel({ versionId, videoId }: { versionId: string; video
                             size="sm"
                             variant="outline"
                             onClick={() => review.mutate({ id: first.id, approve: false })}
+                            disabled={review.isPending || !can.allowed}
+                            title={can.reason}
                           >
                             Reject
                           </Button>
@@ -190,7 +196,7 @@ export function CaptionsPanel({ versionId, videoId }: { versionId: string; video
           className="flex items-end gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            translate.mutate();
+            if (can.allowed) translate.mutate();
           }}
         >
           <div className="flex flex-col gap-1">
@@ -207,7 +213,7 @@ export function CaptionsPanel({ versionId, videoId }: { versionId: string; video
                 ))}
             </Select>
           </div>
-          <Button type="submit" disabled={!language || translate.isPending}>
+          <Button type="submit" disabled={!language || translate.isPending || !can.allowed} title={can.reason}>
             Translate
           </Button>
         </form>
@@ -238,6 +244,7 @@ function PackagingEditor({ row, platform }: { row: PackagingRow; platform: Platf
   const [cta, setCta] = useState(row.cta_text);
   const limits = row.limits as Record<string, number> & { sources?: Record<string, string> };
   const sources = limits.sources ?? {};
+  const can = useCan("write_content");
   const refresh = () => client.invalidateQueries({ queryKey: keys.packaging(row.version_id) });
   // The editor remounts when the row changes (keyed on `updated_at`), so every save sends the text
   // as typed: choosing a thumbnail or approving never discards unsaved edits (D7, D8).
@@ -310,6 +317,8 @@ function PackagingEditor({ row, platform }: { row: PackagingRow; platform: Platf
                   type="radio"
                   name={`thumb-${row.id}`}
                   checked={row.thumbnail_artifact_ids.includes(c.artifact_id)}
+                  disabled={!can.allowed}
+                  title={can.reason}
                   onChange={() => save.mutate({ ...fields, thumbnail_artifact_id: c.artifact_id })}
                 />
                 <ThumbnailLink
@@ -333,12 +342,18 @@ function PackagingEditor({ row, platform }: { row: PackagingRow; platform: Platf
         </Alert>
       ) : null}
       <div className="flex gap-2">
-        <Button variant="outline" onClick={() => save.mutate(fields)} disabled={save.isPending}>
+        <Button
+          variant="outline"
+          onClick={() => save.mutate(fields)}
+          disabled={save.isPending || !can.allowed}
+          title={can.reason}
+        >
           Save
         </Button>
         <Button
           onClick={() => approve.mutate()}
-          disabled={approve.isPending || save.isPending || (row.status === "approved" && !dirty)}
+          disabled={approve.isPending || save.isPending || (row.status === "approved" && !dirty) || !can.allowed}
+          title={can.reason}
         >
           {dirty ? "Save and approve" : "Approve"}
         </Button>
@@ -375,6 +390,7 @@ export function PackagingPanel({ versionId, targets }: { versionId: string; targ
   const [polling, setPolling] = useState(false);
   const packaging = usePackaging(versionId, polling);
   const known = platforms.data ?? [];
+  const can = useCan("write_content");
   const [chosen, setChosen] = useState<string[]>(targets);
   const start = useMutation({
     mutationFn: () =>
@@ -401,7 +417,7 @@ export function PackagingPanel({ versionId, targets }: { versionId: string; targ
           className="flex flex-wrap items-end gap-3"
           onSubmit={(e) => {
             e.preventDefault();
-            start.mutate();
+            if (can.allowed) start.mutate();
           }}
         >
           <fieldset className="flex flex-wrap gap-2">
@@ -417,7 +433,7 @@ export function PackagingPanel({ versionId, targets }: { versionId: string; targ
               </label>
             ))}
           </fieldset>
-          <Button type="submit" disabled={!chosen.length || start.isPending}>
+          <Button type="submit" disabled={!chosen.length || start.isPending || !can.allowed} title={can.reason}>
             Write packaging
           </Button>
         </form>
@@ -449,6 +465,7 @@ export function ExportPanel({ versionId, versionState }: { versionId: string; ve
   const captions = useCaptions(versionId);
   const claims = useClaims(versionId);
   const exports = useExports(versionId);
+  const can = useCan("write_content");
   const [platformId, setPlatformId] = useState("");
   const [renderId, setRenderId] = useState("");
   const [checked, setChecked] = useState<Record<string, boolean>>({});
@@ -568,7 +585,8 @@ export function ExportPanel({ versionId, versionState }: { versionId: string; ve
         <div>
           <Button
             onClick={() => create.mutate()}
-            disabled={!platformId || !renderId || blockers.length > 0 || create.isPending}
+            disabled={!platformId || !renderId || blockers.length > 0 || create.isPending || !can.allowed}
+            title={can.reason}
           >
             Export
           </Button>

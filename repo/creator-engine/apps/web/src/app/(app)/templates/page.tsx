@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { PageHeader } from "@/components/app-shell";
+import { RoleNote } from "@/components/role-note";
 import { ErrorNote } from "@/components/studio/common";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import { api, idempotencyKey, unwrap } from "@/lib/api";
 import { humanize, when } from "@/lib/format";
 import { TEMPLATE_KINDS, templateSlots } from "@/lib/phase12";
 import { useTemplate, useTemplates } from "@/lib/queries";
+import { useCan } from "@/lib/roles";
 
 function SlotList({ body }: { body: Record<string, unknown> }) {
   const slots = templateSlots(body);
@@ -38,6 +40,7 @@ function SlotList({ body }: { body: Record<string, unknown> }) {
 function TemplateDetail({ id, onClose }: { id: string; onClose: () => void }) {
   const client = useQueryClient();
   const template = useTemplate(id);
+  const can = useCan("write_content");
   const [versionId, setVersionId] = useState("");
   const [preview, setPreview] = useState<{ operations: Record<string, unknown>[] } | null>(null);
   const [applied, setApplied] = useState<string | null>(null);
@@ -124,7 +127,12 @@ function TemplateDetail({ id, onClose }: { id: string; onClose: () => void }) {
           <Button type="submit" variant="outline">
             Preview
           </Button>
-          <Button type="button" onClick={() => run.mutate(false)} disabled={!preview?.operations.length}>
+          <Button
+            type="button"
+            onClick={() => run.mutate(false)}
+            disabled={!preview?.operations.length || !can.allowed}
+            title={can.reason}
+          >
             Propose edit
           </Button>
         </form>
@@ -156,13 +164,25 @@ function TemplateDetail({ id, onClose }: { id: string; onClose: () => void }) {
               value={body || JSON.stringify(t.body, null, 2)}
               onChange={(e) => setBody(e.target.value)}
             />
-            <Button className="mt-2" size="sm" onClick={() => edit.mutate()} disabled={!body}>
+            <Button
+              className="mt-2"
+              size="sm"
+              onClick={() => edit.mutate()}
+              disabled={!body || !can.allowed}
+              title={can.reason}
+            >
               Save new version
             </Button>
           </details>
         ) : null}
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => archive.mutate()}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => archive.mutate()}
+            disabled={archive.isPending || !can.allowed}
+            title={can.reason}
+          >
             Archive
           </Button>
           <Button size="sm" variant="ghost" onClick={onClose}>
@@ -176,6 +196,7 @@ function TemplateDetail({ id, onClose }: { id: string; onClose: () => void }) {
 
 function CreateTemplate() {
   const client = useQueryClient();
+  const can = useCan("write_content");
   const [name, setName] = useState("");
   const [kind, setKind] = useState<(typeof TEMPLATE_KINDS)[number]>("caption");
   const [source, setSource] = useState<"version" | "body">("version");
@@ -208,7 +229,7 @@ function CreateTemplate() {
           className="grid grid-cols-2 gap-2"
           onSubmit={(e) => {
             e.preventDefault();
-            create.mutate();
+            if (can.allowed) create.mutate();
           }}
         >
           <div className="flex flex-col gap-1">
@@ -268,7 +289,7 @@ function CreateTemplate() {
           )}
           <div className="col-span-2">
             <ErrorNote error={create.error} />
-            <Button type="submit" disabled={create.isPending}>
+            <Button type="submit" disabled={create.isPending || !can.allowed} title={can.reason}>
               Save template
             </Button>
           </div>
@@ -322,6 +343,7 @@ export default function TemplatesPage() {
           </>
         }
       />
+      <RoleNote />
       <div className="flex items-center gap-2">
         <Label htmlFor="kind-filter">Kind</Label>
         <Select id="kind-filter" className="w-48" value={kind} onChange={(e) => setKind(e.target.value)}>

@@ -16,6 +16,7 @@ import { api, ApiError, type Domain, idempotencyKey, type Schemas, unwrap, type 
 import { bySceneKey, type CoverageEntry } from "@/lib/coverage";
 import { humanize } from "@/lib/format";
 import { keys, useStoryboard } from "@/lib/queries";
+import { useCan } from "@/lib/roles";
 
 type Scene = Domain["Scene"];
 
@@ -188,6 +189,7 @@ export function ApprovePanel({
 }) {
   const router = useRouter();
   const client = useQueryClient();
+  const can = useCan("write_content");
   const [overrides, setOverrides] = useState<string[]>([]);
   const [reason, setReason] = useState("");
   const approve = useMutation({
@@ -268,7 +270,8 @@ export function ApprovePanel({
         ) : null}
         <Button
           onClick={() => approve.mutate()}
-          disabled={disabled || approve.isPending || needsReason || nonOverridable.length > 0}
+          disabled={disabled || approve.isPending || needsReason || nonOverridable.length > 0 || !can.allowed}
+          title={can.reason}
         >
           {approve.isPending ? "Approving…" : "Approve and generate"}
         </Button>
@@ -288,6 +291,7 @@ export function ReplanPanel({
   disabled: boolean;
 }) {
   const router = useRouter();
+  const can = useCan("write_content");
   const [instruction, setInstruction] = useState("");
   const [refresh, setRefresh] = useState(false);
   const replan = useMutation({
@@ -322,7 +326,12 @@ export function ReplanPanel({
           Use the creator&apos;s latest memory (otherwise the pinned snapshot is reused)
         </label>
         {replan.error ? <Alert tone="danger">{replan.error.message}</Alert> : null}
-        <Button variant="outline" onClick={() => replan.mutate()} disabled={disabled || replan.isPending}>
+        <Button
+          variant="outline"
+          onClick={() => replan.mutate()}
+          disabled={disabled || replan.isPending || !can.allowed}
+          title={can.reason}
+        >
           Regenerate plan
         </Button>
         <Button variant="ghost" asChild>

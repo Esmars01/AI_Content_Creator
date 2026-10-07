@@ -13,6 +13,7 @@ import { api, unwrap } from "@/lib/api";
 import { humanize } from "@/lib/format";
 import { keys } from "@/lib/queries";
 import { type Json, ladderSteps, metricRows, scoreBars, statusTone, triadRows } from "@/lib/qc";
+import { useCan } from "@/lib/roles";
 
 type Tone = "success" | "warning" | "danger" | "info" | "neutral";
 const badge = (tone: Tone) => (tone === "neutral" ? "muted" : tone);
@@ -188,6 +189,7 @@ export function QCReportPanel({ versionId }: { versionId: string }) {
 
 export function CritiquePanel({ versionId }: { versionId: string }) {
   const client = useQueryClient();
+  const can = useCan("write_content");
   const critiques = useQuery({
     queryKey: keys.critiques(versionId),
     queryFn: () =>
@@ -220,7 +222,7 @@ export function CritiquePanel({ versionId }: { versionId: string }) {
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <div className="flex items-center gap-2">
-          <Button onClick={() => run.mutate()} disabled={run.isPending}>
+          <Button onClick={() => run.mutate()} disabled={run.isPending || !can.allowed} title={can.reason}>
             Critique this version
           </Button>
           <JobLine status={job.status} job={job.job} />
@@ -268,7 +270,8 @@ export function CritiquePanel({ versionId }: { versionId: string }) {
                           <Button
                             variant="outline"
                             onClick={() => propose.mutate({ critiqueId: latest.id, findingId: id })}
-                            disabled={propose.isPending}
+                            disabled={propose.isPending || !can.allowed}
+                            title={can.reason}
                           >
                             Propose edit
                           </Button>

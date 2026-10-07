@@ -6,6 +6,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { PageHeader } from "@/components/app-shell";
+import { RoleNote } from "@/components/role-note";
 import { ErrorNote } from "@/components/studio/common";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, Skeleton } from "@/components/ui/misc";
 import { api, unwrap } from "@/lib/api";
 import { humanize } from "@/lib/format";
+import { useCan } from "@/lib/roles";
 
 type Item = {
   target_type: "consistency" | "take" | "render";
@@ -39,10 +41,12 @@ export default function RatingsPage() {
       ),
     onSuccess: () => void client.invalidateQueries({ queryKey: ["ratings", "queue"] }),
   });
+  const can = useCan("write_content");
   const items = (queue.data ?? []) as Item[];
   return (
     <>
       <PageHeader title="Ratings" description="Human judgements: ground truth for what the analyzers cannot decide." />
+      <RoleNote />
       <ErrorNote error={rate.error ?? queue.error} />
       {queue.isLoading ? <Skeleton className="h-40" /> : null}
       {!queue.isLoading && items.length === 0 ? <Empty>Nothing waits for your rating.</Empty> : null}
@@ -66,7 +70,8 @@ export default function RatingsPage() {
                     <Button
                       key={value}
                       variant="outline"
-                      disabled={rate.isPending}
+                      disabled={rate.isPending || !can.allowed}
+                      title={can.reason}
                       onClick={() => rate.mutate({ item, rating: { value } })}
                     >
                       {value}
@@ -75,12 +80,17 @@ export default function RatingsPage() {
                 </div>
               ) : (
                 <div className="flex gap-2">
-                  <Button disabled={rate.isPending} onClick={() => rate.mutate({ item, rating: { observed: true } })}>
+                  <Button
+                    disabled={rate.isPending || !can.allowed}
+                    title={can.reason}
+                    onClick={() => rate.mutate({ item, rating: { observed: true } })}
+                  >
                     Yes
                   </Button>
                   <Button
                     variant="outline"
-                    disabled={rate.isPending}
+                    disabled={rate.isPending || !can.allowed}
+                    title={can.reason}
                     onClick={() => rate.mutate({ item, rating: { observed: false } })}
                   >
                     No
