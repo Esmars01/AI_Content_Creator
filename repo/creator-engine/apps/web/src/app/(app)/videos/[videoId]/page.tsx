@@ -11,6 +11,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Suspense, use, useEffect, useRef } from "react";
 
 import { PageHeader, useAdvanced } from "@/components/app-shell";
+import { CancelJobButton } from "@/components/cancel-job";
 import { SceneCoverageBadge } from "@/components/coverage";
 import { EditPanel } from "@/components/edit-panel";
 import { CaptionsPanel, ExportPanel, PackagingPanel } from "@/components/export-panels";
@@ -53,7 +54,10 @@ function ActiveJobs({ versionIds }: { versionIds: string[] }) {
               <Link className="text-blue-800 hover:underline" href={`/jobs/${job.id}`}>
                 {humanize(job.kind)}
               </Link>
-              <StateBadge state={job.status} />
+              <span className="flex items-center gap-2">
+                <StateBadge state={job.status} />
+                <CancelJobButton job={job} />
+              </span>
             </div>
             <Progress value={job.progress} label={`${job.kind} progress`} />
           </div>

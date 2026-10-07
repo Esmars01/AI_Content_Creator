@@ -2,6 +2,7 @@
 import { use } from "react";
 
 import { PageHeader } from "@/components/app-shell";
+import { CancelJobButton } from "@/components/cancel-job";
 import { JsonViewer } from "@/components/json-viewer";
 import { StateBadge } from "@/components/state-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +27,12 @@ export default function JobPage({ params }: { params: Promise<{ jobId: string }>
         }
       />
       <div className="flex flex-col gap-4">
-        <Progress value={data.progress} label="Job progress" />
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <Progress value={data.progress} label="Job progress" />
+          </div>
+          <CancelJobButton job={data} />
+        </div>
         {data.error ? (
           <Alert tone="danger">
             {String((data.error as { message?: string }).message ?? JSON.stringify(data.error))}
