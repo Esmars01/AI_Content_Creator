@@ -4,7 +4,7 @@
  * option list comes from `GET /v1/create-options` (configuration), creators, worlds and voices
  * from the API; the frontend holds no business rules beyond display.
  */
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
@@ -16,9 +16,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Alert, Skeleton } from "@/components/ui/misc";
 import { api, ApiError, idempotencyKey, unwrap } from "@/lib/api";
-import { type Aspect, EMPTY, type Form, type InputMode, STEPS, toRequest } from "@/lib/create-form";
+import { type Aspect, EMPTY, type Form, type InputMode, STEPS, toRequest, withField } from "@/lib/create-form";
 import { humanize } from "@/lib/format";
 import {
+  keys,
   useCreateOptions,
   useCreator,
   useCreators,
@@ -42,6 +43,7 @@ function Field({ id, label, hint, children }: { id: string; label: string; hint?
 
 function CreateWizard() {
   const router = useRouter();
+  const client = useQueryClient();
   const params = useSearchParams();
   const options = useCreateOptions();
   const projects = useProjects();
@@ -52,7 +54,7 @@ function CreateWizard() {
   const [step, setStep] = useState(0);
   const creator = useCreator(form.creatorId || null);
   const voices = useVoices(form.creatorId || null);
-  const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((f) => ({ ...f, [key]: value }));
+  const set = <K extends keyof Form>(key: K, value: Form[K]) => setForm((f) => withField(f, key, value));
 
   // the creator's default world is preselected (§31 step 3)
   const defaultWorld = creator.data?.current_version?.default_world_ids?.[0] ?? "";
@@ -74,6 +76,9 @@ function CreateWizard() {
       if (!projectId) {
         const created = await unwrap(api.POST("/v1/projects", { body: { name: "My videos", description: "" } }));
         projectId = created.id;
+        // remember it: a retry after a failed plan must not create another "My videos" (D6)
+        setForm((f) => ({ ...f, projectId: created.id }));
+        void client.invalidateQueries({ queryKey: keys.projects() });
       }
       return unwrap(
         api.POST("/v1/projects/{project_id}/videos", {

@@ -77,6 +77,17 @@ export const lines = (text: string) =>
     .filter(Boolean)
     .slice(0, 10);
 
+/**
+ * The form with one field changed, and the choices that belonged to the old value cleared: a voice
+ * is the chosen creator's (D11), research sources are the chosen project's.
+ */
+export function withField<K extends keyof Form>(form: Form, key: K, value: Form[K]): Form {
+  const next = { ...form, [key]: value };
+  if (key === "creatorId" && value !== form.creatorId) next.voiceVersionId = "";
+  if (key === "projectId" && value !== form.projectId) next.sources = [];
+  return next;
+}
+
 /** The request body for the form; empty choices are left to the Director. */
 export function toRequest(form: Form): CreateVideo {
   return {
