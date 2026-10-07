@@ -36,8 +36,12 @@ test, and re-tested the same way.
   - every video with a designed voice failed to plan (CR-VOICE-TRANSCRIPT).
 - **Regression tests:** 67 new test cases were added (54 web, 13 Python, one of them parametrised over six camera
   moves), and 5 existing tests were strengthened.
-- **Final regression:** see section 29. Every suite passes. The one exception is the Playwright playback step,
-  which needs H.264 and is BLOCKED — ENVIRONMENT as in the baseline.
+- **Final regression:** every suite passes:
+  - Python: 1907 passed, 14 skipped, 0 failed;
+  - web: 144 tests;
+  - lint, types, spec and config checks;
+  - `make demo`;
+  - Playwright: 8 of 9 specs. The ninth stops only at H.264 playback (BLOCKED — ENVIRONMENT, as in the baseline).
 - **Still open, none blocking GPU testing:**
   - 2 FAIL: the disclosure span is ignored (P3); caption placement `bottom` equals the safe zone (P4);
   - 3 PARTIAL;
@@ -598,17 +602,37 @@ All of the following ran on the final code. The stack was `make dev-native`, wit
 
 | Suite | Command | Result |
 |---|---|---|
-| Python, full | `CE_REQUIRE_INFRA=1 uv run pytest` | see the run record below |
-| Web unit and contract | `pnpm --filter @ce/web run test` | see the run record below |
+| Python, full | `CE_REQUIRE_INFRA=1 uv run pytest` | 1841 passed, 0 failed, 80 skipped; with `CE_DOCS_DIR`, 1907 passed, 14 skipped (assets) |
+| Web unit and contract | `pnpm --filter @ce/web run test` | 144 passed (34 files) |
 | Lint | `ruff check .`, `ruff format --check .`, `eslint .`, `prettier --check .` | clean |
 | Types | `mypy` (772 files), `tsc` (api-client and web) | clean |
 | Spec and config | `scripts/verify_spec.py`, `ce config validate --env dev` / `--env prod` | 0 errors, 0 warnings |
 | Demo | `make demo` | done in 325 s: plan, previz, approve, build, edit, template, translation, packaging, export guard |
-| Playwright | `CE_E2E_CHROME=… playwright test` (9 specs) | see the run record below |
+| Playwright | `CE_E2E_CHROME=… playwright test` (9 specs) | 8 passed; create-to-play BLOCKED at H.264 playback |
 
 Run record (final commit):
 
-<!-- REGRESSION-RECORD -->
+- **Python, full suite** (`CE_REQUIRE_INFRA=1 uv run pytest`, code at `6e5b612`, infrastructure up):
+  **1841 passed, 0 failed, 80 skipped** in 54 min 38 s, exit 0. The skips:
+  - 66 tests read engine documents (ADRs, DECISIONS, INVARIANTS, …) that live only in the phase bundles. Re-run
+    with `CE_DOCS_DIR` set to the regenerated Phase 14 bundle's `docs/`, all 148 tests of those 5 files pass.
+  - 14 tests need CPU-engine assets (`make fetch-cpu-assets`), which cannot be downloaded here.
+
+  In all: **1907 passed, 14 skipped, 0 failed.**
+- **Web:** `pnpm --filter @ce/web run test`: **144 passed in 34 files** (90 before this audit's web fixes, then
+  54 new).
+- **Lint and types:**
+  - ruff check and format: clean;
+  - mypy: 772 source files, no issues;
+  - eslint and prettier: clean;
+  - tsc for the api-client and the web app: clean.
+- **Spec and config:** `verify_spec.py` reports 14 phases and 0 errors; `ce config validate`, dev and prod:
+  114 files, 0 errors, 0 warnings.
+- **Demo:** `make demo` passes end to end in 325 s: plan, previz, approve, build, edit, template, German
+  translation, packaging, export guard.
+- **Playwright** (9 specs, web rebuilt at `6e5b612`): **8 passed.** The ninth, `create-to-play`, passes every step
+  up to `play()`, then stops with "this browser cannot decode H.264" (BLOCKED — ENVIRONMENT, unchanged from the
+  baseline). The responsive spec caught E2E-RESPONSIVE on the first run; it passes after the fix, at 4 of 4 widths.
 
 ## 30. GPU Readiness Decision
 

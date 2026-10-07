@@ -104,6 +104,11 @@ and every produced file was checked: frames, audio pitch, captions, durations an
   (E2E-RESPONSIVE) and was caught by the responsive Playwright spec and fixed.
 - **GPU readiness:** YELLOW.
 
-Details: [`PRODUCT_LOGIC_AUDIT_REPORT.md`](../PRODUCT_LOGIC_AUDIT_REPORT.md). The final regression numbers are
-in its section 29.
+**Final regression:**
+- Python: 1907 passed, 14 skipped (CPU-engine assets), 0 failed;
+- web: 144 tests;
+- lint, typecheck, `verify-spec`, `verify-config` and `make demo` pass;
+- Playwright: 8 of 9 specs pass; `create-to-play` stops only at H.264 playback.
+
+Details: [`PRODUCT_LOGIC_AUDIT_REPORT.md`](../PRODUCT_LOGIC_AUDIT_REPORT.md).
 
