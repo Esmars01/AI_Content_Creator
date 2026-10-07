@@ -117,6 +117,13 @@ async def test_creator_identity_voice_wardrobe_then_test_then_approve(stack: Sta
     # it was stored empty, and every video with this voice then failed to plan (audit CR-VOICE-TRANSCRIPT)
     reference = selected.json()["references"][0]
     assert reference["transcript"] == api.services.config.studio.voice_test_text
+    # a second Select of the same candidate (a double click) returns the open draft, not another one,
+    # and the list marks that candidate alone as selected (audit D14)
+    again = await editor.client.post(f"/v1/voices/{voice_id}/candidates/{candidates[0]['id']}:select")
+    assert again.status_code == 201 and again.json()["id"] == voice_version
+    marked = (await editor.client.get(f"/v1/voices/{voice_id}/candidates")).json()
+    assert [c["selected"] for c in marked] == [True, False]
+    assert len((await editor.client.get(f"/v1/voices/{voice_id}")).json()["versions"]) == 1
     patched = await editor.client.patch(
         f"/v1/voice-versions/{voice_version}", json={"lexicon": [{"term": "Robin", "respelling": "ROB-in"}]}
     )

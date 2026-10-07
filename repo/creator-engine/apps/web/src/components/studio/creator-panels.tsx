@@ -981,7 +981,10 @@ function VoiceCard({ voiceId, name }: { voiceId: string; name: string }) {
           params: { path: { voice_id: voiceId, candidate_id: candidateId } },
         }),
       ),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["voice", voiceId] }),
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: ["voice", voiceId] });
+      await client.invalidateQueries({ queryKey: ["voice-candidates", voiceId] });
+    },
   });
   const versions = voice.data?.versions ?? [];
   const latest = versions[versions.length - 1];
@@ -1012,7 +1015,7 @@ function VoiceCard({ voiceId, name }: { voiceId: string; name: string }) {
                     {c.selected ? " · selected" : ""}
                   </Td>
                   <Td>
-                    <Button size="sm" variant="outline" onClick={() => select.mutate(c.id)}>
+                    <Button size="sm" variant="outline" onClick={() => select.mutate(c.id)} disabled={select.isPending}>
                       Select
                     </Button>
                   </Td>

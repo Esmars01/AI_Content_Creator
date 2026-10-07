@@ -379,8 +379,25 @@ async def select_voice_candidate(
     asset_id = (await _candidate_assets(session, principal.org_id, [candidate])).get(candidate.artifact_id)
     if asset_id is None:
         raise ConflictError("the candidate's audio is not available as an asset")
+    latest = (
+        await session.execute(
+            sa.select(VoiceVersion)
+            .where(VoiceVersion.voice_id == voice.id)
+            .order_by(VoiceVersion.number.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    same_reference = latest is not None and [r.get("asset_id") for r in latest.references] == [str(asset_id)]
+    if latest is not None and latest.status == "draft" and same_reference:
+        # selecting the same candidate again (a double click) returns its open draft, not a second one
+        return VoiceVersionDetail.model_validate(latest)
     job = await session.get(GenerationJob, candidate.job_id) if candidate.job_id else None
     inputs = dict(job.input or {}) if job else {}
+    await session.execute(
+        sa.update(VoiceCandidate)
+        .where(VoiceCandidate.voice_id == voice.id, VoiceCandidate.id != candidate.id)
+        .values(selected=False)
+    )
     candidate.selected = True
     row = VoiceVersion(
         org_id=principal.org_id,
