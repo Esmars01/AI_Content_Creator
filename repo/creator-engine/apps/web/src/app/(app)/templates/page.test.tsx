@@ -103,3 +103,33 @@ describe("double submits (D13, D15)", () => {
     expect(calls("/v1/brand-kits")).toBe(1);
   });
 });
+
+describe("version picker (TPL-UUID)", () => {
+  it("applies a template to a video picked by project and title, no UUID typed", async () => {
+    // Regression: the only way to say which version was to paste its UUID.
+    get.mockReset();
+    post.mockReset();
+    get.mockImplementation((path: string) => {
+      if (path === "/v1/spec-templates") return ok({ items: [TEMPLATE] });
+      if (path === "/v1/spec-templates/{spec_template_id}") return ok(TEMPLATE);
+      if (path === "/v1/projects") return ok({ items: [{ id: "p1", name: "Launch" }] });
+      if (path === "/v1/projects/{project_id}/videos")
+        return ok({ items: [{ id: "vid1", title: "Sleep tips", current_version_id: "ver7" }] });
+      return ok({ items: [] });
+    });
+    post.mockImplementation(() => ok({ operations: [{ op: "set_captions" }] }));
+    render(wrap(<TemplatesPage />));
+    fireEvent.click(await screen.findByRole("button", { name: "Bold captions" }));
+    await screen.findByLabelText("Apply to version (id)");
+    const project = document.getElementById("apply-project") as HTMLSelectElement;
+    await screen.findAllByRole("option", { name: "Launch" });
+    fireEvent.change(project, { target: { value: "p1" } });
+    await screen.findAllByRole("option", { name: "Sleep tips" });
+    const video = document.getElementById("apply-video") as HTMLSelectElement;
+    fireEvent.change(video, { target: { value: "ver7" } });
+    expect((screen.getByLabelText("Apply to version (id)") as HTMLInputElement).value).toBe("ver7");
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    expect((post.mock.calls[0]?.[1] as Init).body?.version_id).toBe("ver7");
+  });
+});

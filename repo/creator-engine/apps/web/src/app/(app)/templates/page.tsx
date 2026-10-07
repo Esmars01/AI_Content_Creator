@@ -19,7 +19,7 @@ import { Alert, Empty, Skeleton, Table, Td, Th } from "@/components/ui/misc";
 import { api, idempotencyKey, unwrap } from "@/lib/api";
 import { humanize, when } from "@/lib/format";
 import { TEMPLATE_KINDS, templateSlots } from "@/lib/phase12";
-import { useTemplate, useTemplates } from "@/lib/queries";
+import { useProjectVideos, useProjects, useTemplate, useTemplates } from "@/lib/queries";
 import { useCan } from "@/lib/roles";
 
 function SlotList({ body }: { body: Record<string, unknown> }) {
@@ -34,6 +34,49 @@ function SlotList({ body }: { body: Record<string, unknown> }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+/**
+ * Picks a video's current version by project and title, so a template is applied or saved without
+ * copying a version UUID from the address bar (audit TPL-UUID). The id field stays for any version.
+ */
+function VersionPicker({ idPrefix, onPick }: { idPrefix: string; onPick: (versionId: string) => void }) {
+  const projects = useProjects();
+  const [projectId, setProjectId] = useState("");
+  const videos = useProjectVideos(projectId || null);
+  const items = (videos.data?.items ?? []).filter((v) => v.current_version_id);
+  return (
+    <div className="flex flex-wrap items-end gap-2 text-sm">
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`${idPrefix}-project`}>Project</Label>
+        <Select id={`${idPrefix}-project`} value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+          <option value="">Choose…</option>
+          {(projects.data?.items ?? []).map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`${idPrefix}-video`}>Video (its current version)</Label>
+        <Select
+          id={`${idPrefix}-video`}
+          defaultValue=""
+          disabled={!projectId}
+          onChange={(e) => e.target.value && onPick(e.target.value)}
+          key={projectId}
+        >
+          <option value="">Choose…</option>
+          {items.map((v) => (
+            <option key={v.id} value={v.current_version_id ?? ""}>
+              {v.title || "Untitled"}
+            </option>
+          ))}
+        </Select>
+      </div>
+    </div>
   );
 }
 
@@ -112,6 +155,7 @@ function TemplateDetail({ id, onClose }: { id: string; onClose: () => void }) {
             {t.conflicts.map((c) => `${c.path} → ${JSON.stringify(c.winner)}`).join("; ")}
           </Alert>
         ) : null}
+        <VersionPicker idPrefix="apply" onPick={setVersionId} />
         <form
           className="flex items-end gap-2"
           onSubmit={(e) => {
@@ -273,6 +317,9 @@ function CreateTemplate() {
           </div>
           {source === "version" ? (
             <>
+              <div className="col-span-2">
+                <VersionPicker idPrefix="tpl" onPick={setVersionId} />
+              </div>
               <div className="flex flex-col gap-1">
                 <Label htmlFor="tpl-version">Version id</Label>
                 <Input
