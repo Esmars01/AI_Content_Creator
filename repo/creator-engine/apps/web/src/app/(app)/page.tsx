@@ -83,7 +83,7 @@ function RunningJobs() {
     <ul className="flex flex-col gap-3">
       {jobs.map((job) => (
         <li key={job.id} className="flex flex-col gap-1">
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-1 text-sm">
             <Link className="text-blue-800 hover:underline" href={`/jobs/${job.id}`}>
               {humanize(job.kind)}
             </Link>
