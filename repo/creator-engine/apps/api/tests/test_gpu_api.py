@@ -81,15 +81,21 @@ async def test_members_read_pools_workers_and_offers_admins_manage_the_fleet(
     row = next(w for w in listed if w["id"] == worker["worker_id"])
     assert row["state"] == "provisioning" and row["pool_id"] == "admin:mock" and row["provider_kind"] == "mock"
     assert "token_hash" not in row
-    stopped = await admin.client.post(f"/v1/admin/gpu/workers/{worker['worker_id']}:stop", json={})
+    unconfirmed = await admin.client.post(f"/v1/admin/gpu/workers/{worker['worker_id']}:stop", json={})
+    assert unconfirmed.status_code == 422 and unconfirmed.json()["issues"][0]["code"] == "confirm"
+    stopped = await admin.client.post(
+        f"/v1/admin/gpu/workers/{worker['worker_id']}:stop", json={"confirm": worker["worker_id"]}
+    )
     assert stopped.status_code == 200 and stopped.json()["state"] == "terminated"
     async with harness.services.db.session() as session:
         state = (await session.execute(sa.select(GpuWorker.state).where(GpuWorker.id == worker["worker_id"]))).scalar()
         costs = (
             await session.execute(sa.select(sa.func.count()).where(FleetCost.worker_id == worker["worker_id"]))
         ).scalar()
-    assert state == "stopped" and costs == 1
-    again = await admin.client.post(f"/v1/admin/gpu/workers/{worker['worker_id']}:stop", json={})
+    assert state == "terminated" and costs == 1
+    again = await admin.client.post(
+        f"/v1/admin/gpu/workers/{worker['worker_id']}:stop", json={"confirm": worker["worker_id"]}
+    )
     assert again.status_code == 409
 
     # provider rows: no secrets in config, kinds validated, paid spending needs an explicit, noted PATCH
@@ -218,3 +224,96 @@ async def test_the_scheduler_refuses_fleet_calls_without_the_admin_token(
     assert (await scheduler.get("/internal/v1/admin/fleet/status")).status_code == 401
     forged = await scheduler.get("/internal/v1/admin/fleet/status", headers={"X-Admin-Token": "0" * 64})
     assert forged.status_code == 401
+
+
+async def test_operators_stop_start_restart_refresh_and_terminate_workers(
+    harness: ApiHarness, owner: ApiTenant, scheduler: httpx.AsyncClient
+) -> None:
+    admin = await _admin(harness, owner)
+    done = await admin.client.post(
+        "/v1/admin/gpu/workers:provision",
+        json={"provider": "mock", "gpu_class": "mock_gpu", "runtime_family": "cpu_model", "count": 1},
+    )
+    worker_id = done.json()["provisioned"][0]["worker_id"]
+    for action in ("start", "restart", "refresh"):  # members cannot act on the fleet
+        assert (await owner.client.post(f"/v1/admin/gpu/workers/{worker_id}:{action}")).status_code == 403
+
+    def row(listed: list[dict[str, Any]]) -> dict[str, Any]:
+        return next(w for w in listed if w["id"] == worker_id)
+
+    assert row((await owner.client.get("/v1/gpu/workers")).json())["actions"] == [
+        "refresh", "restart", "stop", "terminate",
+    ]  # fmt: skip
+    refreshed = await admin.client.post(f"/v1/admin/gpu/workers/{worker_id}:refresh")
+    assert refreshed.status_code == 200 and refreshed.json()["provider_status"]["state"] in ("provisioning", "running")
+    assert (await admin.client.post(f"/v1/admin/gpu/workers/{worker_id}:start")).status_code == 409  # not stopped
+
+    stopped = await admin.client.post(f"/v1/admin/gpu/workers/{worker_id}:stop", json={"action": "stop"})
+    assert stopped.status_code == 200, stopped.text
+    listed = row((await owner.client.get("/v1/gpu/workers")).json())  # stopped workers stay visible
+    assert listed["state"] == "stopped" and listed["actions"] == ["refresh", "start", "terminate"]
+    assert worker_id in {
+        w["id"] for w in (await owner.client.get("/v1/gpu/workers", params={"scope": "stopped"})).json()
+    }
+    assert worker_id not in {
+        w["id"] for w in (await owner.client.get("/v1/gpu/workers", params={"scope": "live"})).json()
+    }
+
+    started = await admin.client.post(f"/v1/admin/gpu/workers/{worker_id}:start")
+    assert started.status_code == 200 and started.json()["state"] == "provisioning"
+    restarted = await admin.client.post(f"/v1/admin/gpu/workers/{worker_id}:restart")
+    assert restarted.status_code == 200, restarted.text
+
+    terminated = await admin.client.post(
+        f"/v1/admin/gpu/workers/{worker_id}:stop", json={"action": "terminate", "confirm": worker_id}
+    )
+    assert terminated.status_code == 200 and terminated.json()["state"] == "terminated"
+    assert worker_id not in {w["id"] for w in (await owner.client.get("/v1/gpu/workers")).json()}
+    gone = row((await owner.client.get("/v1/gpu/workers", params={"scope": "terminated"})).json())
+    assert gone["terminated_at"] and gone["actions"] == []
+    async with harness.services.db.session() as session:
+        actions = set(
+            (await session.execute(sa.select(AuditLog.action).where(AuditLog.target_id == worker_id))).scalars()
+        )
+    assert {"gpu_worker.start", "gpu_worker.restart", "gpu_worker.stop"} <= actions
+
+
+async def test_providers_are_tested_read_only_and_deleted_only_without_history(
+    harness: ApiHarness, owner: ApiTenant, scheduler: httpx.AsyncClient
+) -> None:
+    admin = await _admin(harness, owner)
+    created = await admin.client.post(
+        "/v1/admin/gpu/providers", json={"kind": "mock", "name": "sim-test-delete", "enabled": True}
+    )
+    assert created.status_code == 201, created.text
+    provider_id = created.json()["id"]
+    assert harness.services.scheduler is not None
+    await scheduler.post("/internal/v1/admin/fleet/reload", headers={"X-Admin-Token": harness.services.scheduler.token})
+    tested = await admin.client.post(f"/v1/admin/gpu/providers/{provider_id}:test")
+    assert tested.status_code == 200, tested.text
+    assert tested.json()["healthy"] is True and tested.json()["offers"] > 0 and "mock_gpu" in tested.json()["classes"]
+    listed = (await admin.client.get("/v1/admin/gpu/providers")).json()
+    row = next(r for r in listed["rows"] if r["id"] == provider_id)
+    assert row["paid_approved"] is False and row["spent_today_usd"] == 0
+    assert "skipped" in listed
+    assert (await admin.client.get("/v1/admin/gpu/orphans")).json() == []  # the mock cannot list instances
+
+    wrong = await admin.client.request(
+        "DELETE", f"/v1/admin/gpu/providers/{provider_id}", json={"confirm": "another name"}
+    )
+    assert wrong.status_code == 422
+    async with harness.services.db.transaction() as session:  # a worker on record: history is kept
+        worker = GpuWorker(provider_id=provider_id, runtime_family="cpu_model", gpu_type="mock_gpu", state="terminated")
+        session.add(worker)
+    kept = await admin.client.request(
+        "DELETE", f"/v1/admin/gpu/providers/{provider_id}", json={"confirm": "sim-test-delete"}
+    )
+    assert kept.status_code == 409
+    async with harness.services.db.transaction() as session:
+        await session.execute(sa.delete(GpuWorker).where(GpuWorker.provider_id == provider_id))
+    deleted = await admin.client.request(
+        "DELETE", f"/v1/admin/gpu/providers/{provider_id}", json={"confirm": "sim-test-delete"}
+    )
+    assert deleted.status_code == 204
+    async with harness.services.db.session() as session:
+        assert await session.get(GpuProvider, provider_id) is None

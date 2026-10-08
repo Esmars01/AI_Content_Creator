@@ -231,6 +231,12 @@ class FleetConfig(Strict):
         default_factory=dict,
         description="extra environment for provisioned workers (no secrets: those come from the provider)",
     )
+    reconcile_interval_s: PositiveFloat = Field(
+        default=120.0,
+        description="how often the leader compares every provisioned worker with its provider's view (gone, "
+        "stopped or failed outside the platform) and looks for instances it lost track of",
+    )
+    reconcile_batch: Annotated[int, Field(ge=1, le=1000)] = 50
 
 
 class SchedulerConfig(Strict):

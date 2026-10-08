@@ -1,39 +1,39 @@
 "use client";
-/** GPU (§31, Phase 9): pools, workers and offers for members; providers, provisioning, stopping,
- * enrollment and the live queue for platform admins. Paid providers stay off until the owner
- * approves spending (a noted PATCH); this page never enables them by itself. */
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+/** GPU (§31, Phase 9; operations console, production cutover): pools, workers with their real
+ * telemetry and offers for members; providers (create, edit, test, approve spending, delete),
+ * provisioning, worker start/stop/restart/refresh/terminate, orphans, enrollment and the live queue
+ * for platform admins. Paid providers stay off until the owner approves spending (a noted change);
+ * this page never enables them by itself and never offers a simulated provider by default. */
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { PageHeader } from "@/components/app-shell";
+import { Providers } from "@/components/gpu/providers";
+import { Provision } from "@/components/gpu/provision";
+import { errorText, POLL_MS, Workers } from "@/components/gpu/workers";
 import { StateBadge } from "@/components/state-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Input, Label } from "@/components/ui/input";
 import { Alert, Empty, Progress, Skeleton, Table, Td, Th } from "@/components/ui/misc";
-import { api, ApiError, unwrap } from "@/lib/api";
-import { humanize, usd, when } from "@/lib/format";
-import { coldStart, holdLabel, isFleetWorker, poolState, spendState } from "@/lib/gpu";
+import { api, unwrap } from "@/lib/api";
+import { usd } from "@/lib/format";
+import { holdLabel, poolState, spendState } from "@/lib/gpu";
 import { useMe } from "@/lib/queries";
-
-const FAMILIES = ["cpu_model", "image", "wan", "tts", "asr", "audio", "lipsync", "vision", "post", "vllm"] as const;
 
 const gpuKeys = {
   pools: ["gpu", "pools"] as const,
-  workers: ["gpu", "workers"] as const,
-  offers: ["gpu", "offers"] as const,
-  providers: ["gpu", "providers"] as const,
   queue: ["gpu", "queue"] as const,
 };
 
-function errorText(error: unknown): string {
-  if (error instanceof ApiError) return error.problem?.detail ?? error.message;
-  return error instanceof Error ? error.message : String(error);
-}
-
 function Pools() {
-  const pools = useQuery({ queryKey: gpuKeys.pools, queryFn: () => unwrap(api.GET("/v1/gpu/pools")), retry: false });
+  const pools = useQuery({
+    queryKey: gpuKeys.pools,
+    queryFn: () => unwrap(api.GET("/v1/gpu/pools")),
+    retry: false,
+    refetchInterval: POLL_MS,
+  });
   return (
     <Card>
       <CardHeader>
@@ -89,89 +89,44 @@ function Pools() {
   );
 }
 
-function Workers({ admin }: { admin: boolean }) {
-  const client = useQueryClient();
-  const workers = useQuery({ queryKey: gpuKeys.workers, queryFn: () => unwrap(api.GET("/v1/gpu/workers")) });
-  const stop = useMutation({
-    mutationFn: (id: string) =>
+function Offers() {
+  const [gpuClass, setGpuClass] = useState("");
+  const [region, setRegion] = useState("");
+  const offers = useQuery({
+    queryKey: ["gpu", "offers", gpuClass, region],
+    queryFn: () =>
       unwrap(
-        api.POST("/v1/admin/gpu/workers/{worker_id}:stop", {
-          params: { path: { worker_id: id } },
-          body: { action: "terminate" },
+        api.GET("/v1/gpu/offers", {
+          params: { query: { gpu_class: gpuClass.trim() || undefined, region: region.trim() || undefined } },
         }),
       ),
-    onSettled: () => client.invalidateQueries({ queryKey: ["gpu"] }),
+    retry: false,
   });
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Workers</CardTitle>
-        <CardDescription>Live workers. Prices are captured from the provider at provision time.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {stop.error ? <Alert tone="danger">{errorText(stop.error)}</Alert> : null}
-        {workers.isLoading ? <Skeleton className="h-24" /> : null}
-        {workers.data?.length ? (
-          <Table>
-            <thead>
-              <tr>
-                <Th>Worker</Th>
-                <Th>State</Th>
-                <Th>Class</Th>
-                <Th>Price</Th>
-                <Th>Cold start</Th>
-                <Th>Heartbeat</Th>
-                {admin ? <Th /> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {workers.data.map((w) => (
-                <tr key={w.id}>
-                  <Td>
-                    <div>{w.external_id ?? w.id}</div>
-                    <div className="text-xs text-slate-600">
-                      {w.provider_kind ?? "static"} · {humanize(w.runtime_family)}
-                      {w.variant ? `:${w.variant}` : ""} · {w.pool_id ?? "no pool"}
-                    </div>
-                  </Td>
-                  <Td>
-                    <StateBadge state={w.state} />
-                  </Td>
-                  <Td className="text-xs">{w.gpu_type}</Td>
-                  <Td>{usd(w.price_per_hour_usd)}/h</Td>
-                  <Td>{coldStart(w)}</Td>
-                  <Td className="text-xs">{when(w.last_heartbeat_at)}</Td>
-                  {admin ? (
-                    <Td>
-                      {isFleetWorker(w) ? (
-                        <Button size="sm" variant="outline" disabled={stop.isPending} onClick={() => stop.mutate(w.id)}>
-                          Stop
-                        </Button>
-                      ) : null}
-                    </Td>
-                  ) : null}
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        ) : workers.data ? (
-          <Empty>No live workers.</Empty>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
-function Offers() {
-  const offers = useQuery({ queryKey: gpuKeys.offers, queryFn: () => unwrap(api.GET("/v1/gpu/offers")), retry: false });
-  return (
-    <Card>
-      <CardHeader>
         <CardTitle>Offers</CardTitle>
-        <CardDescription>What the configured providers offer now. Paid offers cost money when used.</CardDescription>
+        <CardDescription>
+          Live offers of the configured providers (a marketplace search: prices change). Paid offers cost money when
+          rented.
+        </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="offer-class">GPU class</Label>
+            <Input id="offer-class" className="w-44" value={gpuClass} onChange={(e) => setGpuClass(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="offer-region">Region</Label>
+            <Input id="offer-region" className="w-28" value={region} onChange={(e) => setRegion(e.target.value)} />
+          </div>
+          <Button variant="outline" disabled={offers.isFetching} onClick={() => void offers.refetch()}>
+            {offers.isFetching ? "Searching…" : "Refresh"}
+          </Button>
+        </div>
         {offers.error ? <Alert tone="warning">{errorText(offers.error)}</Alert> : null}
+        {offers.isLoading ? <Skeleton className="h-16" /> : null}
         {offers.data?.length ? (
           <Table>
             <thead>
@@ -181,26 +136,29 @@ function Offers() {
                 <Th>Region</Th>
                 <Th>VRAM</Th>
                 <Th>Price</Th>
+                <Th>Driver</Th>
                 <Th>Available</Th>
               </tr>
             </thead>
             <tbody>
-              {offers.data.map((o) => (
-                <tr key={`${o.provider}-${o.gpu_class}-${o.region}`}>
+              {offers.data.map((o, index) => (
+                <tr key={`${o.provider}-${o.gpu_class}-${o.region}-${index}`}>
                   <Td>
                     {o.provider} {o.paid ? <Badge variant="outline">paid</Badge> : null}
+                    {o.spot ? <Badge variant="outline">interruptible</Badge> : null}
                   </Td>
                   <Td className="text-xs">{o.gpu_class}</Td>
                   <Td className="text-xs">{o.region}</Td>
                   <Td>{o.vram_gb} GB</Td>
                   <Td>{usd(o.price_per_hour_usd)}/h</Td>
+                  <Td className="text-xs">{o.driver_version ?? "not reported"}</Td>
                   <Td>{o.available}</Td>
                 </tr>
               ))}
             </tbody>
           </Table>
         ) : offers.data ? (
-          <Empty>No offers.</Empty>
+          <Empty>No offers from the configured providers{gpuClass || region ? " for this filter" : ""}.</Empty>
         ) : null}
       </CardContent>
     </Card>
@@ -208,7 +166,11 @@ function Offers() {
 }
 
 function Queue() {
-  const queue = useQuery({ queryKey: gpuKeys.queue, queryFn: () => unwrap(api.GET("/v1/admin/gpu/queue")) });
+  const queue = useQuery({
+    queryKey: gpuKeys.queue,
+    queryFn: () => unwrap(api.GET("/v1/admin/gpu/queue")),
+    refetchInterval: POLL_MS,
+  });
   const spend = spendState(queue.data?.spend);
   return (
     <Card>
@@ -267,147 +229,6 @@ function Queue() {
   );
 }
 
-function Provision() {
-  const client = useQueryClient();
-  const [provider, setProvider] = useState("mock");
-  const [gpuClass, setGpuClass] = useState("mock_gpu");
-  const [family, setFamily] = useState<(typeof FAMILIES)[number]>("cpu_model");
-  const run = useMutation({
-    mutationFn: () =>
-      unwrap(
-        api.POST("/v1/admin/gpu/workers:provision", {
-          body: { provider, gpu_class: gpuClass, runtime_family: family, count: 1 },
-        }),
-      ),
-    onSettled: () => client.invalidateQueries({ queryKey: ["gpu"] }),
-  });
-  const enroll = useMutation({
-    mutationFn: () => unwrap(api.POST("/v1/admin/gpu/workers:enroll", { body: { runtime_family: family } })),
-  });
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    run.mutate();
-  }
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Provision or enroll</CardTitle>
-        <CardDescription>
-          Provision one worker now, or issue a one-time token for a self-managed host (WORKER_TOKEN).
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <form className="flex flex-wrap items-end gap-2" onSubmit={submit}>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="provider">Provider</Label>
-            <Input id="provider" className="w-40" value={provider} onChange={(e) => setProvider(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="gpu-class">GPU class</Label>
-            <Input id="gpu-class" className="w-48" value={gpuClass} onChange={(e) => setGpuClass(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="family">Runtime family</Label>
-            <Select id="family" value={family} onChange={(e) => setFamily(e.target.value as (typeof FAMILIES)[number])}>
-              {FAMILIES.map((f) => (
-                <option key={f} value={f}>
-                  {f}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <Button type="submit" disabled={run.isPending}>
-            Provision
-          </Button>
-          <Button type="button" variant="outline" disabled={enroll.isPending} onClick={() => enroll.mutate()}>
-            Issue enrollment token
-          </Button>
-        </form>
-        {run.error ? <Alert tone="danger">{errorText(run.error)}</Alert> : null}
-        {run.data ? (
-          <Alert tone={run.data.provisioned.length ? "success" : "warning"}>
-            {run.data.provisioned.length
-              ? `Provisioned ${run.data.provisioned.map((p) => p.external_id).join(", ")}`
-              : "Nothing provisioned"}
-            {run.data.attempts.length ? ` — tried: ${run.data.attempts.join("; ")}` : ""}
-          </Alert>
-        ) : null}
-        {enroll.error ? <Alert tone="danger">{errorText(enroll.error)}</Alert> : null}
-        {enroll.data ? (
-          <Alert tone="info">
-            Shown once, valid until {when(enroll.data.expires_at)}:{" "}
-            <code className="break-all font-mono text-xs">{enroll.data.token}</code>
-          </Alert>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
-function Providers() {
-  const providers = useQuery({
-    queryKey: gpuKeys.providers,
-    queryFn: () => unwrap(api.GET("/v1/admin/gpu/providers")),
-  });
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Providers</CardTitle>
-        <CardDescription>
-          Configured rows (credentials are references such as env:RUNPOD_API_KEY, never values) and the installed
-          provider plugins. Paid providers need an enabled row and the owner&apos;s noted approval (allow_paid).
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {providers.isLoading ? <Skeleton className="h-16" /> : null}
-        {providers.data ? (
-          <>
-            <div className="flex flex-wrap gap-2 text-sm">
-              {providers.data.registered.map((r) => (
-                <Badge key={r.key} variant="outline">
-                  {r.key}
-                  {r.paid ? " · paid" : ""}
-                  {r.mock ? " · simulated" : ""}
-                </Badge>
-              ))}
-            </div>
-            {providers.data.rows.length ? (
-              <Table>
-                <thead>
-                  <tr>
-                    <Th>Name</Th>
-                    <Th>Kind</Th>
-                    <Th>Enabled</Th>
-                    <Th>Paid spending</Th>
-                    <Th>Daily cap</Th>
-                    <Th>Loaded</Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {providers.data.rows.map((p) => (
-                    <tr key={p.id}>
-                      <Td>{p.name}</Td>
-                      <Td className="text-xs">{p.kind}</Td>
-                      <Td>{p.enabled ? "yes" : "no"}</Td>
-                      <Td>{p.paid ? (p.config?.allow_paid ? "approved" : "off") : "—"}</Td>
-                      <Td>{p.budget_daily_usd != null ? usd(p.budget_daily_usd) : "—"}</Td>
-                      <Td className="text-xs">
-                        {p.loaded == null ? "unknown" : p.loaded ? (p.healthy ? "healthy" : p.health_detail) : "no"}
-                      </Td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-            ) : (
-              <Empty>No provider rows: only the free providers (simulated, local) are in use.</Empty>
-            )}
-          </>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
 export default function GpuPage() {
   const me = useMe();
   const admin = Boolean(me.data?.user.is_platform_admin);
@@ -415,7 +236,7 @@ export default function GpuPage() {
     <>
       <PageHeader
         title="GPU"
-        description="The fleet: pools scale with the queue, idle workers stop, and budgets hold low-priority work."
+        description="The fleet: providers, workers and their telemetry, pools that scale with the queue, and budgets that hold low-priority work."
       />
       <div className="flex flex-col gap-4">
         {admin ? <Queue /> : null}

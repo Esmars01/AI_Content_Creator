@@ -26,15 +26,16 @@ from ce_db.models.assets import ExecutionNode, GenerationJob, GpuTask, JobAttemp
 from ce_db.models.platform import FleetCost, GpuProvider, GpuWorker, WorkerEnrollmentToken
 from ce_db.models.videos import Video
 from ce_db.session import Database
+from ce_gpu.provider import ProvisionSpec
 from ce_plugin_gpu_example_cloud.provider import ExampleCloudProvider
 from ce_plugin_gpu_mock.provider import MockGPUProvider
-from ce_scheduler.fleet import FleetManager, driver_at_least
+from ce_scheduler.fleet import FleetActionError, FleetManager, driver_at_least
 from ce_scheduler.providers import FleetProvider, load_providers, resolve_credentials
 from ce_scheduler.service import AuthError, Scheduler
 from ce_testing.database import TestDatabase
 from ce_testing.fixtures import ALEX
 from ce_testing.seed import example_version_row, seed_dev
-from ce_worker.protocol import LeaseBody, RegisterBody
+from ce_worker.protocol import HeartbeatBody, LeaseBody, RegisterBody
 
 pytestmark = pytest.mark.infra
 
@@ -524,6 +525,170 @@ async def test_a_stopped_worker_is_never_revived_by_its_own_calls(db: Database) 
     assert await fleet.release(worker.worker_id) is not None
     with pytest.raises(AuthError, match="stopped"):
         await sched.lease(worker, LeaseBody(adapters=["mock_voice"], wait_s=0))
-    assert (await _worker(db, worker.worker_id)).state == "stopped"
+    assert (
+        await _worker(db, worker.worker_id)
+    ).state == "terminated"  # release terminates by default (cutover: distinct from stopped)
     with pytest.raises(AuthError):
         await sched.authenticate(reply.token)  # the cache entry is gone and the row has no token
+
+
+# ---------------------------------------------------------------------- operations (production cutover)
+class ListingMock(MockGPUProvider):
+    """The mock provider with the optional instance listing (labels carry the fleet's worker id)."""
+
+    async def list_instances(self) -> list[Any]:
+        out = []
+        for external_id, instance in self.instances.items():
+            spec = self.specs.get(external_id)
+            worker_id = spec.env.get("WORKER_ID") if spec else None
+            out.append(
+                instance.model_copy(update={"detail": {"worker_id": worker_id, "label": f"ce-worker-{worker_id}"}})
+            )
+        return out
+
+
+async def _provisioned(db: Database, fleet: FleetManager, sched: Scheduler, provider: MockGPUProvider) -> Any:
+    await _task(db)
+    external = (await fleet.tick())[0].provisioned[0]
+    reply = await _register(sched, provider.specs[external].env)
+    return external, uuid.UUID(reply.worker_id), provider.specs[external].env
+
+
+async def test_stopped_workers_stay_startable_and_terminate_is_distinct(db: Database) -> None:
+    clock = Clock()
+    provider = _mock()
+    fleet = _fleet(db, {"mock": provider}, clock=clock)
+    sched = _scheduler(db)
+    external, worker_id, env = await _provisioned(db, fleet, sched, provider)
+    assert env["WORKER_ID"] == str(worker_id)  # providers label instances with it
+
+    assert await fleet.release(worker_id, action="stop") is not None
+    row = await _worker(db, worker_id)
+    assert row.state == "stopped" and row.terminated_at is None and provider.instances[external].state == "stopped"
+    assert await fleet.release(worker_id, action="stop") is None  # already stopped
+
+    await fleet.start(worker_id)
+    row = await _worker(db, worker_id)
+    assert row.state == "provisioning" and provider.instances[external].state == "running"
+    again = await _register(sched, env)  # the re-armed enrollment token works once more
+    assert again.worker_id == str(worker_id)
+    with pytest.raises(FleetActionError, match="only a stopped worker"):
+        await fleet.start(worker_id)
+
+    await fleet.release(worker_id, action="stop")
+    assert await fleet.release(worker_id, action="terminate") is not None  # a stopped instance can be destroyed
+    row = await _worker(db, worker_id)
+    assert row.state == "terminated" and row.terminated_at is not None
+    assert provider.instances[external].state == "terminated"
+    assert await fleet.release(worker_id, action="terminate") is None  # nothing left
+
+
+async def test_restart_reboots_an_idle_worker_and_refuses_a_busy_one(db: Database) -> None:
+    clock = Clock()
+    provider = _mock()
+    fleet = _fleet(db, {"mock": provider}, clock=clock)
+    sched = _scheduler(db)
+    _, worker_id, _ = await _provisioned(db, fleet, sched, provider)
+    async with db.transaction() as session:
+        await session.execute(sa.update(GpuWorker).where(GpuWorker.id == worker_id).values(state="busy"))
+    with pytest.raises(FleetActionError, match="idle or provisioning"):
+        await fleet.restart(worker_id)
+    async with db.transaction() as session:
+        await session.execute(sa.update(GpuWorker).where(GpuWorker.id == worker_id).values(state="idle"))
+    await fleet.restart(worker_id)
+    row = await _worker(db, worker_id)
+    assert row.state == "provisioning" and row.registered_at is None
+    async with db.session() as session:
+        costs = (await session.execute(sa.select(FleetCost).where(FleetCost.worker_id == worker_id))).scalars().all()
+    assert len(costs) == 1  # the ended lifetime is on record before the new one starts
+
+
+async def test_reconcile_follows_the_provider(db: Database) -> None:
+    clock = Clock()
+    provider = _mock()
+    fleet = _fleet(db, {"mock": provider}, clock=clock)
+    sched = _scheduler(db)
+    external, worker_id, _ = await _provisioned(db, fleet, sched, provider)
+
+    await provider.stop(external)  # stopped from the provider's console
+    result = await fleet.refresh(worker_id)
+    row = await _worker(db, worker_id)
+    assert result["state"] == "stopped" and row.state == "stopped" and "outside the platform" in (row.last_error or "")
+    assert row.provider_status["state"] == "stopped" and row.provider_checked_at is not None
+
+    await provider.terminate(external)  # destroyed at the provider
+    await fleet.refresh(worker_id)
+    row = await _worker(db, worker_id)
+    assert row.state == "terminated" and row.token_hash is None
+
+    external2, worker2, _ = await _provisioned(db, fleet, sched, provider)
+    provider.instances[external2] = provider.instances[external2].model_copy(update={"state": "terminated"})
+    assert await fleet.reconcile() >= 1  # the leader's sweep finds a live worker whose instance is gone
+    row = await _worker(db, worker2)
+    assert row.state == "failed" and row.terminated_at is not None and "no longer has" in (row.last_error or "")
+
+
+async def test_lost_instances_are_adopted_or_reported_as_orphans(db: Database) -> None:
+    clock = Clock()
+    provider = ListingMock({"classes": {"mock_gpu": {"vram_gb": 96, "price_per_hour_usd": 0.5}}, "regions": ["local"]})
+    fleet = _fleet(db, {"mock": provider}, clock=clock)
+    sched = _scheduler(db)
+    external, worker_id, _ = await _provisioned(db, fleet, sched, provider)
+    async with db.transaction() as session:  # mock instance ids restart per provider: retire earlier tests' rows
+        await session.execute(sa.update(GpuWorker).where(GpuWorker.id != worker_id).values(state="terminated"))
+    assert await fleet.orphans() == []  # tracked
+
+    async with db.transaction() as session:  # a crash between the rental and its bookkeeping
+        await session.execute(
+            sa.update(GpuWorker).where(GpuWorker.id == worker_id).values(external_id=None, state="provisioning")
+        )
+    assert await fleet.orphans() == []  # adopted, not rented again
+    assert (await _worker(db, worker_id)).external_id == external
+
+    stray = ProvisionSpec(gpu_class="mock_gpu", region="local", runtime_family="cpu_model",
+                          env={"WORKER_ID": str(uuid.uuid4())})  # fmt: skip
+    lost = await provider.provision(stray)
+    orphans = await fleet.orphans()
+    assert [o["external_id"] for o in orphans] == [lost.external_id]
+    with pytest.raises(FleetActionError, match="not an orphan"):
+        await fleet.terminate_orphan("mock", external)  # a tracked instance is never touched
+    await fleet.terminate_orphan("mock", lost.external_id)
+    assert provider.instances[lost.external_id].state == "terminated"
+    assert await fleet.orphans() == []
+
+
+async def test_leases_and_heartbeats_record_telemetry_and_task_phase(db: Database) -> None:
+    clock = Clock()
+    provider = _mock()
+    fleet = _fleet(db, {"mock": provider}, clock=clock)
+    sched = _scheduler(db)
+    task_id = await _task(db)
+    (external,) = (await fleet.tick())[0].provisioned
+    reply = await _register(sched, provider.specs[external].env)
+    worker = await sched.authenticate(reply.token)
+    telemetry = {"gpu_util_pct": 87.0, "vram_used_gb": 61.2, "disk": {"free_gb": 120.5, "total_gb": 200.0}}
+    leased = await sched.lease(
+        worker,
+        LeaseBody(adapters=["mock_voice"], wait_s=0, telemetry=telemetry,
+                  model_states={"mock-voice": {"state": "ready"}}),
+    )  # fmt: skip
+    assert leased.tasks
+    row = await _worker(db, worker.worker_id)
+    assert row.telemetry == telemetry and row.telemetry_at is not None
+    assert row.model_states == {"mock-voice": {"state": "ready"}} and row.current_task_id is not None
+    await sched.heartbeat(
+        worker,
+        HeartbeatBody(task_id=leased.tasks[0].task_id, progress=0.4, message="downloading",
+                      phase="fetching_model", detail={"bytes_done": 10, "bytes_total": 100}),
+    )  # fmt: skip
+    async with db.session() as session:
+        task = await session.get_one(GpuTask, uuid.UUID(leased.tasks[0].task_id))
+    assert (task.phase, task.progress, task.progress_message) == ("fetching_model", 0.4, "downloading")
+    assert task.progress_detail == {"bytes_done": 10, "bytes_total": 100}
+    await sched.heartbeat(worker, HeartbeatBody(task_id=leased.tasks[0].task_id, phase="not-a-phase"))
+    async with db.session() as session:
+        assert (await session.get_one(GpuTask, uuid.UUID(leased.tasks[0].task_id))).phase is None
+    # A report without telemetry keeps the last one (an older worker never erases it).
+    await sched.lease(worker, LeaseBody(adapters=["mock_voice"], wait_s=0))
+    assert (await _worker(db, worker.worker_id)).telemetry == telemetry
+    del task_id

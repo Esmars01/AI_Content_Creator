@@ -97,6 +97,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/gpu/orphans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Orphans
+         * @description Instances labeled as the fleet's that no worker tracks (they may still bill).
+         */
+        get: operations["list_orphans_v1_admin_gpu_orphans_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/gpu/orphans:terminate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Terminate Orphan */
+        post: operations["terminate_orphan_v1_admin_gpu_orphans_terminate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/admin/gpu/providers": {
         parameters: {
             query?: never;
@@ -125,11 +162,36 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Provider
+         * @description Deletes a provider row that nothing references; one with workers or costs on record keeps its
+         *     history and can only be disabled (PATCH enabled=false).
+         */
+        delete: operations["delete_provider_v1_admin_gpu_providers__provider_id__delete"];
         options?: never;
         head?: never;
         /** Update Provider */
         patch: operations["update_provider_v1_admin_gpu_providers__provider_id__patch"];
+        trace?: never;
+    };
+    "/v1/admin/gpu/providers/{provider_id}:test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Provider
+         * @description The provider's health call and a live offer search, read-only: nothing is rented or spent.
+         */
+        post: operations["test_provider_v1_admin_gpu_providers__provider_id__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/admin/gpu/queue": {
@@ -146,6 +208,66 @@ export interface paths {
         get: operations["gpu_queue_v1_admin_gpu_queue_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/gpu/workers/{worker_id}:refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Worker
+         * @description Asks the provider about the instance now and reconciles the worker with its answer.
+         */
+        post: operations["refresh_worker_v1_admin_gpu_workers__worker_id__refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/gpu/workers/{worker_id}:restart": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restart Worker
+         * @description Restarts an idle or provisioning worker's container (a reboot in place where the provider can).
+         */
+        post: operations["restart_worker_v1_admin_gpu_workers__worker_id__restart_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/gpu/workers/{worker_id}:start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Worker
+         * @description Starts a stopped worker's instance again (its disk and model cache were kept). Billing resumes.
+         */
+        post: operations["start_worker_v1_admin_gpu_workers__worker_id__start_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1401,7 +1523,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Workers */
+        /**
+         * List Workers
+         * @description Workers, newest first. The default scope (`active`) includes stopped workers (they keep their
+         *     disk and can be started again) and failed ones; `terminated` lists destroyed instances.
+         */
         get: operations["list_workers_v1_gpu_workers_get"];
         put?: never;
         post?: never;
@@ -3220,6 +3346,22 @@ export interface components {
              * Format: uuid
              */
             user_id: string;
+        };
+        /** ActionOut */
+        ActionOut: {
+            /** Provider State */
+            provider_state?: string | null;
+            /** Provider Status */
+            provider_status?: {
+                [key: string]: unknown;
+            } | null;
+            /** State */
+            state: string;
+            /**
+             * Worker Id
+             * Format: uuid
+             */
+            worker_id: string;
         };
         /**
          * AdvancedOptions
@@ -5453,6 +5595,14 @@ export interface components {
              */
             speed: number;
         };
+        /** DeleteProviderBody */
+        DeleteProviderBody: {
+            /**
+             * Confirm
+             * @description repeat the provider's name to confirm
+             */
+            confirm: string;
+        };
         /** DeletionAccepted */
         DeletionAccepted: {
             /**
@@ -7176,6 +7326,21 @@ export interface components {
             /** Plan */
             plan: string;
         };
+        /** OrphanOut */
+        OrphanOut: {
+            /** External Id */
+            external_id: string;
+            /** Label */
+            label?: string | null;
+            /** Price Per Hour Usd */
+            price_per_hour_usd: number;
+            /** Provider */
+            provider: string;
+            /** State */
+            state: string;
+            /** Worker Id */
+            worker_id?: string | null;
+        };
         /**
          * Outcome
          * @description The 12 viewer-level outcomes (§16.4). Only `*_CONFIRMED` counts as delivered (I9).
@@ -8000,8 +8165,21 @@ export interface components {
              * @description the plugin bills (None: the scheduler did not answer)
              */
             paid?: boolean | null;
+            /**
+             * Paid Approved
+             * @description config.allow_paid: the owner approved spending
+             * @default false
+             */
+            paid_approved: boolean;
+            /** Projected Today Usd */
+            projected_today_usd?: number | null;
             /** Regions */
             regions: string[];
+            /**
+             * Spent Today Usd
+             * @description today's spend of this provider's workers
+             */
+            spent_today_usd?: number | null;
         };
         /**
          * ProviderPatch
@@ -8035,6 +8213,28 @@ export interface components {
             /** Regions */
             regions?: string[] | null;
         };
+        /** ProviderTestOut */
+        ProviderTestOut: {
+            /** Cheapest Per Hour Usd */
+            cheapest_per_hour_usd?: number | null;
+            /** Classes */
+            classes?: string[];
+            /** Detail */
+            detail: string;
+            /** Healthy */
+            healthy: boolean;
+            /**
+             * Offers
+             * @description live offers found (a read-only search: nothing rented, nothing spent)
+             */
+            offers: number;
+            /** Offers Error */
+            offers_error?: string | null;
+            /** Provider */
+            provider: string;
+            /** Regions */
+            regions?: string[];
+        };
         /** ProvidersOut */
         ProvidersOut: {
             /**
@@ -8044,6 +8244,13 @@ export interface components {
             registered: components["schemas"]["RegisteredProviderOut"][];
             /** Rows */
             rows: components["schemas"]["ProviderOut"][];
+            /**
+             * Skipped
+             * @description provider key → why the scheduler could not configure it (never a secret)
+             */
+            skipped?: {
+                [key: string]: string;
+            };
         };
         /**
          * ProvisionBody
@@ -9057,7 +9264,11 @@ export interface components {
         /**
          * StopBody
          * @example {
-         *       "action": "terminate"
+         *       "action": "stop"
+         *     }
+         * @example {
+         *       "action": "terminate",
+         *       "confirm": "<the worker id>"
          *     }
          */
         StopBody: {
@@ -9067,6 +9278,11 @@ export interface components {
              * @enum {string}
              */
             action: "terminate" | "stop";
+            /**
+             * Confirm
+             * @description terminate destroys the instance and its disk: repeat the worker id to confirm
+             */
+            confirm?: string | null;
         };
         /** StopOut */
         StopOut: {
@@ -9402,6 +9618,18 @@ export interface components {
          * @enum {string}
          */
         TemporalPrecision: "word" | "segment" | "shot" | "scene";
+        /** TerminateOrphanBody */
+        TerminateOrphanBody: {
+            /**
+             * Confirm
+             * @description repeat the external id to confirm
+             */
+            confirm: string;
+            /** External Id */
+            external_id: string;
+            /** Provider */
+            provider: string;
+        };
         /** TimeAndWeather */
         TimeAndWeather: {
             /** Allowed Times */
@@ -10291,6 +10519,11 @@ export interface components {
         };
         /** WorkerOut */
         WorkerOut: {
+            /**
+             * Actions
+             * @description operator actions this worker's state allows (platform admins)
+             */
+            actions?: string[];
             /** Cached Models */
             cached_models: string[];
             /**
@@ -10298,6 +10531,8 @@ export interface components {
              * @description registration − provision request
              */
             cold_start_s?: number | null;
+            /** Current Task Id */
+            current_task_id?: string | null;
             /** External Id */
             external_id: string | null;
             /** Gpu Count */
@@ -10309,16 +10544,34 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Last Error */
+            last_error?: string | null;
             /** Last Heartbeat At */
             last_heartbeat_at: string | null;
+            /**
+             * Model States
+             * @description per model key: preparation state
+             */
+            model_states?: {
+                [key: string]: unknown;
+            };
             /** Pool Id */
             pool_id: string | null;
             /** Price Per Hour Usd */
             price_per_hour_usd: string;
+            /** Provider Checked At */
+            provider_checked_at?: string | null;
             /** Provider Id */
             provider_id: string | null;
             /** Provider Kind */
             provider_kind: string | null;
+            /**
+             * Provider Status
+             * @description the provider's last view
+             */
+            provider_status?: {
+                [key: string]: unknown;
+            };
             /** Provisioned At */
             provisioned_at: string | null;
             /** Region */
@@ -10335,6 +10588,17 @@ export interface components {
             state: string;
             /** Stopped At */
             stopped_at: string | null;
+            /**
+             * Telemetry
+             * @description the worker's last report (GPU utilization, VRAM, temperature, disk, model cache); a value it did not report is absent, never 0
+             */
+            telemetry?: {
+                [key: string]: unknown;
+            };
+            /** Telemetry At */
+            telemetry_at?: string | null;
+            /** Terminated At */
+            terminated_at?: string | null;
             /** Variant */
             variant: string | null;
             /** Vram Gb */
@@ -10978,6 +11242,140 @@ export interface operations {
             };
         };
     };
+    list_orphans_v1_admin_gpu_orphans_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrphanOut"][];
+                };
+            };
+            /** @description Not signed in, or the session or API key is invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden by role, API-key scope, CSRF or policy */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (another organization's resources are indistinguishable from missing ones) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict: immutable record, failed approval requirements, duplicate */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid input; `issues` lists each finding with its path */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    terminate_orphan_v1_admin_gpu_orphans_terminate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TerminateOrphanBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrphanOut"];
+                };
+            };
+            /** @description Not signed in, or the session or API key is invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden by role, API-key scope, CSRF or policy */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (another organization's resources are indistinguishable from missing ones) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict: immutable record, failed approval requirements, duplicate */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid input; `issues` lists each finding with its path */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     list_providers_v1_admin_gpu_providers_get: {
         parameters: {
             query?: never;
@@ -11112,6 +11510,75 @@ export interface operations {
             };
         };
     };
+    delete_provider_v1_admin_gpu_providers__provider_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteProviderBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in, or the session or API key is invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden by role, API-key scope, CSRF or policy */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (another organization's resources are indistinguishable from missing ones) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict: immutable record, failed approval requirements, duplicate */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid input; `issues` lists each finding with its path */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     update_provider_v1_admin_gpu_providers__provider_id__patch: {
         parameters: {
             query?: never;
@@ -11183,6 +11650,73 @@ export interface operations {
             };
         };
     };
+    test_provider_v1_admin_gpu_providers__provider_id__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderTestOut"];
+                };
+            };
+            /** @description Not signed in, or the session or API key is invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden by role, API-key scope, CSRF or policy */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (another organization's resources are indistinguishable from missing ones) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict: immutable record, failed approval requirements, duplicate */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid input; `issues` lists each finding with its path */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     gpu_queue_v1_admin_gpu_queue_get: {
         parameters: {
             query?: {
@@ -11201,6 +11735,207 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QueueOut"];
+                };
+            };
+            /** @description Not signed in, or the session or API key is invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden by role, API-key scope, CSRF or policy */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (another organization's resources are indistinguishable from missing ones) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict: immutable record, failed approval requirements, duplicate */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid input; `issues` lists each finding with its path */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    refresh_worker_v1_admin_gpu_workers__worker_id__refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                worker_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionOut"];
+                };
+            };
+            /** @description Not signed in, or the session or API key is invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden by role, API-key scope, CSRF or policy */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (another organization's resources are indistinguishable from missing ones) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict: immutable record, failed approval requirements, duplicate */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid input; `issues` lists each finding with its path */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    restart_worker_v1_admin_gpu_workers__worker_id__restart_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                worker_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionOut"];
+                };
+            };
+            /** @description Not signed in, or the session or API key is invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden by role, API-key scope, CSRF or policy */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (another organization's resources are indistinguishable from missing ones) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict: immutable record, failed approval requirements, duplicate */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid input; `issues` lists each finding with its path */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    start_worker_v1_admin_gpu_workers__worker_id__start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                worker_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionOut"];
                 };
             };
             /** @description Not signed in, or the session or API key is invalid */
@@ -16608,6 +17343,7 @@ export interface operations {
         parameters: {
             query?: {
                 state?: string | null;
+                scope?: "live" | "active" | "stopped" | "failed" | "terminated" | "all";
                 limit?: number;
             };
             header?: never;

@@ -22,6 +22,7 @@ from uuid import UUID
 import sqlalchemy as sa
 from ce_core.enums import RuntimeFamily
 from ce_core.errors import ConflictError, InvalidInputError, Issue, NotFoundError, UpstreamUnavailableError
+from ce_db import fleet as fleet_db
 from ce_db.models.assets import GpuTask
 from ce_db.models.platform import GpuProvider, GpuWorker, WorkerEnrollmentToken
 from fastapi import APIRouter, BackgroundTasks, Request
@@ -90,6 +91,21 @@ class WorkerOut(Out):
     last_heartbeat_at: datetime | None
     started_at: datetime | None
     stopped_at: datetime | None
+    terminated_at: datetime | None = None
+    telemetry: dict[str, Any] = Field(
+        default_factory=dict,
+        description="the worker's last report (GPU utilization, VRAM, temperature, disk, model cache); "
+        "a value it did not report is absent, never 0",
+    )
+    telemetry_at: datetime | None = None
+    provider_status: dict[str, Any] = Field(default_factory=dict, description="the provider's last view")
+    provider_checked_at: datetime | None = None
+    model_states: dict[str, Any] = Field(default_factory=dict, description="per model key: preparation state")
+    last_error: str | None = None
+    current_task_id: UUID | None = None
+    actions: list[str] = Field(
+        default_factory=list, description="operator actions this worker's state allows (platform admins)"
+    )
 
 
 class OfferOut(Out):
@@ -117,6 +133,9 @@ class ProviderOut(Out):
     loaded: bool | None = Field(default=None, description="the scheduler configured it from this row")
     healthy: bool | None = None
     health_detail: str | None = None
+    paid_approved: bool = Field(default=False, description="config.allow_paid: the owner approved spending")
+    spent_today_usd: float | None = Field(default=None, description="today's spend of this provider's workers")
+    projected_today_usd: float | None = None
 
 
 class RegisteredProviderOut(Out):
@@ -130,6 +149,9 @@ class RegisteredProviderOut(Out):
 class ProvidersOut(Out):
     rows: list[ProviderOut]
     registered: list[RegisteredProviderOut] = Field(description="installed provider plugins (empty if unreachable)")
+    skipped: dict[str, str] = Field(
+        default_factory=dict, description="provider key → why the scheduler could not configure it (never a secret)"
+    )
 
 
 class QueueTaskOut(Out):
@@ -171,6 +193,33 @@ class ProvisionOut(Out):
 class StopOut(Out):
     worker_id: UUID
     state: str
+
+
+class ActionOut(Out):
+    worker_id: UUID
+    state: str
+    provider_state: str | None = None
+    provider_status: dict[str, Any] | None = None
+
+
+class ProviderTestOut(Out):
+    provider: str
+    healthy: bool
+    detail: str
+    offers: int = Field(description="live offers found (a read-only search: nothing rented, nothing spent)")
+    offers_error: str | None = None
+    cheapest_per_hour_usd: float | None = None
+    classes: list[str] = Field(default_factory=list)
+    regions: list[str] = Field(default_factory=list)
+
+
+class OrphanOut(Out):
+    provider: str
+    external_id: str
+    state: str
+    price_per_hour_usd: float
+    label: str | None = None
+    worker_id: str | None = None
 
 
 class EnrollmentOut(Out):
@@ -227,8 +276,21 @@ class ProvisionBody(Body):
 
 
 class StopBody(Body):
-    model_config = examples([{"action": "terminate"}])
+    model_config = examples([{"action": "stop"}, {"action": "terminate", "confirm": "<the worker id>"}])
     action: Literal["terminate", "stop"] = "terminate"
+    confirm: str | None = Field(
+        default=None, description="terminate destroys the instance and its disk: repeat the worker id to confirm"
+    )
+
+
+class TerminateOrphanBody(Body):
+    provider: str
+    external_id: str
+    confirm: str = Field(description="repeat the external id to confirm")
+
+
+class DeleteProviderBody(Body):
+    confirm: str = Field(description="repeat the provider's name to confirm")
 
 
 class EnrollBody(Body):
@@ -258,11 +320,31 @@ def _check_config(config: dict[str, Any]) -> None:
         )
 
 
+def worker_actions(row: GpuWorker) -> list[str]:
+    """What an operator can do with a worker in its state. Only workers a provider runs (an external
+    id and a provider) can be started, restarted or refreshed; any of those can be terminated."""
+    controlled = bool(row.external_id) and bool(row.provider_kind or row.provider_id) and row.pool_id is not None
+    actions: list[str] = []
+    if row.state == "terminated":
+        return actions
+    if controlled:
+        actions.append("refresh")
+    if row.state == "stopped" and controlled:
+        actions.append("start")
+    if row.state in ("idle", "provisioning") and controlled:
+        actions.append("restart")
+    if row.state in ("idle", "busy", "draining", "provisioning"):
+        actions.append("stop")
+    if row.state in ("idle", "busy", "draining", "provisioning") or (controlled and row.state in ("stopped", "failed")):
+        actions.append("terminate")
+    return actions
+
+
 def _worker_out(row: GpuWorker) -> WorkerOut:
     cold = None
     if row.registered_at and row.provisioned_at:
         cold = round((row.registered_at - row.provisioned_at).total_seconds(), 3)
-    return WorkerOut.model_validate(row).model_copy(update={"cold_start_s": cold})
+    return WorkerOut.model_validate(row).model_copy(update={"cold_start_s": cold, "actions": worker_actions(row)})
 
 
 async def _provider(session: Any, provider_id: UUID) -> GpuProvider:
@@ -285,15 +367,30 @@ async def list_pools(principal: Reader, services: ServicesDep) -> list[PoolOut]:
     return [PoolOut.model_validate(p) for p in status["pools"]]
 
 
+WORKER_SCOPES = {
+    "live": ("provisioning", "idle", "busy", "draining"),
+    "active": ("provisioning", "idle", "busy", "draining", "stopped", "failed"),  # everything not destroyed
+    "stopped": ("stopped",),
+    "failed": ("failed",),
+    "terminated": ("terminated",),
+}
+
+
 @router.get("/v1/gpu/workers", response_model=list[WorkerOut])
 async def list_workers(
-    principal: Reader, session: DbSession, state: str | None = None, limit: Annotated[int, Field(ge=1)] = 200
+    principal: Reader,
+    session: DbSession,
+    state: str | None = None,
+    scope: Literal["live", "active", "stopped", "failed", "terminated", "all"] = "active",
+    limit: Annotated[int, Field(ge=1)] = 200,
 ) -> list[WorkerOut]:
+    """Workers, newest first. The default scope (`active`) includes stopped workers (they keep their
+    disk and can be started again) and failed ones; `terminated` lists destroyed instances."""
     query = sa.select(GpuWorker).order_by(GpuWorker.created_at.desc()).limit(min(limit, 500))
     if state:
         query = query.where(GpuWorker.state == state)
-    else:
-        query = query.where(GpuWorker.state.notin_(("stopped", "failed")))
+    elif scope != "all":
+        query = query.where(GpuWorker.state.in_(WORKER_SCOPES[scope]))
     return [_worker_out(r) for r in (await session.execute(query)).scalars()]
 
 
@@ -317,8 +414,10 @@ async def list_providers(principal: PlatformAdmin, session: DbSession, services:
     paid = {r["key"]: r["paid"] for r in registered}
     by_kind = {p["key"]: p for p in status["providers"]}
     out = []
+    now = services.clock()
     for row in rows:
         state = loaded.get(str(row.id))
+        report = await fleet_db.spend_report(session, now=now, provider_id=row.id)
         out.append(
             ProviderOut.model_validate(row).model_copy(
                 update={
@@ -326,6 +425,9 @@ async def list_providers(principal: PlatformAdmin, session: DbSession, services:
                     "loaded": state is not None if registered else None,
                     "healthy": state["healthy"] if state else None,
                     "health_detail": state["detail"] if state else None,
+                    "paid_approved": bool((row.config or {}).get("allow_paid")),
+                    "spent_today_usd": report.spent_usd,
+                    "projected_today_usd": report.projected_usd,
                 }
             )
         )
@@ -337,6 +439,7 @@ async def list_providers(principal: PlatformAdmin, session: DbSession, services:
             )
             for r in registered
         ],
+        skipped={str(k): str(v) for k, v in dict(status.get("skipped_providers") or {}).items()},
     )
 
 
@@ -473,6 +576,7 @@ async def stop_worker(
     row = await session.get(GpuWorker, worker_id)
     if row is None:
         raise NotFoundError("worker not found", table="gpu_workers")
+    _require_terminate_confirmation(body, worker_id)
     before = {"state": row.state}
     result = await _client(services).stop(str(worker_id), body.action)
     await audit(
@@ -480,6 +584,132 @@ async def stop_worker(
         after={"state": result["state"], "action": body.action},
     )  # fmt: skip
     return StopOut.model_validate(result)
+
+
+def _require_terminate_confirmation(body: StopBody, worker_id: UUID) -> None:
+    if body.action == "terminate" and (body.confirm or "").strip() != str(worker_id):
+        raise InvalidInputError(
+            "terminating destroys the instance and its disk: confirm with the worker id",
+            issues=[Issue("confirm", "repeat the worker id", path="confirm")],
+        )
+
+
+async def _worker_action(
+    action: Literal["start", "restart", "refresh"],
+    worker_id: UUID,
+    principal: Any,
+    request: Request,
+    session: Any,
+    services: Any,
+) -> ActionOut:
+    row = await session.get(GpuWorker, worker_id)
+    if row is None:
+        raise NotFoundError("worker not found", table="gpu_workers")
+    before = {"state": row.state}
+    result = await _client(services).worker_action(str(worker_id), action)
+    if action != "refresh":  # start and restart resume billing: audited like a provision
+        await audit(
+            session, principal, f"gpu_worker.{action}", "gpu_worker", worker_id, request=request, before=before,
+            after={"state": result.get("state"), "provider_state": result.get("provider_state")},
+        )  # fmt: skip
+    return ActionOut.model_validate(result)
+
+
+@router.post("/v1/admin/gpu/workers/{worker_id}:start", response_model=ActionOut)
+async def start_worker(
+    worker_id: UUID, principal: PlatformAdmin, request: Request, session: DbSession, services: ServicesDep
+) -> ActionOut:
+    """Starts a stopped worker's instance again (its disk and model cache were kept). Billing resumes."""
+    return await _worker_action("start", worker_id, principal, request, session, services)
+
+
+@router.post("/v1/admin/gpu/workers/{worker_id}:restart", response_model=ActionOut)
+async def restart_worker(
+    worker_id: UUID, principal: PlatformAdmin, request: Request, session: DbSession, services: ServicesDep
+) -> ActionOut:
+    """Restarts an idle or provisioning worker's container (a reboot in place where the provider can)."""
+    return await _worker_action("restart", worker_id, principal, request, session, services)
+
+
+@router.post("/v1/admin/gpu/workers/{worker_id}:refresh", response_model=ActionOut)
+async def refresh_worker(
+    worker_id: UUID, principal: PlatformAdmin, request: Request, session: DbSession, services: ServicesDep
+) -> ActionOut:
+    """Asks the provider about the instance now and reconciles the worker with its answer."""
+    return await _worker_action("refresh", worker_id, principal, request, session, services)
+
+
+@router.delete("/v1/admin/gpu/providers/{provider_id}", status_code=204)
+async def delete_provider(
+    provider_id: UUID,
+    body: DeleteProviderBody,
+    principal: PlatformAdmin,
+    request: Request,
+    session: DbSession,
+    services: ServicesDep,
+    background: BackgroundTasks,
+) -> None:
+    """Deletes a provider row that nothing references; one with workers or costs on record keeps its
+    history and can only be disabled (PATCH enabled=false)."""
+    row = await _provider(session, provider_id)
+    if body.confirm.strip() != row.name:
+        raise InvalidInputError(
+            "confirm with the provider's name", issues=[Issue("confirm", "repeat the name", path="confirm")]
+        )
+    from ce_db.models.platform import FleetCost
+
+    used = (
+        await session.execute(
+            sa.select(sa.func.count()).select_from(GpuWorker).where(GpuWorker.provider_id == provider_id)
+        )
+    ).scalar_one() + (
+        await session.execute(
+            sa.select(sa.func.count()).select_from(FleetCost).where(FleetCost.provider_id == provider_id)
+        )
+    ).scalar_one()
+    if used:
+        raise ConflictError(
+            "this provider has workers or costs on record: disable it instead (PATCH enabled=false)",
+            issues=[Issue("provider_id", f"{used} referencing rows")],
+        )
+    await session.execute(sa.delete(WorkerEnrollmentToken).where(WorkerEnrollmentToken.provider_id == provider_id))
+    await session.delete(row)
+    await audit(
+        session, principal, "gpu_provider.delete", "gpu_provider", provider_id, request=request,
+        before={"kind": row.kind, "name": row.name},
+    )  # fmt: skip
+    background.add_task(_reload, services)
+
+
+@router.post("/v1/admin/gpu/providers/{provider_id}:test", response_model=ProviderTestOut)
+async def test_provider(
+    provider_id: UUID, principal: PlatformAdmin, session: DbSession, services: ServicesDep
+) -> ProviderTestOut:
+    """The provider's health call and a live offer search, read-only: nothing is rented or spent."""
+    row = await _provider(session, provider_id)
+    return ProviderTestOut.model_validate(await _client(services).test_provider(row.kind))
+
+
+@router.get("/v1/admin/gpu/orphans", response_model=list[OrphanOut])
+async def list_orphans(principal: PlatformAdmin, services: ServicesDep) -> list[OrphanOut]:
+    """Instances labeled as the fleet's that no worker tracks (they may still bill)."""
+    return [OrphanOut.model_validate(o) for o in await _client(services).orphans()]
+
+
+@router.post("/v1/admin/gpu/orphans:terminate", response_model=OrphanOut)
+async def terminate_orphan(
+    body: TerminateOrphanBody, principal: PlatformAdmin, request: Request, session: DbSession, services: ServicesDep
+) -> OrphanOut:
+    if body.confirm.strip() != body.external_id:
+        raise InvalidInputError(
+            "confirm with the instance's external id", issues=[Issue("confirm", "repeat the external id")]
+        )
+    result = await _client(services).terminate_orphan(body.provider, body.external_id)
+    await audit(
+        session, principal, "gpu_orphan.terminate", "gpu_instance", f"{body.provider}:{body.external_id}",
+        request=request, after=result,
+    )  # fmt: skip
+    return OrphanOut(provider=body.provider, external_id=body.external_id, state=result["state"], price_per_hour_usd=0)
 
 
 @router.post("/v1/admin/gpu/workers:enroll", response_model=EnrollmentOut, status_code=201)

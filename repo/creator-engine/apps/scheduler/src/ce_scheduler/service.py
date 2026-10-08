@@ -57,6 +57,7 @@ from ce_obs.metrics import (
 from ce_storage import StorageProvider, content_key
 from ce_storage.content import file_sha256
 from ce_worker.protocol import (
+    TASK_PHASES,
     CompleteBody,
     FailBody,
     HeartbeatBody,
@@ -79,7 +80,32 @@ __all__ = ["AuthError", "Scheduler", "StaleTaskError", "WorkerIdentity", "hash_t
 _log = get_logger("ce.scheduler")
 
 INFRA_CLASSES = ("retryable", "oom", "timeout")
-DEAD_STATES = ("stopped", "failed")  # a lease, heartbeat or completion never revives these
+DEAD_STATES = ("stopped", "failed", "terminated")  # a lease, heartbeat or completion never revives these
+_TELEMETRY_MAX_BYTES = 16_384
+
+
+def _json_safe(value: Any, limit: int = _TELEMETRY_MAX_BYTES) -> dict[str, Any]:
+    """A worker report kept only if it is a small JSON object (it is shown to administrators)."""
+    import json
+
+    if not isinstance(value, dict):
+        return {}
+    try:
+        text = json.dumps(value, default=str)
+    except (TypeError, ValueError):
+        return {}
+    return dict(json.loads(text)) if len(text) <= limit else {"truncated": True}
+
+
+def _reported(telemetry: Any, model_states: Any, now: datetime) -> dict[str, Any]:
+    """The worker columns a lease or heartbeat updates from what the worker reported (nothing when it
+    reported nothing: an older worker never erases what a newer report said)."""
+    out: dict[str, Any] = {}
+    if telemetry is not None:
+        out["telemetry"], out["telemetry_at"] = _json_safe(telemetry), now
+    if model_states is not None:
+        out["model_states"] = _json_safe(model_states)
+    return out
 
 
 class AuthError(Exception):
@@ -237,7 +263,7 @@ class Scheduler:
             row = (
                 await session.execute(
                     sa.select(GpuWorker).where(
-                        GpuWorker.token_hash == digest, GpuWorker.state.notin_(("provisioning", "stopped", "failed"))
+                        GpuWorker.token_hash == digest, GpuWorker.state.notin_(("provisioning", *DEAD_STATES))
                     )
                 )
             ).scalar_one_or_none()
@@ -324,15 +350,19 @@ class Scheduler:
                     weights=queue.PlacementWeights(**self.config.placement.model_dump()),
                     model_sizes=self.model_sizes,
                 )
+                values: dict[str, Any] = {
+                    "last_heartbeat_at": now,
+                    "state": "busy" if tasks else _busy_or_idle(worker.worker_id),
+                    "resident_models": list(body.resident_models),
+                    "cached_models": list(body.cached_models),
+                    **_reported(body.telemetry, body.model_states, now),
+                }
+                if tasks:
+                    values["current_task_id"] = tasks[0].id
                 await session.execute(
                     sa.update(GpuWorker)
                     .where(GpuWorker.id == worker.worker_id, GpuWorker.state.notin_(DEAD_STATES))
-                    .values(
-                        last_heartbeat_at=now,
-                        state="busy" if tasks else _busy_or_idle(worker.worker_id),
-                        resident_models=list(body.resident_models),
-                        cached_models=list(body.cached_models),
-                    )
+                    .values(**values)
                 )
                 leased = [await self._presign_task(t) for t in tasks]
             if leased:
@@ -353,8 +383,22 @@ class Scheduler:
                 session, UUID(body.task_id), worker.worker_id, now=now, lease_s=self.config.lease_s
             )
             await session.execute(
-                sa.update(GpuWorker).where(GpuWorker.id == worker.worker_id).values(last_heartbeat_at=now)
+                sa.update(GpuWorker)
+                .where(GpuWorker.id == worker.worker_id)
+                .values(last_heartbeat_at=now, **_reported(body.telemetry, body.model_states, now))
             )
+            if state is not None:  # what the task is doing, for the job's status line
+                await session.execute(
+                    sa.update(GpuTask)
+                    .where(GpuTask.id == UUID(body.task_id), GpuTask.lease_worker_id == worker.worker_id)
+                    .values(
+                        phase=body.phase if body.phase in TASK_PHASES else None,
+                        progress=body.progress,
+                        progress_message=body.message[:500] or None,
+                        progress_detail=_json_safe(body.detail),
+                        progress_at=now,
+                    )
+                )
         if state is None:
             raise StaleTaskError(body.task_id)
         expires = (now + timedelta(seconds=self.config.lease_s)).isoformat()
@@ -441,7 +485,7 @@ class Scheduler:
             await session.execute(
                 sa.update(GpuWorker)
                 .where(GpuWorker.id == worker.worker_id, GpuWorker.state.notin_(DEAD_STATES))
-                .values(state=_busy_or_idle(worker.worker_id))
+                .values(state=_busy_or_idle(worker.worker_id), current_task_id=None)
             )
             token = payload.get("task_token")
             capability = done.capability
@@ -515,7 +559,7 @@ class Scheduler:
                 await session.execute(
                     sa.update(GpuWorker)
                     .where(GpuWorker.id == worker.worker_id, GpuWorker.state.notin_(DEAD_STATES))
-                    .values(state=_busy_or_idle(worker.worker_id))
+                    .values(state=_busy_or_idle(worker.worker_id), current_task_id=None)
                 )
             token = (task.payload or {}).get("task_token")
             capability = task.capability

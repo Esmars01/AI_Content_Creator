@@ -50,6 +50,7 @@ from ce_worker.protocol import (
     UploadReply,
     UploadSlot,
 )
+from ce_worker.telemetry import TelemetryCollector
 
 __all__ = [
     "SchedulerClient",
@@ -229,6 +230,10 @@ class WorkerRuntime:
         self._loading: dict[str, asyncio.Lock] = {}
         self.running: set[CancellationToken] = set()
         self.completed = 0
+        # per model key: its preparation state (not_installed, downloading, verifying, installed,
+        # loading, ready, failed) with revision, bytes and errors — reported to the scheduler
+        self.model_states: dict[str, dict[str, Any]] = {}
+        self.telemetry = TelemetryCollector(config.model_cache_dir)
         # (capability, outcome) after each task; the service sets it to its metrics (this package
         # stays free of the metrics stack: GPU images import it on Python 3.10)
         self.on_task_done: Callable[[str, str], None] | None = None
@@ -264,24 +269,81 @@ class WorkerRuntime:
         _log.info("registered as %s with %d adapters", self.registered.worker_id, len(self.registered.adapters))
         return self.registered
 
-    async def _load(self, adapter_id: str, metrics: dict[str, Any] | None = None) -> Any:
+    def resident_models(self) -> list[str]:
+        """What is loaded, as the scheduler places by it: the loaded adapters' model keys (a task's
+        `model_key`) and the adapter ids themselves."""
+        keys = set(self.loaded)
+        for adapter_id in self.loaded:
+            with contextlib.suppress(KeyError):
+                keys.update(m.key for m in self.registry.get(adapter_id).manifest.models)
+        return sorted(keys)
+
+    def _set_model_state(self, keys: list[str], state: str, **detail: Any) -> None:
+        for key in keys:
+            entry = dict(self.model_states.get(key, {}))
+            entry.update({"state": state, "at": _now(), **{k: v for k, v in detail.items() if v is not None}})
+            if state not in ("failed",):
+                entry.pop("error", None)
+            self.model_states[key] = entry
+
+    async def report(self) -> dict[str, Any]:
+        """The telemetry sent with leases and heartbeats (measured values only)."""
+        stats = self.cache.stats()
+        return await self.telemetry.snapshot(
+            {
+                "cache": {"entries": stats["entries"], "size_gb": round(stats["bytes"] / 1024**3, 2),
+                          "max_gb": round(stats["max_bytes"] / 1024**3, 2), "dir": self.config.model_cache_dir},
+                "loaded_adapters": sorted(self.loaded),
+                "running_tasks": len(self.running),
+                "concurrency": self.config.concurrency,
+            }
+        )  # fmt: skip
+
+    async def _load(
+        self,
+        adapter_id: str,
+        metrics: dict[str, Any] | None = None,
+        on_phase: Callable[[str], None] | None = None,
+    ) -> Any:
         """Loads the adapter once; `metrics` receives `fetch_seconds` (model cache) and
-        `load_seconds` (the adapter's own load) when this call loaded it (Phase 9 load-time metrics)."""
+        `load_seconds` (the adapter's own load) when this call loaded it (Phase 9 load-time metrics).
+        `on_phase` hears `fetching_model` and `loading_model` (the task's status line)."""
         plugin = self.registry.get(adapter_id)
         adapter = plugin.adapter()
         lock = self._loading.setdefault(adapter_id, asyncio.Lock())
         async with lock:  # two tasks of one adapter (concurrency > 1) load it once
-            return await self._load_locked(plugin, adapter, adapter_id, metrics)
+            return await self._load_locked(plugin, adapter, adapter_id, metrics, on_phase)
 
-    async def _load_locked(self, plugin: Any, adapter: Any, adapter_id: str, metrics: dict[str, Any] | None) -> Any:
+    async def _load_locked(
+        self,
+        plugin: Any,
+        adapter: Any,
+        adapter_id: str,
+        metrics: dict[str, Any] | None,
+        on_phase: Callable[[str], None] | None = None,
+    ) -> Any:
         if adapter_id not in self.loaded:
             scratch = Path(self.config.scratch_root or tempfile.gettempdir()) / "ce-worker" / adapter_id
             config: dict[str, Any] = {}
+            model_keys = [m.key for m in plugin.manifest.models]
             fetch_started = time.monotonic()
             if self.config.fetch_models and needs_model_cache(plugin.manifest):
-                config["model_paths"] = await ensure_plugin_models(self.cache, plugin.manifest)
+                cached = set(self.cache.cached_models())
+                missing = [f.cache_key for f in fetch_plan(plugin.manifest) if f.cache_key not in cached]
+                if missing and on_phase is not None:
+                    on_phase("fetching_model")
+                self._set_model_state(model_keys, "downloading" if missing else "installed")
+                try:
+                    config["model_paths"] = await ensure_plugin_models(self.cache, plugin.manifest)
+                except BaseException as exc:
+                    self._set_model_state(model_keys, "failed", error=str(exc)[:300])
+                    raise
+                self._set_model_state(model_keys, "installed")
                 if metrics is not None:
                     metrics["fetch_seconds"] = round(time.monotonic() - fetch_started, 3)
+            if on_phase is not None:
+                on_phase("loading_model")
+            self._set_model_state(model_keys, "loading")
             load_started = time.monotonic()
             if adapter_id in self.config.adapter_defaults:
                 config["defaults"] = dict(self.config.adapter_defaults[adapter_id])
@@ -295,6 +357,7 @@ class WorkerRuntime:
                 )
             )
             self.loaded.add(adapter_id)
+            self._set_model_state(model_keys, "ready", load_seconds=round(time.monotonic() - load_started, 3))
             if metrics is not None:
                 metrics["load_seconds"] = round(time.monotonic() - load_started, 3)
         return adapter
@@ -326,16 +389,20 @@ class WorkerRuntime:
             logger=_log,
             cancel=cancel,
         )
-        progress = {"value": 0.0, "message": ""}
+        progress: dict[str, Any] = {"value": 0.0, "message": "", "phase": None}
 
         async def on_progress(fraction: float, message: str) -> None:
             progress["value"], progress["message"] = fraction, message
+
+        def on_phase(phase: str) -> None:
+            progress["phase"] = phase
 
         ctx.on_progress = on_progress
         beat = asyncio.ensure_future(self._heartbeat_loop(task, cancel, progress))
         try:
             metrics: dict[str, Any] = {}
-            adapter = await self._load(task.adapter_id, metrics)
+            adapter = await self._load(task.adapter_id, metrics, on_phase)
+            on_phase("generating")
             request = self._typed_request(task)
             run = asyncio.ensure_future(adapter.run(task.capability, request, ctx))
             waiter = asyncio.ensure_future(cancel.wait())
@@ -347,6 +414,7 @@ class WorkerRuntime:
                 raise Cancelled(cancel.reason or "cancelled")
             waiter.cancel()
             result = run.result()
+            on_phase("uploading")  # the scheduler verifies every output before it answers
             await self.client.complete(
                 CompleteBody(
                     task_id=task.task_id,
@@ -394,7 +462,11 @@ class WorkerRuntime:
                         task_id=task.task_id,
                         progress=float(progress["value"]),
                         message=str(progress["message"]),
-                        resident_models=sorted(self.loaded),
+                        resident_models=self.resident_models(),
+                        phase=progress.get("phase"),
+                        detail=dict(progress.get("detail") or {}),
+                        telemetry=await self._report_safely(),
+                        model_states=dict(self.model_states),
                     )
                 )
             except httpx.HTTPStatusError as exc:
@@ -407,6 +479,13 @@ class WorkerRuntime:
             if reply.cancel:
                 cancel.cancel("cancelled by the scheduler")
                 return
+
+    async def _report_safely(self) -> dict[str, Any] | None:
+        try:
+            return await self.report()
+        except Exception as exc:  # telemetry never stops the work
+            _log.debug("telemetry failed: %s", exc)
+            return None
 
     @property
     def current(self) -> CancellationToken | None:
@@ -429,9 +508,11 @@ class WorkerRuntime:
                 reply = await self.client.lease(
                     LeaseBody(
                         adapters=self.adapters,
-                        resident_models=sorted(self.loaded),
+                        resident_models=self.resident_models(),
                         cached_models=self.cache.cached_models(),
                         free_vram_gb=self.config.vram_gb,
+                        telemetry=await self._report_safely(),
+                        model_states=dict(self.model_states),
                     )
                 )
                 backoff = 1.0

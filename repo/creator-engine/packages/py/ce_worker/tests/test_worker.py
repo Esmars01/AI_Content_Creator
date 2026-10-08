@@ -309,7 +309,7 @@ async def test_a_worker_shutdown_is_an_infrastructure_retry(tmp_path: Path) -> N
         async def heartbeat(self, body: Any) -> Any:
             await asyncio.sleep(3600)
 
-    async def load(adapter_id: str, metrics: Any = None) -> Any:
+    async def load(adapter_id: str, metrics: Any = None, on_phase: Any = None) -> Any:
         return Adapter()
 
     runtime._load = load  # type: ignore[method-assign]
@@ -386,7 +386,7 @@ async def test_a_worker_with_concurrency_runs_tasks_side_by_side_and_loads_once(
         async def heartbeat(self, body: Any) -> Any:
             await asyncio.sleep(3600)
 
-    async def load_locked(plugin: Any, adapter_: Any, adapter_id: str, metrics: Any) -> Any:
+    async def load_locked(plugin: Any, adapter_: Any, adapter_id: str, metrics: Any, on_phase: Any = None) -> Any:
         nonlocal loads
         if adapter_id not in runtime.loaded:
             loads += 1

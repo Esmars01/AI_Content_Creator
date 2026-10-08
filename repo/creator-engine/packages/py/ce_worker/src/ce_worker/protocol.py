@@ -13,6 +13,7 @@ from pydantic import Field
 
 __all__ = [
     "PROTOCOL_VERSION",
+    "TASK_PHASES",
     "CompleteBody",
     "FailBody",
     "HeartbeatBody",
@@ -82,10 +83,17 @@ class LeaseBody(ContractModel):
     free_vram_gb: float = 0.0
     max_tasks: int = Field(default=1, ge=1, le=16)
     wait_s: float | None = Field(default=None, ge=0, le=60)
+    # Optional (older workers send neither): the worker's measured state, and per model key its
+    # preparation state. Values it cannot measure are absent, never 0.
+    telemetry: dict[str, Any] | None = None
+    model_states: dict[str, dict[str, Any]] | None = None
 
 
 class LeaseReply(ContractModel):
     tasks: list[LeasedTask] = Field(default_factory=list)
+
+
+TASK_PHASES = ("fetching_model", "verifying_model", "loading_model", "generating", "uploading")
 
 
 class HeartbeatBody(ContractModel):
@@ -93,6 +101,12 @@ class HeartbeatBody(ContractModel):
     progress: float = Field(default=0.0, ge=0, le=1)
     message: str = ""
     resident_models: list[str] = Field(default_factory=list)
+    # Optional: what the task is doing (TASK_PHASES), its details (bytes done and total, speed, ETA
+    # while fetching a model) and the worker's telemetry.
+    phase: str | None = None
+    detail: dict[str, Any] = Field(default_factory=dict)
+    telemetry: dict[str, Any] | None = None
+    model_states: dict[str, dict[str, Any]] | None = None
 
 
 class HeartbeatReply(ContractModel):

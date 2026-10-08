@@ -52,6 +52,7 @@ from ce_scheduler.providers import FleetProvider
 
 __all__ = [
     "EventPublisher",
+    "FleetActionError",
     "FleetDecision",
     "FleetManager",
     "ProvisionResult",
@@ -62,6 +63,21 @@ __all__ = [
 _log = get_logger("ce.scheduler.fleet")
 
 EventPublisher = Callable[[UUID, str, dict[str, Any]], Awaitable[None]]
+
+RECONCILED_STATES = ("idle", "busy", "draining", "stopped")  # provisioning has its own watch
+
+
+class FleetActionError(Exception):
+    """An operator action the worker's state does not allow (the API answers 409)."""
+
+
+def _provider_status(instance: ProviderInstance) -> dict[str, Any]:
+    """What the console shows of the provider's view; no secrets ever reach `detail`."""
+    return {
+        "state": instance.state,
+        "price_per_hour_usd": instance.price_per_hour_usd,
+        "detail": {k: v for k, v in instance.detail.items() if v is not None},
+    }
 
 
 def desired_workers(backlog_seconds: float, pool: GpuPool) -> int:
@@ -128,6 +144,9 @@ class FleetManager:
     gpu_prices: Mapping[str, float] = field(default_factory=dict)  # estimate when no offer gives a price
     clock: Callable[[], datetime] = _utcnow
     _alerted: dict[tuple[str, str], datetime] = field(default_factory=dict)
+    _reconciled_at: datetime | None = None
+    last_orphans: list[dict[str, Any]] = field(default_factory=list)  # from the leader's last sweep
+    skipped_providers: dict[str, str] = field(default_factory=dict)  # provider key → why it is not configured
 
     def __post_init__(self) -> None:
         self.providers = {
@@ -259,6 +278,8 @@ class FleetManager:
             "spend": {**report.as_dict(), "budget_daily_usd": self.budget_daily_usd},
             "held": {str(k): int(v) for k, v in held.items()},
             "providers": providers,
+            "skipped_providers": dict(self.skipped_providers),
+            "orphans": list(self.last_orphans),
         }
 
     async def offers(self, gpu_class: str | None = None, region: str | None = None) -> list[dict[str, Any]]:
@@ -276,6 +297,16 @@ class FleetManager:
     # ------------------------------------------------------------------ tick
     async def tick(self) -> list[FleetDecision]:
         now = self.clock()
+        due = (
+            self._reconciled_at is None
+            or (now - self._reconciled_at).total_seconds() >= self.config.reconcile_interval_s
+        )
+        if due:
+            self._reconciled_at = now
+            await self.reconcile()
+            self.last_orphans = await self.orphans()  # adopts untracked instances of provisioning rows
+            if self.last_orphans:
+                _log.warning("orphan instances", count=len(self.last_orphans), orphans=self.last_orphans[:10])
         failed = await self._watch_provisioning(now)
         await self._terminate_failed(now)
         async with self.db.transaction() as session:
@@ -521,6 +552,7 @@ class FleetManager:
             **self.config.worker_env,  # e.g. SCHEDULER_URL as the provider's hosts reach it
             "WORKER_TOKEN": token,
             "WORKER_NAME": f"{fp.key}-{str(worker_id)[:8]}",
+            "WORKER_ID": str(worker_id),  # providers label the instance with it (recovery, orphan sweep)
             "WORKER_PROVIDER": fp.key,
             "WORKER_RUNTIME_FAMILY": family,
             "WORKER_GPU_TYPE": gpu_class,
@@ -569,22 +601,7 @@ class FleetManager:
                 _log.info("restart failed", external_id=worker.external_id, error=str(exc)[:200])
                 FLEET_PROVISIONS.labels(fp.key, "restart_error").inc()
                 continue
-            now = self.clock()
-            async with self.db.transaction() as session:
-                row = await session.get_one(GpuWorker, worker.id)
-                row.state = "provisioning"
-                row.provisioned_at = now
-                row.started_at = now
-                row.stopped_at = None
-                row.registered_at = None
-                row.last_heartbeat_at = now
-                row.token_hash = None
-                row.price_per_hour_usd = fp.provider.price(instance)  # type: ignore[assignment]
-                await session.execute(
-                    sa.update(WorkerEnrollmentToken)
-                    .where(WorkerEnrollmentToken.worker_id == worker.id)
-                    .values(used_at=None, expires_at=now + timedelta(seconds=self.config.provision_timeout_s))
-                )
+            await self._rearm(worker.id, fp, instance)
             FLEET_PROVISIONS.labels(fp.key, "restarted").inc()
             _log.info("stopped worker restarted", pool=pool.id, external_id=worker.external_id)
             return ProvisionResult(worker.id, worker.external_id, fp.key, worker.gpu_type, worker.variant)
@@ -696,14 +713,21 @@ class FleetManager:
         return stopped
 
     async def release(self, worker_id: UUID, *, action: str = "terminate") -> ProviderInstance | None:
-        """Stops or terminates one fleet worker and records its provisioned time (scale-down and the
-        admin stop). Returns None when its provider refused."""
+        """Stops or terminates one worker and records its provisioned time (scale-down and the admin
+        actions). `stop` keeps the instance and its disk (`stopped`, startable again); `terminate`
+        destroys it (`terminated`), also for a stopped or failed worker whose instance still exists.
+        Returns None when there is nothing to do or its provider refused (the error is recorded)."""
         now = self.clock()
         async with self.db.session() as session:
             worker = await session.get(GpuWorker, worker_id)
-        if worker is None or worker.state in ("stopped", "failed"):
+        if worker is None or worker.state == "terminated":
+            return None
+        live = worker.state in fleet_db.LIVE_STATES
+        if action == "stop" and not live:
             return None
         fp = await self._worker_provider(worker)
+        if not live and (fp is None or not worker.external_id):
+            return None  # a stopped or failed worker no provider runs: nothing to terminate
         instance: ProviderInstance | None = None
         if fp is not None and worker.external_id:
             try:
@@ -712,13 +736,22 @@ class FleetManager:
                 else:
                     instance = await fp.provider.terminate(worker.external_id)
             except ProviderError as exc:
-                _log.warning("scale-down failed", external_id=worker.external_id, error=str(exc)[:200])
+                _log.warning("release failed", external_id=worker.external_id, action=action, error=str(exc)[:200])
+                await self._record_error(worker_id, f"{action} failed: {str(exc)[:300]}")
                 return None
+        destroyed = instance is not None and action != "stop"
         async with self.db.transaction() as session:
             row = await session.get_one(GpuWorker, worker_id, with_for_update=True)
-            row.state, row.stopped_at = "stopped", now
+            if row.state in fleet_db.LIVE_STATES:
+                await fleet_db.record_fleet_cost(session, row, end=now)
+            row.state = "terminated" if destroyed else "stopped"
+            row.stopped_at = row.stopped_at if row.stopped_at and not live else now
             row.token_hash = None
-            await fleet_db.record_fleet_cost(session, row, end=now)
+            row.current_task_id = None
+            if destroyed:
+                row.terminated_at = now
+            if instance is not None:
+                row.provider_status, row.provider_checked_at = _provider_status(instance), now
         _log.info("worker released", external_id=worker.external_id, action=action)
         return instance or ProviderInstance(
             provider=fp.key if fp else "unknown",
@@ -726,6 +759,225 @@ class FleetManager:
             gpu_class=worker.gpu_type,
             region=worker.region or "",
             runtime_family=worker.runtime_family,
-            state="stopped" if action == "stop" else "terminated",
+            state="stopped",
             price_per_hour_usd=float(worker.price_per_hour_usd or 0),
         )
+
+    # ------------------------------------------------------------------ operator actions
+    async def _record_error(self, worker_id: UUID, message: str) -> None:
+        async with self.db.transaction() as session:
+            await session.execute(sa.update(GpuWorker).where(GpuWorker.id == worker_id).values(last_error=message))
+
+    async def _controlled(self, worker_id: UUID) -> tuple[GpuWorker, FleetProvider, str]:
+        async with self.db.session() as session:
+            worker = await session.get(GpuWorker, worker_id)
+        if worker is None:
+            raise LookupError("unknown worker")
+        fp = await self._worker_provider(worker)
+        if fp is None or not worker.external_id:
+            raise FleetActionError("no configured provider runs this worker (self-managed or its provider is disabled)")
+        return worker, fp, worker.external_id
+
+    async def _rearm(self, worker_id: UUID, fp: FleetProvider, instance: ProviderInstance) -> None:
+        """A started or restarted instance boots the worker again with the environment it was given at
+        provision: its enrollment token is re-armed, and it is watched like a new provision."""
+        now = self.clock()
+        async with self.db.transaction() as session:
+            row = await session.get_one(GpuWorker, worker_id, with_for_update=True)
+            row.state = "provisioning"
+            row.provisioned_at = now
+            row.started_at = now
+            row.stopped_at = None
+            row.registered_at = None
+            row.last_heartbeat_at = now
+            row.token_hash = None
+            row.current_task_id = None
+            row.last_error = None
+            row.price_per_hour_usd = fp.provider.price(instance) or row.price_per_hour_usd  # type: ignore[assignment]
+            row.provider_status, row.provider_checked_at = _provider_status(instance), now
+            await session.execute(
+                sa.update(WorkerEnrollmentToken)
+                .where(WorkerEnrollmentToken.worker_id == worker_id)
+                .values(used_at=None, expires_at=now + timedelta(seconds=self.config.provision_timeout_s))
+            )
+
+    async def start(self, worker_id: UUID) -> ProviderInstance:
+        """Starts a stopped worker's instance again (its disk and model cache are kept)."""
+        worker, fp, external_id = await self._controlled(worker_id)
+        if worker.state != "stopped":
+            raise FleetActionError(f"only a stopped worker can be started (this one is {worker.state})")
+        current = await fp.provider.status(external_id)
+        if current.state == "terminated":
+            await self._reconcile_one(worker, current)
+            raise FleetActionError("the provider no longer has this instance: it is now marked terminated")
+        instance = await fp.provider.start(external_id)
+        await self._rearm(worker_id, fp, instance)
+        FLEET_PROVISIONS.labels(fp.key, "restarted").inc()
+        _log.info("worker started", external_id=external_id)
+        return instance
+
+    async def restart(self, worker_id: UUID) -> ProviderInstance:
+        """Restarts an idle (or still provisioning) worker's container; a stopped one is started."""
+        worker, fp, external_id = await self._controlled(worker_id)
+        if worker.state == "stopped":
+            return await self.start(worker_id)
+        if worker.state not in ("idle", "provisioning"):
+            raise FleetActionError(f"only an idle or provisioning worker can be restarted (this one is {worker.state})")
+        instance = await fp.provider.restart(external_id)
+        now = self.clock()
+        async with self.db.transaction() as session:
+            row = await session.get_one(GpuWorker, worker_id, with_for_update=True)
+            if row.state == "idle":
+                await fleet_db.record_fleet_cost(session, row, end=now)
+        await self._rearm(worker_id, fp, instance)
+        _log.info("worker restarted", external_id=external_id)
+        return instance
+
+    async def refresh(self, worker_id: UUID) -> dict[str, Any]:
+        """Asks the provider about one worker now and reconciles the row with its answer."""
+        worker, fp, external_id = await self._controlled(worker_id)
+        try:
+            instance = await fp.provider.status(external_id)
+        except ProviderError as exc:
+            await self._record_error(worker_id, f"status failed: {str(exc)[:300]}")
+            raise
+        return await self._reconcile_one(worker, instance)
+
+    async def _reconcile_one(self, worker: GpuWorker, instance: ProviderInstance) -> dict[str, Any]:
+        """The provider is the truth about the instance, the platform about the work:
+        - gone at the provider: a live worker fails (no charge continues), a stopped one is terminated;
+        - stopped outside the platform: an idle or busy worker becomes stopped (its lease is reaped);
+        - failed at the provider: a registered worker fails, and the failed-worker sweep terminates it."""
+        now = self.clock()
+        status = _provider_status(instance)
+        target: str | None = None
+        error: str | None = None
+        gone = instance.state == "terminated"
+        if gone and worker.state in fleet_db.LIVE_STATES:
+            target, error = "failed", "the provider no longer has this instance"
+        elif gone and worker.state in ("stopped", "failed"):
+            target = "terminated"
+        elif instance.state == "stopped" and worker.state in ("idle", "busy", "draining"):
+            target, error = "stopped", "stopped outside the platform (provider console or host)"
+        elif instance.state == "failed" and worker.state in ("idle", "busy", "draining"):
+            message = str(instance.detail.get("status_msg") or "")[:200]
+            target, error = "failed", f"the provider reports the instance failed{': ' + message if message else ''}"
+        async with self.db.transaction() as session:
+            row = await session.get_one(GpuWorker, worker.id, with_for_update=True)
+            row.provider_status, row.provider_checked_at = status, now
+            if target is not None and row.state == worker.state:
+                if row.state in fleet_db.LIVE_STATES:
+                    await fleet_db.record_fleet_cost(session, row, end=now)
+                row.state = target
+                row.stopped_at = row.stopped_at or now
+                row.current_task_id = None
+                if gone:
+                    row.terminated_at = now
+                    row.token_hash = None  # nothing left to terminate
+                elif target == "stopped":
+                    row.token_hash = None
+                if error:
+                    row.last_error = error
+                _log.warning("worker reconciled with its provider", worker_id=str(worker.id), state=target)
+            return {"worker_id": str(row.id), "state": row.state, "provider_status": status}
+
+    async def reconcile(self) -> int:
+        """One batch of provisioned workers compared with their provider (oldest check first)."""
+        async with self.db.session() as session:
+            rows = list(
+                (
+                    await session.execute(
+                        sa.select(GpuWorker)
+                        .where(GpuWorker.state.in_(RECONCILED_STATES), GpuWorker.external_id.is_not(None))
+                        .where(sa.or_(GpuWorker.pool_id.is_not(None), GpuWorker.provider_id.is_not(None)))
+                        .order_by(GpuWorker.provider_checked_at.asc().nulls_first())
+                        .limit(self.config.reconcile_batch)
+                    )
+                ).scalars()
+            )
+        checked = 0
+        for worker in rows:
+            fp = await self._worker_provider(worker)
+            if fp is None or not worker.external_id:
+                continue
+            try:
+                instance = await fp.provider.status(worker.external_id)
+            except ProviderError as exc:
+                await self._record_error(worker.id, f"status failed: {str(exc)[:300]}")
+                continue
+            await self._reconcile_one(worker, instance)
+            checked += 1
+        return checked
+
+    async def labeled_instances(self) -> list[tuple[FleetProvider, ProviderInstance]]:
+        out: list[tuple[FleetProvider, ProviderInstance]] = []
+        for fp in self.providers.values():
+            assert isinstance(fp, FleetProvider)
+            try:
+                found = await fp.provider.list_instances()
+            except NotImplementedError:
+                continue
+            except ProviderError as exc:
+                _log.info("instances unavailable", provider=fp.key, error=str(exc)[:200])
+                continue
+            out += [(fp, i) for i in found if i.state != "terminated"]
+        return out
+
+    async def orphans(self) -> list[dict[str, Any]]:
+        """Instances labeled as the fleet's that no worker row tracks (never a non-fleet instance).
+        Provisioning rows without an instance id adopt theirs first (a crash between the rental and its
+        bookkeeping), so a recovered instance is never rented twice or left billing unseen."""
+        instances = await self.labeled_instances()
+        async with self.db.session() as session:
+            tracked = {
+                (r[0], r[1])
+                for r in (
+                    await session.execute(
+                        sa.select(GpuWorker.provider_kind, GpuWorker.external_id).where(
+                            GpuWorker.external_id.is_not(None), GpuWorker.state != "terminated"
+                        )
+                    )
+                ).all()
+            }
+        out: list[dict[str, Any]] = []
+        for fp, instance in instances:
+            if (fp.key, instance.external_id) in tracked:
+                continue
+            if await self._adopt(fp, instance):
+                continue
+            out.append(
+                {
+                    "provider": fp.key,
+                    "external_id": instance.external_id,
+                    "state": instance.state,
+                    "price_per_hour_usd": instance.price_per_hour_usd,
+                    "label": instance.detail.get("label"),
+                    "worker_id": instance.detail.get("worker_id"),
+                }
+            )
+        return out
+
+    async def _adopt(self, fp: FleetProvider, instance: ProviderInstance) -> bool:
+        worker_id = instance.detail.get("worker_id")
+        if not worker_id:
+            return False
+        async with self.db.transaction() as session:
+            row = await session.get(GpuWorker, UUID(str(worker_id)), with_for_update=True)
+            if row is None or row.external_id is not None or row.state not in ("provisioning", "failed"):
+                return False
+            row.external_id = instance.external_id
+            row.provider_status, row.provider_checked_at = _provider_status(instance), self.clock()
+            if row.state == "failed":
+                row.token_hash = row.token_hash or f"adopted:{row.id}"  # the failed-worker sweep terminates it
+        _log.warning("adopted an untracked instance", worker_id=str(worker_id), external_id=instance.external_id)
+        return True
+
+    async def terminate_orphan(self, provider: str, external_id: str) -> ProviderInstance:
+        """Terminates an instance only if it is still an orphan (labeled as the fleet's, untracked)."""
+        if not any(o["provider"] == provider and o["external_id"] == external_id for o in await self.orphans()):
+            raise FleetActionError("not an orphan: the instance is tracked, unlabeled or already gone")
+        fp = self._provider(provider)
+        assert fp is not None
+        instance = await fp.provider.terminate(external_id)
+        _log.warning("orphan instance terminated", provider=provider, external_id=external_id)
+        return instance

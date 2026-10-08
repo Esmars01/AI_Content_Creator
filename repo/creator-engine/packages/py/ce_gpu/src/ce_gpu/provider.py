@@ -106,6 +106,18 @@ class GPUProvider(abc.ABC):
     @abc.abstractmethod
     async def health(self) -> HealthStatus: ...
 
+    async def restart(self, external_id: str) -> ProviderInstance:
+        """Restarts the instance's container. The default stops and starts it; a provider that can
+        reboot in place (keeping the machine and its GPU) overrides this."""
+        await self.stop(external_id)
+        return await self.start(external_id)
+
+    async def list_instances(self) -> list[ProviderInstance]:
+        """The instances the platform created on this provider's account (labeled as the fleet's), for
+        recovery: adopting an instance whose id was never recorded and reporting orphans. Optional;
+        providers that cannot list raise `NotImplementedError` and are skipped."""
+        raise NotImplementedError
+
 
 def gpu_provider_keys(*, app_env: str | None, include_mocks: bool) -> list[str]:
     return sorted(discover(app_env=app_env, include_mocks=include_mocks).providers("gpu"))

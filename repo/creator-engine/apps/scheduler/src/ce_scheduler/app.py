@@ -178,9 +178,12 @@ def create_app(
             pools = [p for p in pools if not p.mock]  # no simulated capacity outside mock mode
         variants = effective.bundle.gpu_variants.variants if effective.bundle.gpu_variants else {}
 
+        skipped: dict[str, str] = {}
+
         async def providers_now(previous: Any = None) -> Any:
+            skipped.clear()
             return await load_providers(
-                db, app_env=settings.app_env, include_mocks=settings.mock_gpu, previous=previous
+                db, app_env=settings.app_env, include_mocks=settings.mock_gpu, previous=previous, skipped=skipped
             )
 
         events = None
@@ -211,6 +214,8 @@ def create_app(
             app_env=settings.app_env,
             publish=publish,
         )
+
+        fleet.skipped_providers = skipped
 
         async def reload_providers() -> None:
             fleet.providers = await providers_now(fleet.providers)
@@ -392,6 +397,86 @@ def create_app(
         if instance is None:
             raise HTTPException(409, "the worker is not running, or its provider refused to stop it")
         return {"worker_id": worker_id, "state": instance.state}
+
+    def _worker_uuid(worker_id: str) -> Any:
+        import uuid as _uuid
+
+        try:
+            return _uuid.UUID(worker_id)
+        except ValueError:
+            raise HTTPException(404, "unknown worker") from None
+
+    async def _act(action: Any) -> Any:
+        """Operator actions: 404 unknown worker, 409 not allowed in its state, 502 the provider failed."""
+        from ce_scheduler.fleet import FleetActionError
+
+        try:
+            return await action
+        except LookupError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        except FleetActionError as exc:
+            raise HTTPException(409, str(exc)) from exc
+        except ProviderError as exc:
+            raise HTTPException(502, f"the provider failed: {str(exc)[:300]}") from exc
+
+    @app.post(f"{admin}/workers/{{worker_id}}/start", dependencies=guard)
+    async def fleet_start(worker_id: str, request: Request) -> dict[str, Any]:
+        instance = await _act(fleet_of(request).start(_worker_uuid(worker_id)))
+        return {"worker_id": worker_id, "state": "provisioning", "provider_state": instance.state}
+
+    @app.post(f"{admin}/workers/{{worker_id}}/restart", dependencies=guard)
+    async def fleet_restart(worker_id: str, request: Request) -> dict[str, Any]:
+        instance = await _act(fleet_of(request).restart(_worker_uuid(worker_id)))
+        return {"worker_id": worker_id, "state": "provisioning", "provider_state": instance.state}
+
+    @app.post(f"{admin}/workers/{{worker_id}}/refresh", dependencies=guard)
+    async def fleet_refresh(worker_id: str, request: Request) -> dict[str, Any]:
+        result: dict[str, Any] = await _act(fleet_of(request).refresh(_worker_uuid(worker_id)))
+        return result
+
+    @app.get(f"{admin}/orphans", dependencies=guard)
+    async def fleet_orphans(request: Request) -> list[dict[str, Any]]:
+        """Instances labeled as the fleet's that no worker tracks (asks the providers now)."""
+        found: list[dict[str, Any]] = await fleet_of(request).orphans()
+        return found
+
+    @app.post(f"{admin}/orphans/{{provider}}/{{external_id}}/terminate", dependencies=guard)
+    async def fleet_terminate_orphan(provider: str, external_id: str, request: Request) -> dict[str, Any]:
+        instance = await _act(fleet_of(request).terminate_orphan(provider, external_id))
+        return {"provider": provider, "external_id": external_id, "state": instance.state}
+
+    @app.post(f"{admin}/providers/{{key}}/test", dependencies=guard)
+    async def fleet_test_provider(key: str, request: Request) -> dict[str, Any]:
+        """A read-only check of one configured provider: its health call and a live offer search.
+        Nothing is rented and nothing is spent."""
+        fleet = fleet_of(request)
+        fp = fleet._provider(key)
+        if fp is None:
+            reason = fleet.skipped_providers.get(key)
+            raise HTTPException(409, f"provider {key!r} is not configured" + (f": {reason}" if reason else ""))
+        try:
+            health = await fp.provider.health()
+            ok, detail = health.ok, health.detail
+        except Exception as exc:
+            ok, detail = False, f"{type(exc).__name__}: {str(exc)[:200]}"
+        offers: list[dict[str, Any]] = []
+        offers_error = None
+        if ok:
+            try:
+                offers = [o.model_dump(mode="json") for o in await fp.provider.list_offers()]
+            except ProviderError as exc:
+                offers_error = str(exc)[:300]
+        prices = [o["price_per_hour_usd"] for o in offers]
+        return {
+            "provider": key,
+            "healthy": ok,
+            "detail": detail,
+            "offers": len(offers),
+            "offers_error": offers_error,
+            "cheapest_per_hour_usd": min(prices) if prices else None,
+            "classes": sorted({o["gpu_class"] for o in offers}),
+            "regions": sorted({o["region"] for o in offers}),
+        }
 
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:

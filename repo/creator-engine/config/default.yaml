@@ -89,6 +89,8 @@ scheduler:                         # §25
     low_priority_max: 25           # held while BUDGET_DAILY_USD would be exceeded
     alert_cooldown_s: 3600
     worker_env: {}
+    reconcile_interval_s: 120      # compare provisioned workers with their provider (gone, stopped outside, orphans)
+    reconcile_batch: 50
 build:                             # §12
   max_parallel_nodes: 6
   gpu_task_priority: 50
