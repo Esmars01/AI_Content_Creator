@@ -123,17 +123,17 @@ async def test_queued_work_provisions_an_enrolled_host_that_builds_then_scales_d
 
         clock.offset = timedelta(hours=1)  # idle beyond idle_timeout_s, no backlog
         cost = None
-        for _ in range(80):  # terminate first, then the stop and its cost are committed
+        for _ in range(80):  # terminate first, then the release and its cost are committed
             async with stack.exec.db.session() as session:
                 cost = (
                     await session.execute(sa.select(FleetCost).where(FleetCost.worker_id == worker.id))
                 ).scalar_one_or_none()
-                stopped = await session.get_one(GpuWorker, worker.id)
+                released = await session.get_one(GpuWorker, worker.id)
             if cost is not None:
                 break
             await asyncio.sleep(0.25)
         assert provider.instances[external_id].state == "terminated" and cost is not None
-        assert stopped.state == "stopped"
+        assert released.state == "terminated" and released.terminated_at  # the row matches the provider
         assert cost.pool_id == "e2e" and cost.busy_seconds > 0 and cost.provisioned_seconds >= cost.busy_seconds
         assert float(cost.provisioned_usd) > 0
     finally:

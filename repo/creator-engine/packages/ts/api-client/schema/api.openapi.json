@@ -5533,6 +5533,11 @@
       },
       "DeleteProviderBody": {
         "additionalProperties": false,
+        "examples": [
+          {
+            "confirm": "vast-eu"
+          }
+        ],
         "properties": {
           "confirm": {
             "description": "repeat the provider's name to confirm",
@@ -15773,6 +15778,13 @@
       },
       "TerminateOrphanBody": {
         "additionalProperties": false,
+        "examples": [
+          {
+            "confirm": "7000001",
+            "external_id": "7000001",
+            "provider": "vast"
+          }
+        ],
         "properties": {
           "confirm": {
             "description": "repeat the external id to confirm",

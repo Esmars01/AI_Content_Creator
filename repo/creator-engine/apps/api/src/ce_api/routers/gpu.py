@@ -357,12 +357,14 @@ class ProfileProvisionOut(Out):
 
 
 class TerminateOrphanBody(Body):
+    model_config = examples([{"provider": "vast", "external_id": "7000001", "confirm": "7000001"}])
     provider: str
     external_id: str
     confirm: str = Field(description="repeat the external id to confirm")
 
 
 class DeleteProviderBody(Body):
+    model_config = examples([{"confirm": "vast-eu"}])
     confirm: str = Field(description="repeat the provider's name to confirm")
 
 

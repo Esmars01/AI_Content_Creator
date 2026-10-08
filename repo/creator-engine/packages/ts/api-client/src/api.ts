@@ -5680,7 +5680,12 @@ export interface components {
              */
             speed: number;
         };
-        /** DeleteProviderBody */
+        /**
+         * DeleteProviderBody
+         * @example {
+         *       "confirm": "vast-eu"
+         *     }
+         */
         DeleteProviderBody: {
             /**
              * Confirm
@@ -9892,7 +9897,14 @@ export interface components {
          * @enum {string}
          */
         TemporalPrecision: "word" | "segment" | "shot" | "scene";
-        /** TerminateOrphanBody */
+        /**
+         * TerminateOrphanBody
+         * @example {
+         *       "confirm": "7000001",
+         *       "external_id": "7000001",
+         *       "provider": "vast"
+         *     }
+         */
         TerminateOrphanBody: {
             /**
              * Confirm

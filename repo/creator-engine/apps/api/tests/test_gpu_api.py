@@ -289,6 +289,10 @@ async def test_providers_are_tested_read_only_and_deleted_only_without_history(
     provider_id = created.json()["id"]
     assert harness.services.scheduler is not None
     await scheduler.post("/internal/v1/admin/fleet/reload", headers={"X-Admin-Token": harness.services.scheduler.token})
+    assert (await owner.client.post(f"/v1/admin/gpu/providers/{provider_id}:test")).status_code == 403
+    denied = await owner.client.request("DELETE", f"/v1/admin/gpu/providers/{provider_id}",
+                                        json={"confirm": "sim-test-delete"})  # fmt: skip
+    assert denied.status_code == 403
     tested = await admin.client.post(f"/v1/admin/gpu/providers/{provider_id}:test")
     assert tested.status_code == 200, tested.text
     assert tested.json()["healthy"] is True and tested.json()["offers"] > 0 and "mock_gpu" in tested.json()["classes"]
@@ -329,6 +333,7 @@ async def test_operators_prepare_models_and_see_profiles(
     )
     worker_id = done.json()["provisioned"][0]["worker_id"]
     assert (await owner.client.post(f"/v1/admin/gpu/workers/{worker_id}:prepare", json={})).status_code == 403
+    assert (await owner.client.post(f"/v1/admin/gpu/workers/{worker_id}:cancel-prepare")).status_code == 403
     assert (await admin.client.post(f"/v1/admin/gpu/workers/{worker_id}:cancel-prepare")).status_code == 409
     prepared = await admin.client.post(
         f"/v1/admin/gpu/workers/{worker_id}:prepare", json={"models": ["mock-voice"], "warm": False}
@@ -350,6 +355,10 @@ async def test_operators_prepare_models_and_see_profiles(
     assert th["prewarm"] == "boot" and th["persistent_cache"] == "recommended"
     assert all(m["revision"] for m in th["sizing"]["models"])
     assert (await owner.client.get("/v1/admin/gpu/profiles")).status_code == 403
+    denied = await owner.client.post(
+        "/v1/admin/gpu/profiles/talking_head_a100_80gb:provision", json={"provider": "mock", "region": "local"}
+    )
+    assert denied.status_code == 403
     # the simulated provider has no A100: nothing is rented, and the attempt says why
     tried = await admin.client.post(
         "/v1/admin/gpu/profiles/talking_head_a100_80gb:provision", json={"provider": "mock", "region": "local"}

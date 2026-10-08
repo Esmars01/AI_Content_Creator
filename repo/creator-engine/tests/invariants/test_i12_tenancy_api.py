@@ -393,6 +393,15 @@ PLATFORM_ROUTES = {
     # the GPU fleet (Phase 9): platform resources, platform admins only (tests/test_gpu_api.py)
     ("PATCH", "/v1/admin/gpu/providers/{provider_id}"),
     ("POST", "/v1/admin/gpu/workers/{worker_id}:stop"),
+    # the operations console (production cutover): the same platform-admin fleet (tests/test_gpu_api.py)
+    ("DELETE", "/v1/admin/gpu/providers/{provider_id}"),
+    ("POST", "/v1/admin/gpu/providers/{provider_id}:test"),
+    ("POST", "/v1/admin/gpu/workers/{worker_id}:start"),
+    ("POST", "/v1/admin/gpu/workers/{worker_id}:restart"),
+    ("POST", "/v1/admin/gpu/workers/{worker_id}:refresh"),
+    ("POST", "/v1/admin/gpu/workers/{worker_id}:prepare"),
+    ("POST", "/v1/admin/gpu/workers/{worker_id}:cancel-prepare"),
+    ("POST", "/v1/admin/gpu/profiles/{profile_id}:provision"),
 }
 
 
