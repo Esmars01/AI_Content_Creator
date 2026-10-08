@@ -174,6 +174,8 @@ def create_app(
             else (),
         )
         pools = effective.bundle.gpu_pools.pools if effective.bundle.gpu_pools else []
+        if not settings.mock_gpu:
+            pools = [p for p in pools if not p.mock]  # no simulated capacity outside mock mode
         variants = effective.bundle.gpu_variants.variants if effective.bundle.gpu_variants else {}
 
         async def providers_now(previous: Any = None) -> Any:

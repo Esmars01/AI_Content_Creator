@@ -62,6 +62,12 @@ async def get_session(services: ServicesDep) -> AsyncIterator[AsyncSession]:
 DbSession = Annotated[AsyncSession, Depends(get_session, scope="function")]
 
 
+def _refuse_demo_in_production(services: Services, principal: Principal) -> None:
+    """Production serves no demo data: the dev seed's org (`is_demo`) cannot be used there."""
+    if principal.org_is_demo and services.settings.app_env == "prod":
+        raise UnauthenticatedError("this is a demo organization; production does not serve demo data")
+
+
 async def get_optional_principal(request: Request, services: ServicesDep, session: DbSession) -> Principal | None:
     now = services.clock()
     authorization = request.headers.get("authorization", "")
@@ -72,12 +78,14 @@ async def get_optional_principal(request: Request, services: ServicesDep, sessio
         principal = await resolve_api_key(
             session, value.strip(), now=now, namespace=services.config.security.api_key_prefix
         )
+        _refuse_demo_in_production(services, principal)
         request.state.principal = principal
         return principal
     token = request.cookies.get(services.config.security.session_cookie)
     if not token:
         return None
     principal = await resolve_session(session, token, now=now)
+    _refuse_demo_in_production(services, principal)
     if request.method.upper() not in SAFE_METHODS:
         expected = csrf_token(services.signing_secret, str(principal.session_id))
         if not hmac.compare_digest(request.headers.get(CSRF_HEADER, ""), expected):

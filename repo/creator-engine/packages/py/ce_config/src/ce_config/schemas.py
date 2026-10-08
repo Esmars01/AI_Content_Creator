@@ -1072,6 +1072,11 @@ class GpuPool(Strict):
     min_driver_version: str | None = Field(
         default=None, description="offers with an older NVIDIA driver are skipped (CUDA 12.8 images need >= 570, §36)"
     )
+    mock: bool = Field(
+        default=False,
+        description="a pool of simulated workers (mock provider): listed and used only with MOCK_GPU=true, so "
+        "production never shows simulated capacity",
+    )
 
 
 class GpuClass(Strict):

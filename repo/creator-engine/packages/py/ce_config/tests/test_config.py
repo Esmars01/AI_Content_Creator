@@ -285,3 +285,13 @@ def test_cli_validate_exit_codes(tmp_path: Path) -> None:
     bad = runner.invoke(config_app, ["validate", "--root", str(root)])
     assert bad.exit_code == 1
     assert "schema" in bad.output
+
+
+def test_simulated_pools_are_flagged_mock() -> None:
+    """The scheduler drops `mock` pools unless MOCK_GPU=true, so production shows no simulated capacity."""
+    pools = load_config(ROOT / "config", "prod").gpu_pools
+    assert pools is not None
+    for pool in pools.pools:
+        simulated = set(pool.providers) <= {"mock", "example_cloud"}
+        assert pool.mock is simulated, pool.id
+    assert [p.id for p in pools.pools if p.mock] == ["mock"]

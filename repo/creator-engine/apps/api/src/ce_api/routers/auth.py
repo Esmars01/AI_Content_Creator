@@ -43,6 +43,15 @@ class OrgOut(Out):
     id: UUID
     name: str
     plan: str
+    is_demo: bool = Field(default=False, description="the dev seed's organization (never served in production)")
+
+
+class EnvironmentOut(Out):
+    """What the web app needs to label the deployment honestly (no mock wording in production)."""
+
+    app_env: Literal["dev", "test", "prod"]
+    mock_gpu: bool = Field(description="mock GPU adapters and providers are registered (dev/test only)")
+    demo_data: bool = Field(description="demo (seed) organizations may be used in this environment")
 
 
 class MembershipOut(Out):
@@ -57,6 +66,7 @@ class MeOut(Out):
     role: str
     auth: Literal["session", "api_key"]
     memberships: list[MembershipOut]
+    environment: EnvironmentOut
 
 
 class LoginOut(MeOut):
@@ -76,22 +86,33 @@ async def _rate_limit(services: ServicesDep, *subjects: str) -> None:
             raise RateLimitedError("too many login attempts; try again in a minute", retry_after_s=60)
 
 
-async def _me(session: DbSession, user: User, org_id: UUID, role: str, via: Literal["session", "api_key"]) -> MeOut:
+async def _me(
+    session: DbSession,
+    services: ServicesDep,
+    user: User,
+    org_id: UUID,
+    role: str,
+    via: Literal["session", "api_key"],
+) -> MeOut:
+    settings = services.settings
+    demo_data = settings.app_env != "prod"
     org = await session.get_one(Organization, org_id)
-    rows = (
-        await session.execute(
-            sa.select(Membership.org_id, Organization.name, Membership.role)
-            .join(Organization, Organization.id == Membership.org_id)
-            .where(Membership.user_id == user.id)
-            .order_by(Organization.name)
-        )
-    ).all()
+    query = (
+        sa.select(Membership.org_id, Organization.name, Membership.role)
+        .join(Organization, Organization.id == Membership.org_id)
+        .where(Membership.user_id == user.id)
+        .order_by(Organization.name)
+    )
+    if not demo_data:
+        query = query.where(Organization.is_demo.is_(False))
+    rows = (await session.execute(query)).all()
     return MeOut(
         user=UserOut.model_validate(user),
         org=OrgOut.model_validate(org),
         role=role,
         auth=via,
         memberships=[MembershipOut(org_id=r[0], org_name=r[1], role=r[2]) for r in rows],
+        environment=EnvironmentOut(app_env=settings.app_env, mock_gpu=settings.mock_gpu, demo_data=demo_data),
     )
 
 
@@ -112,6 +133,7 @@ async def login(
         now=services.clock(),
         ip=ip,
         user_agent=request.headers.get("user-agent"),
+        allow_demo=services.settings.app_env != "prod",
     )
     secure = services.effective.cookie_secure
     csrf = csrf_token(services.signing_secret, str(issued.session.id))
@@ -134,7 +156,7 @@ async def login(
         path="/",
     )
     response.headers["Cache-Control"] = "no-store"
-    me = await _me(session, user, issued.membership.org_id, issued.membership.role, "session")
+    me = await _me(session, services, user, issued.membership.org_id, issued.membership.role, "session")
     return LoginOut(**me.model_dump(), csrf_token=csrf, expires_at=issued.session.expires_at)
 
 
@@ -150,9 +172,9 @@ async def logout(principal: AnyCaller, response: Response, session: DbSession, s
 
 
 @router.get("/v1/me", response_model=MeOut)
-async def me(principal: AnyCaller, session: DbSession) -> MeOut:
+async def me(principal: AnyCaller, session: DbSession, services: ServicesDep) -> MeOut:
     user = await session.get_one(User, principal.user_id)
-    return await _me(session, user, principal.org_id, principal.role, principal.via)
+    return await _me(session, services, user, principal.org_id, principal.role, principal.via)
 
 
 # ---------------------------------------------------------------------- API keys

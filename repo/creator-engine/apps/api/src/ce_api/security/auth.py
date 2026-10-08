@@ -50,6 +50,7 @@ class Principal:
     session_id: UUID | None = None
     api_key_id: UUID | None = None
     scopes: frozenset[str] = frozenset({"read", "write"})
+    org_is_demo: bool = False  # the dev seed's org (migration 0006); production refuses it
 
     @property
     def ctx(self) -> OrgContext:
@@ -96,10 +97,14 @@ class PasswordAuthProvider:
         return user
 
 
-async def _membership(session: AsyncSession, user_id: UUID, org_id: UUID | None) -> Membership | None:
+async def _membership(
+    session: AsyncSession, user_id: UUID, org_id: UUID | None, *, allow_demo: bool = True
+) -> Membership | None:
     query = sa.select(Membership).where(Membership.user_id == user_id)
     if org_id is not None:
         query = query.where(Membership.org_id == org_id)
+    if not allow_demo:
+        query = query.join(Organization, Organization.id == Membership.org_id).where(Organization.is_demo.is_(False))
     query = query.order_by(Membership.created_at, Membership.org_id).limit(1)
     return (await session.execute(query)).scalar_one_or_none()
 
@@ -121,8 +126,11 @@ async def create_session(
     now: datetime,
     ip: str | None,
     user_agent: str | None,
+    allow_demo: bool = True,
 ) -> IssuedSession:
-    membership = await _membership(session, user.id, org_id)
+    """`allow_demo=False` (production) never signs into a demo org: with no org asked, the oldest
+    real membership is used; a demo org asked for by id answers like a missing one."""
+    membership = await _membership(session, user.id, org_id, allow_demo=allow_demo)
     if membership is None:
         # Same answer for "no such org" and "not a member" (no tenant enumeration).
         raise UnauthenticatedError("the user is not a member of that organization")
@@ -144,15 +152,16 @@ async def create_session(
 
 async def resolve_session(session: AsyncSession, token: str, *, now: datetime) -> Principal:
     query = (
-        sa.select(Session, User, Membership)
+        sa.select(Session, User, Membership, Organization.is_demo)
         .join(User, User.id == Session.user_id)
         .join(Membership, sa.and_(Membership.user_id == Session.user_id, Membership.org_id == Session.org_id))
+        .join(Organization, Organization.id == Session.org_id)
         .where(Session.token_hash == hash_token(token))
     )
     row = (await session.execute(query)).first()
     if row is None:
         raise UnauthenticatedError("not signed in")
-    stored, user, membership = row
+    stored, user, membership, is_demo = row
     if stored.revoked_at is not None or stored.expires_at <= now or not user.is_active:
         raise UnauthenticatedError("the session has expired")
     return Principal(
@@ -163,6 +172,7 @@ async def resolve_session(session: AsyncSession, token: str, *, now: datetime) -
         is_platform_admin=user.is_platform_admin,
         via="session",
         session_id=stored.id,
+        org_is_demo=bool(is_demo),
     )
 
 
@@ -177,15 +187,16 @@ async def resolve_api_key(session: AsyncSession, value: str, *, now: datetime, n
     if prefix is None:
         raise UnauthenticatedError("malformed API key")
     query = (
-        sa.select(ApiKey, User, Membership)
+        sa.select(ApiKey, User, Membership, Organization.is_demo)
         .join(User, User.id == ApiKey.user_id)
         .join(Membership, sa.and_(Membership.user_id == ApiKey.user_id, Membership.org_id == ApiKey.org_id))
+        .join(Organization, Organization.id == ApiKey.org_id)
         .where(ApiKey.prefix == prefix)
     )
     row = (await session.execute(query)).first()
     if row is None or not hmac.compare_digest(row[0].hash, hash_token(value)):
         raise UnauthenticatedError("invalid API key")
-    key, user, membership = row
+    key, user, membership, is_demo = row
     if key.revoked_at is not None or (key.expires_at is not None and key.expires_at <= now) or not user.is_active:
         raise UnauthenticatedError("the API key is revoked or expired")
     key.last_used_at = now
@@ -198,4 +209,5 @@ async def resolve_api_key(session: AsyncSession, value: str, *, now: datetime, n
         via="api_key",
         api_key_id=key.id,
         scopes=frozenset(key.scopes),
+        org_is_demo=bool(is_demo),
     )

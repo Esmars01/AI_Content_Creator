@@ -6240,6 +6240,37 @@
         "title": "EnvelopeRefs",
         "type": "object"
       },
+      "EnvironmentOut": {
+        "description": "What the web app needs to label the deployment honestly (no mock wording in production).",
+        "properties": {
+          "app_env": {
+            "enum": [
+              "dev",
+              "test",
+              "prod"
+            ],
+            "title": "App Env",
+            "type": "string"
+          },
+          "demo_data": {
+            "description": "demo (seed) organizations may be used in this environment",
+            "title": "Demo Data",
+            "type": "boolean"
+          },
+          "mock_gpu": {
+            "description": "mock GPU adapters and providers are registered (dev/test only)",
+            "title": "Mock Gpu",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "app_env",
+          "mock_gpu",
+          "demo_data"
+        ],
+        "title": "EnvironmentOut",
+        "type": "object"
+      },
       "EstimateBody": {
         "additionalProperties": false,
         "description": "One of: a version (its full generation), an edit proposal, or a regeneration.",
@@ -8103,6 +8134,9 @@
             "title": "Csrf Token",
             "type": "string"
           },
+          "environment": {
+            "$ref": "#/components/schemas/EnvironmentOut"
+          },
           "expires_at": {
             "format": "date-time",
             "title": "Expires At",
@@ -8132,6 +8166,7 @@
           "role",
           "auth",
           "memberships",
+          "environment",
           "csrf_token",
           "expires_at"
         ],
@@ -8259,6 +8294,9 @@
             "title": "Auth",
             "type": "string"
           },
+          "environment": {
+            "$ref": "#/components/schemas/EnvironmentOut"
+          },
           "memberships": {
             "items": {
               "$ref": "#/components/schemas/MembershipOut"
@@ -8282,7 +8320,8 @@
           "org",
           "role",
           "auth",
-          "memberships"
+          "memberships",
+          "environment"
         ],
         "title": "MeOut",
         "type": "object"
@@ -9433,6 +9472,12 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "is_demo": {
+            "default": false,
+            "description": "the dev seed's organization (never served in production)",
+            "title": "Is Demo",
+            "type": "boolean"
           },
           "name": {
             "title": "Name",

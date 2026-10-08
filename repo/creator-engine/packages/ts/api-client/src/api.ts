@@ -5780,6 +5780,27 @@ export interface components {
             world?: components["schemas"]["WorldRefs"] | null;
         };
         /**
+         * EnvironmentOut
+         * @description What the web app needs to label the deployment honestly (no mock wording in production).
+         */
+        EnvironmentOut: {
+            /**
+             * App Env
+             * @enum {string}
+             */
+            app_env: "dev" | "test" | "prod";
+            /**
+             * Demo Data
+             * @description demo (seed) organizations may be used in this environment
+             */
+            demo_data: boolean;
+            /**
+             * Mock Gpu
+             * @description mock GPU adapters and providers are registered (dev/test only)
+             */
+            mock_gpu: boolean;
+        };
+        /**
          * EstimateBody
          * @description One of: a version (its full generation), an edit proposal, or a regeneration.
          * @example {
@@ -6555,6 +6576,7 @@ export interface components {
              * @description echo in X-CSRF-Token on cookie-authenticated changes
              */
             csrf_token: string;
+            environment: components["schemas"]["EnvironmentOut"];
             /**
              * Expires At
              * Format: date-time
@@ -6624,6 +6646,7 @@ export interface components {
              * @enum {string}
              */
             auth: "session" | "api_key";
+            environment: components["schemas"]["EnvironmentOut"];
             /** Memberships */
             memberships: components["schemas"]["MembershipOut"][];
             org: components["schemas"]["OrgOut"];
@@ -7106,6 +7129,12 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Is Demo
+             * @description the dev seed's organization (never served in production)
+             * @default false
+             */
+            is_demo: boolean;
             /** Name */
             name: string;
             /** Plan */
