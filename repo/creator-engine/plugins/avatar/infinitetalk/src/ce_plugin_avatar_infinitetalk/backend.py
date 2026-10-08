@@ -42,6 +42,13 @@ class InfiniteTalkBackend:
         lora_file: Path | None,
         defaults: dict[str, Any],
     ) -> None:
+        if (defaults.get("quant") or None) and (quant_file is None or not quant_file.is_file()):
+            # the manifest's `files` fetch the bf16 checkpoint only: say so instead of failing deep in the load
+            raise RuntimeError(
+                f"quant={defaults.get('quant')!r} needs {quant_file}, which the model cache does not fetch: add "
+                "quant_models/infinitetalk_single_fp8* to the infinitetalk-single model's files (and its size) or "
+                "keep quant: null"
+            )
         import torch
         import wan  # the InfiniteTalk repository
         from src.audio_analysis.wav2vec2 import Wav2Vec2Model  # the InfiniteTalk repository

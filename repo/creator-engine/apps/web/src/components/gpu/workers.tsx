@@ -30,7 +30,15 @@ export function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-type Action = "start" | "restart" | "refresh" | "stop" | "terminate";
+type Action = "start" | "restart" | "refresh" | "stop" | "terminate" | "prepare" | "cancel-prepare";
+
+/** A prepare the worker has been asked for and not finished: some model is still on its way. */
+function preparing(worker: Worker): boolean {
+  const request = (worker.prepare_request ?? {}) as { id?: string; cancel?: boolean };
+  if (!request.id || request.cancel) return false;
+  const states = Object.values((worker.model_states ?? {}) as Record<string, { state?: string }>);
+  return states.some((s) => s.state === "downloading" || s.state === "verifying" || s.state === "loading");
+}
 
 function WorkerActions({ worker, run, busy }: { worker: Worker; run: (a: Action) => void; busy: boolean }) {
   const actions = worker.actions ?? [];
@@ -45,6 +53,23 @@ function WorkerActions({ worker, run, busy }: { worker: Worker; run: (a: Action)
         <Button size="sm" disabled={busy} onClick={() => run("start")}>
           Start
         </Button>
+      ) : null}
+      {["idle", "busy", "provisioning"].includes(worker.state) && actions.includes("refresh") ? (
+        preparing(worker) ? (
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => run("cancel-prepare")}>
+            Cancel prepare
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={() => run("prepare")}
+            title="Download, verify and load this worker's models now (once per cache)"
+          >
+            Prepare models
+          </Button>
+        )
       ) : null}
       {actions.includes("restart") ? (
         <Button size="sm" variant="outline" disabled={busy} onClick={() => run("restart")}>
@@ -79,6 +104,17 @@ export function Workers({ admin }: { admin: boolean }) {
   });
   const act = useMutation({
     mutationFn: async ({ id, action }: { id: string; action: Action }) => {
+      if (action === "prepare")
+        return unwrap(
+          api.POST("/v1/admin/gpu/workers/{worker_id}:prepare", {
+            params: { path: { worker_id: id } },
+            body: { warm: true },
+          }),
+        );
+      if (action === "cancel-prepare")
+        return unwrap(
+          api.POST("/v1/admin/gpu/workers/{worker_id}:cancel-prepare", { params: { path: { worker_id: id } } }),
+        );
       if (action === "stop" || action === "terminate")
         return unwrap(
           api.POST("/v1/admin/gpu/workers/{worker_id}:stop", {

@@ -36,7 +36,16 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-__all__ = ["CacheEntry", "Fetcher", "ModelCache", "ModelCacheError", "ModelFetchError", "parse_uri"]
+__all__ = [
+    "CacheEntry",
+    "FetchProgress",
+    "Fetcher",
+    "ModelCache",
+    "ModelCacheError",
+    "ModelFetchError",
+    "NotEnoughDiskError",
+    "parse_uri",
+]
 
 # (uri, destination directory[, file patterns]) — two-argument fetchers fetch everything
 Fetcher = Callable[..., Awaitable[None]]
@@ -49,6 +58,56 @@ class ModelCacheError(RuntimeError):
 
 class ModelFetchError(ModelCacheError):
     """A transient download failure (HTTP status, interrupted transfer): the task is retried."""
+
+
+class NotEnoughDiskError(ModelCacheError):
+    """The cache's disk cannot hold the download even after evicting unused entries (raise the
+    provider's disk size or attach a larger volume; retrying on the same disk cannot help)."""
+
+
+@dataclass
+class FetchProgress:
+    """The live state of one cache entry's fetch, for status reports (cutover §11).
+
+    A fetcher that knows the sizes calls `expect()` before downloading (the cache checks free disk
+    there) and `add()` per chunk; `remote_sha256` holds the upstream content hashes it learned (Hugging
+    Face LFS objects), which the cache verifies like manifest pins. `state` moves downloading →
+    verifying → installed, or failed."""
+
+    model_key: str
+    state: str = "downloading"
+    bytes_total: int | None = None
+    bytes_done: int = 0
+    files_total: int | None = None
+    files_done: int = 0
+    remote_sha256: dict[str, str] = field(default_factory=dict)
+    error: str | None = None
+    started: float = field(default_factory=time.monotonic)
+    space_check: Callable[[int], None] | None = None
+
+    def expect(self, total_bytes: int | None, files: int | None = None) -> None:
+        self.bytes_total, self.files_total = total_bytes, files
+        if total_bytes and self.space_check is not None:
+            self.space_check(total_bytes)
+
+    def add(self, count: int) -> None:
+        self.bytes_done += count
+
+    def as_dict(self) -> dict[str, Any]:
+        elapsed = max(time.monotonic() - self.started, 1e-6)
+        speed = self.bytes_done / elapsed
+        out: dict[str, Any] = {"state": self.state, "bytes_done": self.bytes_done}
+        if self.bytes_total is not None:
+            out["bytes_total"] = self.bytes_total
+            if self.state == "downloading" and speed > 0 and self.bytes_done:
+                out["eta_s"] = round(max(self.bytes_total - self.bytes_done, 0) / speed, 1)
+        if self.files_total is not None:
+            out["files_total"], out["files_done"] = self.files_total, self.files_done
+        if self.bytes_done:
+            out["speed_mbps"] = round(speed / 1e6, 1)
+        if self.error:
+            out["error"] = self.error
+        return out
 
 
 def parse_uri(uri: str) -> tuple[str, str, str]:
@@ -73,13 +132,19 @@ class CacheEntry:
     files: dict[str, str] = field(default_factory=dict)  # relative path → sha256
     last_used: float = 0.0
     pinned: bool = False
+    # how each file was verified: "manifest" (a pin), "upstream" (the source's content hash, e.g. a
+    # Hugging Face LFS sha256) or "recorded" (hashed here, nothing to compare with)
+    verification: dict[str, int] = field(default_factory=dict)
 
 
 class ModelCache:
-    def __init__(self, root: Path | str, *, max_gb: float = 200.0, evict_grace_s: float = 0.0) -> None:
+    def __init__(
+        self, root: Path | str, *, max_gb: float = 200.0, evict_grace_s: float = 0.0, reserve_gb: float = 5.0
+    ) -> None:
         self.root = Path(root)
         self.max_bytes = int(max_gb * 1024**3)
         self.evict_grace_s = evict_grace_s
+        self.reserve_bytes = int(reserve_gb * 1024**3)  # kept free for scratch, outputs and the manifest
         self.fetchers: dict[str, Fetcher] = {}
         self._manifest = self.root / "manifest.json"
         self._removed: set[str] = set()
@@ -114,7 +179,8 @@ class ModelCache:
         if not self._manifest.is_file():
             return {}
         data = json.loads(self._manifest.read_text(encoding="utf-8"))
-        return {k: CacheEntry(**v) for k, v in data.get("entries", {}).items()}
+        known = set(CacheEntry.__dataclass_fields__)
+        return {k: CacheEntry(**{f: x for f, x in v.items() if f in known}) for k, v in data.get("entries", {}).items()}
 
     def _load(self) -> dict[str, CacheEntry]:
         return self._read()
@@ -171,14 +237,17 @@ class ModelCache:
         expected: dict[str, str] | None = None,
         pin: bool = False,
         files: Sequence[str] = (),
+        progress: FetchProgress | None = None,
     ) -> Path:
         """The local directory of `uri`, downloading (only `files`, glob patterns, when given) and
-        verifying it on first use."""
+        verifying it on first use. `progress` follows the download (bytes, speed, state)."""
         entry = self.entries.get(model_key)
         if entry is not None and Path(entry.path).exists():
             entry.last_used = time.time()
             entry.pinned = entry.pinned or pin
             self._save()
+            if progress is not None:
+                progress.state = "installed"
             return Path(entry.path)
         target = self.path_for(uri, files)
         shared = next((e for e in self.entries.values() if Path(e.path) == target and target.exists()), None)
@@ -190,6 +259,8 @@ class ModelCache:
                 model_key, uri, str(target), shared.size_bytes, dict(shared.files), time.time(), pin
             )
             self._save()
+            if progress is not None:
+                progress.state = "installed"
             return target
         scheme, _, _ = parse_uri(uri)
         fetcher = self.fetchers.get(scheme)
@@ -211,8 +282,12 @@ class ModelCache:
                     model_key, uri, str(target), done.size_bytes, dict(done.files), time.time(), pin
                 )
                 self._save()
+                if progress is not None:
+                    progress.state = "installed"
                 return target
-            return await self._fetch(model_key, uri, target, fetcher, expected=expected, pin=pin, files=files)
+            return await self._fetch(
+                model_key, uri, target, fetcher, expected=expected, pin=pin, files=files, progress=progress
+            )
 
     async def _fetch(
         self,
@@ -224,29 +299,101 @@ class ModelCache:
         expected: dict[str, str] | None,
         pin: bool,
         files: Sequence[str],
+        progress: FetchProgress | None = None,
     ) -> Path:
+        progress = progress or FetchProgress(model_key)
+        progress.state, progress.error = "downloading", None
+        progress.space_check = lambda need: self.ensure_space(need, keep=model_key)
         staging = target.with_name(f"{target.name}.partial-{os.getpid()}-{uuid.uuid4().hex[:8]}")
         shutil.rmtree(staging, ignore_errors=True)
         staging.mkdir(parents=True, exist_ok=True)
-        if len(inspect.signature(fetcher).parameters) >= 3:
-            await fetcher(uri, staging, list(files))
-        else:
-            await fetcher(uri, staging)
-        # Hashing (and removing) tens of GB of weights blocks for minutes: off the event loop, which
-        # also runs the task's heartbeats (a blocked loop loses the lease; audit W8).
-        hashes = await asyncio.to_thread(self._hash_tree, staging)
-        for rel, digest in (expected or {}).items():
-            if hashes.get(rel) != digest:
-                await asyncio.to_thread(shutil.rmtree, staging, ignore_errors=True)
-                raise ModelCacheError(f"{model_key}: {rel} failed its sha256 check")
+        try:
+            parameters = inspect.signature(fetcher).parameters
+            if "progress" in parameters:
+                await fetcher(uri, staging, list(files), progress=progress)
+            elif len(parameters) >= 3:
+                await fetcher(uri, staging, list(files))
+            else:
+                await fetcher(uri, staging)
+            # Hashing (and removing) tens of GB of weights blocks for minutes: off the event loop, which
+            # also runs the task's heartbeats (a blocked loop loses the lease; audit W8).
+            progress.state = "verifying"
+            hashes = await asyncio.to_thread(self._hash_tree, staging)
+            pins = dict(expected or {})
+            for rel, digest in pins.items():
+                if hashes.get(rel) != digest:
+                    raise ModelCacheError(f"{model_key}: {rel} failed its sha256 check")
+            upstream = {rel: d for rel, d in progress.remote_sha256.items() if rel not in pins}
+            for rel, digest in upstream.items():
+                if hashes.get(rel) is not None and hashes[rel] != digest.lower():
+                    raise ModelFetchError(f"{model_key}: {rel} does not match the source's sha256 (corrupt download)")
+        except BaseException as exc:
+            # a failed, corrupt or cancelled download leaves nothing behind (no orphaned staging)
+            await asyncio.to_thread(shutil.rmtree, staging, ignore_errors=True)
+            progress.state = "failed"
+            progress.error = "cancelled" if isinstance(exc, asyncio.CancelledError) else str(exc)[:300]
+            raise
         await asyncio.to_thread(shutil.rmtree, target, ignore_errors=True)
         target.parent.mkdir(parents=True, exist_ok=True)
         os.replace(staging, target)
         size = await asyncio.to_thread(lambda: sum(p.stat().st_size for p in target.rglob("*") if p.is_file()))
-        self.entries[model_key] = CacheEntry(model_key, uri, str(target), size, hashes, time.time(), pin)
+        verified_upstream = sum(1 for rel in upstream if rel in hashes)
+        verification = {
+            "manifest": len(pins),
+            "upstream": verified_upstream,
+            "recorded": max(len(hashes) - len(pins) - verified_upstream, 0),
+        }
+        self.entries[model_key] = CacheEntry(
+            model_key, uri, str(target), size, hashes, time.time(), pin, verification=verification
+        )
+        progress.state = "installed"
         self.evict()
         self._save()
         return target
+
+    def free_bytes(self) -> int:
+        self.root.mkdir(parents=True, exist_ok=True)
+        return shutil.disk_usage(self.root).free
+
+    def ensure_space(self, need: int, *, keep: str | None = None) -> None:
+        """Before a download of `need` bytes: evict least-recently-used, unpinned, unused entries until
+        the disk has room for it plus the reserve; refuse when it cannot."""
+        wanted = need + self.reserve_bytes
+        if self.free_bytes() >= wanted:
+            return
+        now = time.time()
+        for entry in sorted(self.entries.values(), key=lambda e: e.last_used):
+            if self.free_bytes() >= wanted:
+                break
+            if entry.model_key == keep or entry.pinned or now - entry.last_used < self.evict_grace_s:
+                continue
+            if any(e.model_key != entry.model_key and e.path == entry.path for e in self.entries.values()):
+                continue
+            shutil.rmtree(entry.path, ignore_errors=True)
+            self._removed.add(entry.model_key)
+            del self.entries[entry.model_key]
+        self._save()
+        free = self.free_bytes()
+        if free < wanted:
+            gib = 1024**3
+            raise NotEnoughDiskError(
+                f"not enough disk for the model cache at {self.root}: the download needs {need / gib:.1f} GiB "
+                f"(+{self.reserve_bytes / gib:.0f} GiB reserve), {free / gib:.1f} GiB free"
+            )
+
+    def clean_staging(self, *, older_than_s: float = 6 * 3600) -> list[str]:
+        """Removes staging directories (`*.partial-*`) a crashed download left behind; recent ones may
+        belong to another worker sharing the root and are kept."""
+        removed: list[str] = []
+        if not self.root.is_dir():
+            return removed
+        cutoff = time.time() - older_than_s
+        for path in self.root.rglob("*.partial-*"):
+            with contextlib.suppress(OSError):
+                if path.is_dir() and path.stat().st_mtime < cutoff:
+                    shutil.rmtree(path, ignore_errors=True)
+                    removed.append(str(path))
+        return removed
 
     def evict(self) -> list[str]:
         """Drops least-recently-used unpinned entries until the cache fits `max_bytes`."""

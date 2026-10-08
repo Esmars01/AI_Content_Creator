@@ -9,10 +9,11 @@ are not fetched. The cache key of a model is its manifest key (what the schedule
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from ce_worker.model_cache import ModelCache
+from ce_worker.model_cache import FetchProgress, ModelCache
 
 __all__ = ["ModelFetch", "ensure_plugin_models", "fetch_plan", "source_uri"]
 
@@ -54,10 +55,19 @@ def fetch_plan(manifest: Any) -> list[ModelFetch]:
     return out
 
 
-async def ensure_plugin_models(cache: ModelCache, manifest: Any) -> dict[str, str]:
-    """Fetches (once per host) and verifies every model the plugin needs; returns `model_paths`."""
+async def ensure_plugin_models(
+    cache: ModelCache, manifest: Any, *, progress: Callable[[ModelFetch], FetchProgress] | None = None
+) -> dict[str, str]:
+    """Fetches (once per host) and verifies every model the plugin needs; returns `model_paths`.
+    `progress` gives the progress object each entry's fetch reports into (status reports)."""
     paths: dict[str, str] = {}
     for item in fetch_plan(manifest):
-        local = await cache.ensure(item.cache_key, item.uri, expected=item.expected or None, files=item.files)
+        local = await cache.ensure(
+            item.cache_key,
+            item.uri,
+            expected=item.expected or None,
+            files=item.files,
+            progress=progress(item) if progress is not None else None,
+        )
         paths[item.path_key] = str(local)
     return paths

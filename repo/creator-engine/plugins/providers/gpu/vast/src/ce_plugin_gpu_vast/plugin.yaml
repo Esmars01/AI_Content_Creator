@@ -25,10 +25,16 @@ defaults:
   allow_paid: false
   max_price_per_hour_usd: 2.5
   image_template: ""
+  # A private registry: docker login arguments (`-u <user> -p <token> ghcr.io`) behind a reference,
+  # env:NAME or file:/path, resolved by the scheduler when renting; never the value itself.
+  image_login_ref: ""
   images: {}
   env: {}
   storage:
-    disk_gb: 80 # container disk; holds the model cache unless a volume is linked
+    # The minimum container disk (it holds the model cache unless a volume is linked). A provision for a
+    # model profile or a family image gets the size computed from its manifests when that is larger
+    # (InfiniteTalk alone declares 86.92 GB of weights, cutover §9).
+    disk_gb: 80
     model_cache_dir: /models # MODEL_CACHE_DIR in the container (set unless the fleet passes it)
     volume: {} # optional existing Vast volume: {volume_id, machine_id, mount_path}
   search:

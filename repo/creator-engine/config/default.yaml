@@ -89,6 +89,7 @@ scheduler:                         # §25
     low_priority_max: 25           # held while BUDGET_DAILY_USD would be exceeded
     alert_cooldown_s: 3600
     worker_env: {}
+    worker_secret_refs: {}         # e.g. {HF_TOKEN: env:HF_TOKEN}: resolved when renting, passed to the instance's env
     reconcile_interval_s: 120      # compare provisioned workers with their provider (gone, stopped outside, orphans)
     reconcile_batch: 50
 build:                             # §12

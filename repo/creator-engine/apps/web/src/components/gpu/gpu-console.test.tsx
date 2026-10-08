@@ -14,6 +14,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 
 const { Workers } = await import("./workers");
 const { Provision } = await import("./provision");
+const { Profiles } = await import("./profiles");
 
 const ok = (data: unknown) => Promise.resolve({ data, response: new Response(null, { status: 200 }) });
 const wrap = (ui: React.ReactNode) =>
@@ -133,5 +134,65 @@ describe("GPU console", () => {
     expect(submit.disabled).toBe(true); // the paid acknowledgement is missing
     fireEvent.click(screen.getByLabelText(/billing starts now/));
     expect(submit.disabled).toBe(false);
+  });
+
+  it("shows a profile's computed disk and declared model sizes, and prepares workers", async () => {
+    get.mockImplementation((path: string) =>
+      path === "/v1/admin/gpu/profiles"
+        ? ok([
+            {
+              id: "talking_head_a100_80gb",
+              label: "Talking head",
+              gpu_class: "a100_80gb",
+              vram_gb: 80,
+              colocate: true,
+              image: "talking_head",
+              components: [],
+              enabled: true,
+              sizing: {
+                models: [
+                  {
+                    key: "infinitetalk-single",
+                    adapter: "infinitetalk",
+                    declared_gb: 86.92,
+                    repo: "MeiGen-AI/InfiniteTalk",
+                    revision: "d59847ebdacf19245bfca3fb",
+                    license: "Apache-2.0",
+                  },
+                ],
+                models_gb: 93.68,
+                staging_gb: 14.05,
+                scratch_gb: 40,
+                image_gb: 35,
+                disk_gb: 190,
+                vram_gb: 80,
+                vram_min_gb: 40,
+                vram_recommended_gb: 80,
+                fits: true,
+                notes: ["sizes are declared"],
+                missing: [],
+              },
+            },
+          ])
+        : ok({ rows: [], registered: [], skipped: {} }),
+    );
+    wrap(<Profiles />);
+    expect(await screen.findByText("190 GB")).toBeTruthy();
+    expect(screen.getByText("86.92 GB (declared)")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Provision this profile" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("asks an idle worker to prepare its models", async () => {
+    const idle = { ...stopped, state: "idle", actions: ["refresh", "restart", "stop", "terminate"] };
+    get.mockImplementation(() => ok([idle]));
+    post.mockImplementation(() => ok({ worker_id: idle.id, request_id: "r1", models: null, warm: true }));
+    wrap(<Workers admin />);
+    fireEvent.click(await screen.findByRole("button", { name: "Prepare models" }));
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("/v1/admin/gpu/workers/{worker_id}:prepare", {
+        params: { path: { worker_id: idle.id } },
+        body: { warm: true },
+      }),
+    );
   });
 });

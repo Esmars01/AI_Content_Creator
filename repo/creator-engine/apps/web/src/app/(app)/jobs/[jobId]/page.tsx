@@ -8,6 +8,7 @@ import { StateBadge } from "@/components/state-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, Empty, LoadError, Progress, Skeleton, Table, Td, Th } from "@/components/ui/misc";
 import { humanize, usd } from "@/lib/format";
+import { stageText } from "@/lib/gpu";
 import { isMissing, useJob } from "@/lib/queries";
 
 export default function JobPage({ params }: { params: Promise<{ jobId: string }> }) {
@@ -36,6 +37,11 @@ export default function JobPage({ params }: { params: Promise<{ jobId: string }>
           </div>
           <CancelJobButton job={data} />
         </div>
+        {data.stage_label && (data.status === "running" || data.status === "queued") ? (
+          <Alert tone="info">
+            {stageText(data.nodes.find((n) => n.gpu?.stage === data.stage)?.gpu) ?? data.stage_label}
+          </Alert>
+        ) : null}
         {data.error ? (
           <Alert tone="danger">
             {String((data.error as { message?: string }).message ?? JSON.stringify(data.error))}
@@ -52,6 +58,7 @@ export default function JobPage({ params }: { params: Promise<{ jobId: string }>
                   <tr>
                     <Th>Node</Th>
                     <Th>Status</Th>
+                    <Th>GPU stage</Th>
                     <Th>Route</Th>
                     <Th>Attempts</Th>
                     <Th>Cost</Th>
@@ -64,6 +71,7 @@ export default function JobPage({ params }: { params: Promise<{ jobId: string }>
                       <Td>
                         <StateBadge state={node.status} />
                       </Td>
+                      <Td className="text-xs">{stageText(node.gpu) ?? "—"}</Td>
                       <Td className="text-xs">
                         {node.route
                           ? `${String(node.route.adapter_id ?? "")} ${String(node.route.model_id ?? "")}`

@@ -7604,6 +7604,29 @@
             "title": "Progress",
             "type": "number"
           },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "queued, held, waiting_for_gpu, provisioning, booting, downloading_model, verifying, loading_model, generating, uploading, running, completed, failed, cancelled (None: no GPU work active)",
+            "title": "Stage"
+          },
+          "stage_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage Label"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -9174,6 +9197,62 @@
         "title": "ModelOut",
         "type": "object"
       },
+      "ModelSizeOut": {
+        "properties": {
+          "adapter": {
+            "title": "Adapter",
+            "type": "string"
+          },
+          "declared_gb": {
+            "title": "Declared Gb",
+            "type": "number"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License"
+          },
+          "repo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo"
+          },
+          "revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revision"
+          }
+        },
+        "required": [
+          "key",
+          "adapter",
+          "declared_gb"
+        ],
+        "title": "ModelSizeOut",
+        "type": "object"
+      },
       "NodeOut": {
         "properties": {
           "artifact_ids": {
@@ -9228,6 +9307,19 @@
               }
             ],
             "title": "Effective Seed"
+          },
+          "gpu": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "where its GPU work is (ce_api.job_stages): stage, label, task state, progress, the model download's bytes and ETA, the hold reason",
+            "title": "Gpu"
           },
           "node_key": {
             "title": "Node Key",
@@ -10781,6 +10873,87 @@
         "title": "PreferredGesture",
         "type": "object"
       },
+      "PrepareBody": {
+        "additionalProperties": false,
+        "examples": [
+          {
+            "models": [
+              "infinitetalk-single",
+              "chatterbox-turbo"
+            ],
+            "warm": true
+          }
+        ],
+        "properties": {
+          "models": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "model keys; omitted: every model of its adapters",
+            "title": "Models"
+          },
+          "warm": {
+            "default": true,
+            "description": "also load them into GPU memory (else stop once installed)",
+            "title": "Warm",
+            "type": "boolean"
+          }
+        },
+        "title": "PrepareBody",
+        "type": "object"
+      },
+      "PrepareOut": {
+        "properties": {
+          "cancel": {
+            "default": false,
+            "title": "Cancel",
+            "type": "boolean"
+          },
+          "models": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Models"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "warm": {
+            "title": "Warm",
+            "type": "boolean"
+          },
+          "worker_id": {
+            "format": "uuid",
+            "title": "Worker Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "worker_id",
+          "request_id",
+          "models",
+          "warm"
+        ],
+        "title": "PrepareOut",
+        "type": "object"
+      },
       "PresetOut": {
         "properties": {
           "aspect": {
@@ -11024,6 +11197,233 @@
           "message"
         ],
         "title": "ProblemIssue",
+        "type": "object"
+      },
+      "ProfileOut": {
+        "properties": {
+          "colocate": {
+            "title": "Colocate",
+            "type": "boolean"
+          },
+          "components": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "gpu_class": {
+            "title": "Gpu Class",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "regions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Regions",
+            "type": "array"
+          },
+          "sizing": {
+            "$ref": "#/components/schemas/ProfileSizingOut"
+          },
+          "vram_gb": {
+            "title": "Vram Gb",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "gpu_class",
+          "vram_gb",
+          "colocate",
+          "components",
+          "enabled",
+          "sizing"
+        ],
+        "title": "ProfileOut",
+        "type": "object"
+      },
+      "ProfileProvisionBody": {
+        "additionalProperties": false,
+        "examples": [
+          {
+            "provider_id": "0192f0a0-0000-7000-8000-0000000000a1",
+            "region": "eu"
+          }
+        ],
+        "properties": {
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "a plugin key, for providers without a row",
+            "title": "Provider"
+          },
+          "provider_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Id"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          }
+        },
+        "title": "ProfileProvisionBody",
+        "type": "object"
+      },
+      "ProfileProvisionOut": {
+        "properties": {
+          "attempts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Attempts",
+            "type": "array"
+          },
+          "profile": {
+            "title": "Profile",
+            "type": "string"
+          },
+          "provisioned": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Provisioned",
+            "type": "array"
+          },
+          "sizing": {
+            "$ref": "#/components/schemas/ProfileSizingOut"
+          }
+        },
+        "required": [
+          "profile",
+          "provisioned",
+          "attempts",
+          "sizing"
+        ],
+        "title": "ProfileProvisionOut",
+        "type": "object"
+      },
+      "ProfileSizingOut": {
+        "properties": {
+          "disk_gb": {
+            "description": "the container disk provisioned for the profile (computed, rounded up)",
+            "title": "Disk Gb",
+            "type": "integer"
+          },
+          "fits": {
+            "title": "Fits",
+            "type": "boolean"
+          },
+          "image_gb": {
+            "title": "Image Gb",
+            "type": "number"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelSizeOut"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "models_gb": {
+            "title": "Models Gb",
+            "type": "number"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "scratch_gb": {
+            "title": "Scratch Gb",
+            "type": "number"
+          },
+          "staging_gb": {
+            "title": "Staging Gb",
+            "type": "number"
+          },
+          "vram_gb": {
+            "title": "Vram Gb",
+            "type": "number"
+          },
+          "vram_min_gb": {
+            "title": "Vram Min Gb",
+            "type": "number"
+          },
+          "vram_recommended_gb": {
+            "title": "Vram Recommended Gb",
+            "type": "number"
+          }
+        },
+        "required": [
+          "models",
+          "models_gb",
+          "staging_gb",
+          "scratch_gb",
+          "image_gb",
+          "disk_gb",
+          "vram_gb",
+          "vram_min_gb",
+          "vram_recommended_gb",
+          "fits"
+        ],
+        "title": "ProfileSizingOut",
         "type": "object"
       },
       "ProjectCreate": {
@@ -17456,6 +17856,12 @@
             ],
             "title": "Pool Id"
           },
+          "prepare_request": {
+            "additionalProperties": true,
+            "description": "the operator's last prepare request",
+            "title": "Prepare Request",
+            "type": "object"
+          },
           "price_per_hour_usd": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Price Per Hour Usd",
@@ -19021,6 +19427,175 @@
         ]
       }
     },
+    "/v1/admin/gpu/profiles": {
+      "get": {
+        "description": "Model profiles with the disk and VRAM computed from their manifests.",
+        "operationId": "list_profiles_v1_admin_gpu_profiles_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProfileOut"
+                  },
+                  "title": "Response List Profiles V1 Admin Gpu Profiles Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not signed in, or the session or API key is invalid"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden by role, API-key scope, CSRF or policy"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not found (another organization's resources are indistinguishable from missing ones)"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict: immutable record, failed approval requirements, duplicate"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Invalid input; `issues` lists each finding with its path"
+          }
+        },
+        "summary": "List Profiles",
+        "tags": [
+          "gpu"
+        ]
+      }
+    },
+    "/v1/admin/gpu/profiles/{profile_id}:provision": {
+      "post": {
+        "description": "Rents what the profile needs now (a colocated profile: one instance, one worker per family), with\nthe computed disk; each worker prepares its models right after boot. Paid providers still refuse\nwithout the owner's approval.",
+        "operationId": "provision_profile_v1_admin_gpu_profiles__profile_id__provision_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "profile_id",
+            "required": true,
+            "schema": {
+              "title": "Profile Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileProvisionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileProvisionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not signed in, or the session or API key is invalid"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden by role, API-key scope, CSRF or policy"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not found (another organization's resources are indistinguishable from missing ones)"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict: immutable record, failed approval requirements, duplicate"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Invalid input; `issues` lists each finding with its path"
+          }
+        },
+        "summary": "Provision Profile",
+        "tags": [
+          "gpu"
+        ]
+      }
+    },
     "/v1/admin/gpu/providers": {
       "get": {
         "operationId": "list_providers_v1_admin_gpu_providers_get",
@@ -19513,6 +20088,184 @@
           }
         },
         "summary": "Gpu Queue",
+        "tags": [
+          "gpu"
+        ]
+      }
+    },
+    "/v1/admin/gpu/workers/{worker_id}:cancel-prepare": {
+      "post": {
+        "description": "Stops the worker's running prepare: its download is aborted and its staging removed; what was\nalready installed stays. Retry with a new prepare.",
+        "operationId": "cancel_prepare_v1_admin_gpu_workers__worker_id__cancel_prepare_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "worker_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Worker Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrepareOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not signed in, or the session or API key is invalid"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden by role, API-key scope, CSRF or policy"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not found (another organization's resources are indistinguishable from missing ones)"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict: immutable record, failed approval requirements, duplicate"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Invalid input; `issues` lists each finding with its path"
+          }
+        },
+        "summary": "Cancel Prepare",
+        "tags": [
+          "gpu"
+        ]
+      }
+    },
+    "/v1/admin/gpu/workers/{worker_id}:prepare": {
+      "post": {
+        "description": "Asks a live worker to fetch and verify models into its cache (once per cache, never per job) and,\nwith `warm`, load them into GPU memory. The scheduler hands the request over at the worker's next\nlease poll; progress (bytes, speed, ETA, state) shows in the worker's `model_states`.",
+        "operationId": "prepare_worker_v1_admin_gpu_workers__worker_id__prepare_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "worker_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Worker Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrepareBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrepareOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not signed in, or the session or API key is invalid"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden by role, API-key scope, CSRF or policy"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not found (another organization's resources are indistinguishable from missing ones)"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict: immutable record, failed approval requirements, duplicate"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Invalid input; `issues` lists each finding with its path"
+          }
+        },
+        "summary": "Prepare Worker",
         "tags": [
           "gpu"
         ]

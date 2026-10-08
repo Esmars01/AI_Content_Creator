@@ -24,9 +24,12 @@ __all__ = [
     "OutputDescriptor",
     "RegisterBody",
     "RegisterReply",
+    "StatusBody",
+    "StatusReply",
     "UploadBody",
     "UploadReply",
     "UploadSlot",
+    "WorkerCommand",
 ]
 
 PROTOCOL_VERSION = "1"
@@ -87,10 +90,34 @@ class LeaseBody(ContractModel):
     # preparation state. Values it cannot measure are absent, never 0.
     telemetry: dict[str, Any] | None = None
     model_states: dict[str, dict[str, Any]] | None = None
+    prepare_seen: str | None = Field(default=None, description="the last prepare request this worker took up")
+
+
+class WorkerCommand(ContractModel):
+    """An operator's request the scheduler relays to an idle worker (cutover §11):
+    `prepare` fetches (and with `warm`, loads) models; `cancel_prepare` stops a running prepare."""
+
+    kind: str = Field(pattern="^(prepare|cancel_prepare)$")
+    id: str
+    models: list[str] | None = Field(default=None, description="model keys; None = every model of its adapters")
+    warm: bool = True
 
 
 class LeaseReply(ContractModel):
     tasks: list[LeasedTask] = Field(default_factory=list)
+    commands: list[WorkerCommand] = Field(default_factory=list)
+
+
+class StatusBody(ContractModel):
+    """A worker's report outside a lease (while it prepares models): telemetry and model states."""
+
+    telemetry: dict[str, Any] | None = None
+    model_states: dict[str, dict[str, Any]] | None = None
+    prepare_seen: str | None = None
+
+
+class StatusReply(ContractModel):
+    commands: list[WorkerCommand] = Field(default_factory=list)
 
 
 TASK_PHASES = ("fetching_model", "verifying_model", "loading_model", "generating", "uploading")

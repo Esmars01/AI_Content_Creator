@@ -26,6 +26,8 @@ from ce_worker.protocol import (
     LeaseReply,
     RegisterBody,
     RegisterReply,
+    StatusBody,
+    StatusReply,
     UploadBody,
     UploadReply,
 )
@@ -66,6 +68,12 @@ class ProvisionRequest(BaseModel):
     count: int = Field(default=1, ge=1, le=8)
     region: str | None = None
     variant: str | None = None
+
+
+class ProfileProvisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    provider: str
+    region: str | None = None
 
 
 class StopRequest(BaseModel):
@@ -213,6 +221,7 @@ def create_app(
             scheduler_url=settings.scheduler_public_url,
             app_env=settings.app_env,
             publish=publish,
+            profiles=dict(effective.bundle.gpu_profiles.profiles) if effective.bundle.gpu_profiles else {},
         )
 
         fleet.skipped_providers = skipped
@@ -277,6 +286,13 @@ def create_app(
             return await scheduler_of(request).heartbeat(who, body)
         except StaleTaskError as exc:
             raise HTTPException(409, f"task {exc} is no longer leased to this worker") from exc
+
+    @app.post(f"{prefix}/status", response_model=StatusReply)
+    async def status(body: StatusBody, request: Request, who: Worker) -> StatusReply:
+        try:
+            return await scheduler_of(request).status(who, body)
+        except AuthError as exc:
+            raise HTTPException(401, str(exc)) from exc
 
     @app.post(f"{prefix}/upload", response_model=UploadReply)
     async def upload(body: UploadBody, request: Request, who: Worker) -> UploadReply:
@@ -444,6 +460,21 @@ def create_app(
     async def fleet_terminate_orphan(provider: str, external_id: str, request: Request) -> dict[str, Any]:
         instance = await _act(fleet_of(request).terminate_orphan(provider, external_id))
         return {"provider": provider, "external_id": external_id, "state": instance.state}
+
+    @app.get(f"{admin}/profiles", dependencies=guard)
+    async def fleet_profiles(request: Request) -> list[dict[str, Any]]:
+        """Model profiles with the disk and VRAM their manifests need (`ce_scheduler.profiles`)."""
+        return fleet_of(request).profile_sizes()
+
+    @app.post(f"{admin}/profiles/{{profile_id}}/provision", dependencies=guard)
+    async def fleet_provision_profile(profile_id: str, body: ProfileProvisionRequest, request: Request) -> Any:
+        fleet = fleet_of(request)
+        profile = fleet.profiles.get(profile_id)
+        if profile is None:
+            raise HTTPException(404, f"unknown profile {profile_id!r}")
+        if not profile.enabled:
+            raise HTTPException(409, f"profile {profile_id!r} is disabled")
+        return await _act(fleet.provision_profile(profile_id, profile, provider=body.provider, region=body.region))
 
     @app.post(f"{admin}/providers/{{key}}/test", dependencies=guard)
     async def fleet_test_provider(key: str, request: Request) -> dict[str, Any]:

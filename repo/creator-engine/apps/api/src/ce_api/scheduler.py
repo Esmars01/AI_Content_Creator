@@ -97,6 +97,15 @@ class SchedulerClient:
         result: dict[str, Any] = await self._call("POST", f"/providers/{key}/test")
         return result
 
+    async def profiles(self) -> list[dict[str, Any]]:
+        return list(await self._call("GET", "/profiles"))
+
+    async def provision_profile(self, profile_id: str, provider: str, region: str | None) -> dict[str, Any]:
+        result: dict[str, Any] = await self._call(
+            "POST", f"/profiles/{profile_id}/provision", json={"provider": provider, "region": region}
+        )
+        return result
+
     async def orphans(self) -> list[dict[str, Any]]:
         return list(await self._call("GET", "/orphans"))
 

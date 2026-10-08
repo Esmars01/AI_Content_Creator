@@ -317,3 +317,46 @@ async def test_providers_are_tested_read_only_and_deleted_only_without_history(
     assert deleted.status_code == 204
     async with harness.services.db.session() as session:
         assert await session.get(GpuProvider, provider_id) is None
+
+
+async def test_operators_prepare_models_and_see_profiles(
+    harness: ApiHarness, owner: ApiTenant, scheduler: httpx.AsyncClient
+) -> None:
+    admin = await _admin(harness, owner)
+    done = await admin.client.post(
+        "/v1/admin/gpu/workers:provision",
+        json={"provider": "mock", "gpu_class": "mock_gpu", "runtime_family": "cpu_model", "count": 1},
+    )
+    worker_id = done.json()["provisioned"][0]["worker_id"]
+    assert (await owner.client.post(f"/v1/admin/gpu/workers/{worker_id}:prepare", json={})).status_code == 403
+    assert (await admin.client.post(f"/v1/admin/gpu/workers/{worker_id}:cancel-prepare")).status_code == 409
+    prepared = await admin.client.post(
+        f"/v1/admin/gpu/workers/{worker_id}:prepare", json={"models": ["mock-voice"], "warm": False}
+    )
+    assert prepared.status_code == 202, prepared.text
+    request_id = prepared.json()["request_id"]
+    listed = next(w for w in (await owner.client.get("/v1/gpu/workers")).json() if w["id"] == worker_id)
+    assert listed["prepare_request"]["id"] == request_id and listed["prepare_request"]["warm"] is False
+    cancelled = await admin.client.post(f"/v1/admin/gpu/workers/{worker_id}:cancel-prepare")
+    assert cancelled.status_code == 200 and cancelled.json()["cancel"] is True
+
+    profiles = await admin.client.get("/v1/admin/gpu/profiles")
+    assert profiles.status_code == 200, profiles.text
+    th = next(p for p in profiles.json() if p["id"] == "talking_head_a100_80gb")
+    assert th["sizing"]["disk_gb"] == 190 and th["sizing"]["disk_gb"] > 80
+    assert {m["key"] for m in th["sizing"]["models"]} == {
+        "infinitetalk-single", "chatterbox-turbo", "chatterbox-multilingual-v3",
+    }  # fmt: skip
+    assert all(m["revision"] for m in th["sizing"]["models"])
+    assert (await owner.client.get("/v1/admin/gpu/profiles")).status_code == 403
+    # the simulated provider has no A100: nothing is rented, and the attempt says why
+    tried = await admin.client.post(
+        "/v1/admin/gpu/profiles/talking_head_a100_80gb:provision", json={"provider": "mock", "region": "local"}
+    )
+    assert tried.status_code == 200, tried.text
+    assert tried.json()["provisioned"] == [] and "error" in tried.json()["attempts"][0]
+    async with harness.services.db.session() as session:
+        targets = [worker_id, "talking_head_a100_80gb"]
+        query = sa.select(AuditLog.action).where(AuditLog.target_id.in_(targets))
+        actions = set((await session.execute(query)).scalars())
+    assert {"gpu_worker.prepare", "gpu_worker.cancel_prepare", "gpu_profile.provision"} <= actions

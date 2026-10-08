@@ -182,3 +182,17 @@ export function provisionChoices(
     .map((r) => ({ value: `key:${r.key}`, label: `${r.name}${r.mock ? " (simulated)" : ""}`, paid: false }));
   return [...rows, ...free];
 }
+
+/** A node's GPU stage as one line: "Downloading the model — 25 % of 100.0 GB, ETA 30 s". */
+export function stageText(gpu: Record<string, unknown> | null | undefined): string | null {
+  if (!gpu || typeof gpu.stage !== "string") return null;
+  const label = typeof gpu.label === "string" ? gpu.label : gpu.stage.replaceAll("_", " ");
+  const parts: string[] = [];
+  const done = typeof gpu.bytes_done === "number" ? gpu.bytes_done : null;
+  const total = typeof gpu.bytes_total === "number" ? gpu.bytes_total : null;
+  if (done !== null && total) parts.push(`${Math.round((100 * done) / total)} % of ${(total / 1e9).toFixed(1)} GB`);
+  else if (typeof gpu.progress === "number" && gpu.progress > 0) parts.push(`${Math.round(gpu.progress * 100)} %`);
+  if (typeof gpu.eta_s === "number") parts.push(`ETA ${Math.round(gpu.eta_s)} s`);
+  if (typeof gpu.held_reason === "string") parts.push(holdLabel(gpu.held_reason));
+  return parts.length ? `${label} — ${parts.join(", ")}` : label;
+}

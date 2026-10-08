@@ -71,6 +71,7 @@ class ConfigBundle:
     testimonials: s.TestimonialPolicy | None = None
     gpu_pools: s.GpuPools | None = None
     gpu_variants: s.GpuVariants | None = None
+    gpu_profiles: s.GpuProfiles | None = None
     models: list[s.ModelEntry] = field(default_factory=list)
     digests: dict[str, str] = field(default_factory=dict)
     issues: list[Issue] = field(default_factory=list)
@@ -231,6 +232,8 @@ def load_config(root: Path | str, app_env: str = "dev") -> ConfigBundle:
     bundle.gpu_pools = loader.parse(s.GpuPools, root / "gpu" / "pools.yaml")
     if (root / "gpu" / "variants.yaml").is_file():
         bundle.gpu_variants = loader.parse(s.GpuVariants, root / "gpu" / "variants.yaml")
+    if (root / "gpu" / "profiles.yaml").is_file():
+        bundle.gpu_profiles = loader.parse(s.GpuProfiles, root / "gpu" / "profiles.yaml")
     for path in sorted((root / "models").glob("*.yaml")):
         registry = loader.parse(s.ModelRegistry, path)
         if registry is not None:
@@ -426,6 +429,31 @@ def _cross_check(b: ConfigBundle, loader: _Loader) -> None:
                 add(
                     "unknown_gpu_class", f"pool {pool.id}: GPU classes without a VRAM entry {unknown}", "gpu/pools.yaml"
                 )
+    if b.gpu_profiles is not None and b.gpu_variants is not None:
+        known = {(str(v.family), v.variant) for v in b.gpu_variants.variants.values()}
+        for name, profile in b.gpu_profiles.profiles.items():
+            for component in profile.components:
+                if (str(component.family), component.variant) not in known:
+                    add(
+                        "unknown_variant",
+                        f"profile {name}: {component.family}:{component.variant} is not an image variant",
+                        "gpu/profiles.yaml",
+                    )
+                for adapter in component.adapters:
+                    found = b.gpu_variants.variants.get(adapter)
+                    if found is None or (str(found.family), found.variant) != (
+                        str(component.family),
+                        component.variant,
+                    ):
+                        add(
+                            "unknown_adapter",
+                            f"profile {name}: {adapter} is not served by {component.family}:{component.variant}",
+                            "gpu/profiles.yaml",
+                        )
+            if len({str(c.family) for c in profile.components}) != len(profile.components) and profile.colocate:
+                add("profile", f"profile {name}: one component per family on a colocated instance", "gpu/profiles.yaml")
+            if profile.colocate and len(profile.components) > 1 and not profile.image:
+                add("profile", f"profile {name}: a colocated profile needs its `image`", "gpu/profiles.yaml")
     for model in b.models:
         if not model.license.commercial_use and model.status == "production":
             add("license", f"model {model.key} is non-commercial but marked production (rule 15)", "models")

@@ -61,6 +61,12 @@ class ProvisionSpec(_Model):
     env: dict[str, str] = Field(default_factory=dict)
     volumes: list[str] = Field(default_factory=list)
     spot_ok: bool = False
+    disk_gb: float | None = Field(
+        default=None,
+        ge=0,
+        description="the container disk the instance needs (a model profile's computed size); providers that "
+        "size disks honor it, the others keep their own setting",
+    )
 
 
 class ProviderInstance(_Model):

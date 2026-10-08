@@ -81,13 +81,16 @@ def instance_body(cfg: VastConfig, spec: ProvisionSpec, *, bid: float | None) ->
         "image": cfg.image(spec),
         "env": env,
         "price": bid,  # None = on-demand; a number = interruptible bid in USD/hour (Vast "bid")
-        "disk": cfg.disk_gb(),
+        "disk": cfg.disk_gb(spec),
         # The fleet's worker id in the label lets the scheduler find an instance whose id it never
         # recorded (a crash between rental and bookkeeping) and tell its own instances from others.
         "label": instance_label(spec),
         "runtype": "args",  # the image's own entrypoint, no ssh/jupyter injected
         "cancel_unavail": True,  # fail instead of creating a stopped instance when placement fails
     }
+    login = cfg.image_login()
+    if login:
+        body["image_login"] = login  # a private registry (resolved from image_login_ref, never stored)
     volume = dict(storage.get("volume") or {})
     if volume.get("volume_id"):
         body["volume_info"] = {
@@ -141,7 +144,7 @@ class VastProvider(GPUProvider):
         self.cfg.guard_paid(spec.gpu_class)
         interruptible = self.cfg.interruptible_for(spec)
         self.cfg.image(spec)  # fail before searching when no image is configured
-        query = self.cfg.query(spec.gpu_class, spec.region, interruptible=interruptible)
+        query = self.cfg.query(spec.gpu_class, spec.region, interruptible=interruptible, disk_gb=self.cfg.disk_gb(spec))
         offers = [
             o
             for o in await self.cfg.client.search_offers(query)

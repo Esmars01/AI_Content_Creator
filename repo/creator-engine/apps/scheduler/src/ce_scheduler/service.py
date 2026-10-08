@@ -67,9 +67,12 @@ from ce_worker.protocol import (
     LeaseReply,
     RegisterBody,
     RegisterReply,
+    StatusBody,
+    StatusReply,
     UploadBody,
     UploadReply,
     UploadSlot,
+    WorkerCommand,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -95,6 +98,27 @@ def _json_safe(value: Any, limit: int = _TELEMETRY_MAX_BYTES) -> dict[str, Any]:
     except (TypeError, ValueError):
         return {}
     return dict(json.loads(text)) if len(text) <= limit else {"truncated": True}
+
+
+def worker_commands(request: dict[str, Any] | None, seen: str | None) -> list[WorkerCommand]:
+    """The operator's prepare request as the worker needs it: a prepare it has not taken up yet, or a
+    cancel of the one it is running (a cancel before it took it up just means: never send it)."""
+    if not request or not request.get("id"):
+        return []
+    request_id = str(request["id"])
+    if request.get("cancel"):
+        return [WorkerCommand(kind="cancel_prepare", id=request_id)] if seen == request_id else []
+    if request_id == seen:
+        return []
+    models = request.get("models")
+    return [
+        WorkerCommand(
+            kind="prepare",
+            id=request_id,
+            models=[str(m) for m in models] if isinstance(models, list) else None,
+            warm=bool(request.get("warm", True)),
+        )
+    ]
 
 
 def _reported(telemetry: Any, model_states: Any, now: datetime) -> dict[str, Any]:
@@ -328,12 +352,13 @@ class Scheduler:
             async with self.db.transaction() as session:
                 found = (
                     await session.execute(
-                        sa.select(GpuWorker.state, GpuWorker.vram_gb)
+                        sa.select(GpuWorker.state, GpuWorker.vram_gb, GpuWorker.prepare_request)
                         .where(GpuWorker.id == worker.worker_id)
                         .with_for_update()
                     )
                 ).first()
                 state, recorded_vram = (found[0], found[1]) if found is not None else (None, None)
+                commands = worker_commands(found[2] if found is not None else None, body.prepare_seen)
                 if not body.free_vram_gb and recorded_vram:
                     # A worker that reports no VRAM (e.g. provisioned without WORKER_VRAM_GB) could never
                     # lease a GPU task; the VRAM recorded for its instance at provisioning is used instead.
@@ -371,7 +396,9 @@ class Scheduler:
                 for task in leased:
                     GPU_LEASES.labels(task.capability).inc()
                     self._sticky.setdefault(worker.worker_id, {})[task.model_key] = now
-                return LeaseReply(tasks=leased)
+                return LeaseReply(tasks=leased, commands=commands)
+            if commands:  # an operator's prepare or cancel: answer the long poll now
+                return LeaseReply(commands=commands)
             if asyncio.get_running_loop().time() >= deadline:
                 return LeaseReply()
             await asyncio.sleep(self.config.poll_interval_s)
@@ -403,6 +430,28 @@ class Scheduler:
             raise StaleTaskError(body.task_id)
         expires = (now + timedelta(seconds=self.config.lease_s)).isoformat()
         return HeartbeatReply(state=state, cancel=state == "cancelled", lease_expires_at=expires)
+
+    async def status(self, worker: WorkerIdentity, body: StatusBody) -> StatusReply:
+        """A worker's report outside a lease (while it prepares models): it is alive, and here is
+        what it measured; the reply carries a cancel of its prepare when an operator asked."""
+        now = self.clock()
+        async with self.db.transaction() as session:
+            request = (
+                await session.execute(
+                    sa.select(GpuWorker.prepare_request).where(
+                        GpuWorker.id == worker.worker_id, GpuWorker.state.notin_(DEAD_STATES)
+                    )
+                )
+            ).scalar_one_or_none()
+            if request is None:
+                self.forget(worker.worker_id)
+                raise AuthError("this worker was stopped; register again")
+            await session.execute(
+                sa.update(GpuWorker)
+                .where(GpuWorker.id == worker.worker_id)
+                .values(last_heartbeat_at=now, **_reported(body.telemetry, body.model_states, now))
+            )
+        return StatusReply(commands=worker_commands(request, body.prepare_seen))
 
     async def uploads(self, worker: WorkerIdentity, body: UploadBody) -> UploadReply:
         await self._held(UUID(body.task_id), worker)

@@ -692,3 +692,150 @@ async def test_leases_and_heartbeats_record_telemetry_and_task_phase(db: Databas
     await sched.lease(worker, LeaseBody(adapters=["mock_voice"], wait_s=0))
     assert (await _worker(db, worker.worker_id)).telemetry == telemetry
     del task_id
+
+
+# ---------------------------------------------------------------------- model operations (production cutover)
+def _talking_head(**extra: Any) -> Any:
+    from ce_config.schemas import GpuProfile
+
+    base: dict[str, Any] = dict(
+        label="test talking head", gpu_class="mock_gpu", vram_gb=96, colocate=True, image="talking_head",
+        components=[
+            {"family": "wan", "variant": "infinitetalk", "adapters": ["infinitetalk"],
+             "prepare": ["infinitetalk-single"]},
+            {"family": "tts", "variant": "chatterbox", "adapters": ["chatterbox_turbo"],
+             "prepare": ["chatterbox-turbo"]},
+        ],
+        scratch_gb=40, image_gb=35, staging_headroom=0.15,
+    )  # fmt: skip
+    return GpuProfile(**{**base, **extra})
+
+
+def test_profile_sizing_comes_from_the_manifests() -> None:
+    from ce_scheduler.profiles import size_profile
+
+    sizing = size_profile(_talking_head(), MANIFESTS, {})
+    assert [m.key for m in sizing.models] == ["infinitetalk-single", "chatterbox-turbo"]
+    assert sizing.models_gb == round(86.92 + 3.77, 2)
+    assert sizing.disk_gb == 180  # 90.69 + 13.6 staging + 40 scratch + 35 image = 179.3 → 180
+    assert sizing.disk_gb > 80  # the old fixed default could not hold InfiniteTalk alone
+    assert (sizing.vram_min_gb, sizing.vram_recommended_gb, sizing.fits) == (32.0, 64.0, True)
+    assert any("declared" in n for n in sizing.notes) and not sizing.missing
+    small = size_profile(_talking_head(vram_gb=24), MANIFESTS, {})
+    assert small.fits is False
+    bad = [{"family": "wan", "variant": "infinitetalk", "adapters": ["nope"], "prepare": ["x"]}]
+    wrong = size_profile(_talking_head(components=bad), MANIFESTS, {})
+    assert wrong.missing == ["adapter nope", "model x"]
+
+
+async def test_a_colocated_profile_rents_one_instance_with_a_worker_per_family(db: Database) -> None:
+    clock = Clock()
+    provider = _mock()
+    fleet = _fleet(db, {"mock": provider}, clock=clock, profiles={"th": _talking_head()})
+    sched = _scheduler(db)
+    result = await fleet.provision_profile("th", _talking_head(), provider="mock", region="local")
+    (instance,) = result["provisioned"]
+    spec = provider.specs[instance["external_id"]]
+    assert spec.disk_gb == 180 and spec.runtime_family == "profile" and spec.variant == "talking_head"
+    env = spec.env
+    assert env["WORKER_COMPONENTS"] == "wan,tts" and env["WORKER_PREPARE_WAN"] == "infinitetalk-single"
+    assert env["WORKER_ADAPTERS_TTS"] == "chatterbox_turbo" and env["WORKER_PREPARE_WARM"] == "1"
+    assert env["WORKER_TOKEN_WAN"] != env["WORKER_TOKEN_TTS"] and env["WORKER_ID"] == instance["workers"]["wan"]
+    async with db.session() as session:
+        rows = list(
+            (
+                await session.execute(
+                    sa.select(GpuWorker).where(
+                        GpuWorker.external_id == instance["external_id"], GpuWorker.pool_id == "profile:th"
+                    )
+                )
+            ).scalars()
+        )
+    assert sorted(r.runtime_family for r in rows) == ["tts", "wan"]
+    assert {r.pool_id for r in rows} == {"profile:th"} and sum(float(r.price_per_hour_usd) for r in rows) == 0.5
+
+    for family in ("wan", "tts"):  # each family's process registers with its own token
+        body = RegisterBody(
+            name=f"th-{family}", runtime_family=family, adapters=[], gpu_type="mock_gpu", provider="mock"
+        )
+        reply = await sched.register(body, env[f"WORKER_TOKEN_{family.upper()}"])
+        assert reply.worker_id == instance["workers"][family]
+
+    wan = uuid.UUID(instance["workers"]["wan"])
+    await fleet.release(wan, action="stop")  # stopping the instance stops both of its workers
+    async with db.session() as session:
+        states = {
+            r.runtime_family: r.state
+            for r in (
+                await session.execute(
+                    sa.select(GpuWorker).where(
+                        GpuWorker.external_id == instance["external_id"], GpuWorker.pool_id == "profile:th"
+                    )
+                )
+            ).scalars()
+        }
+    assert states == {"wan": "stopped", "tts": "stopped"}
+    await fleet.start(wan)
+    async with db.session() as session:
+        states = {
+            r.runtime_family: r.state
+            for r in (
+                await session.execute(
+                    sa.select(GpuWorker).where(
+                        GpuWorker.external_id == instance["external_id"], GpuWorker.pool_id == "profile:th"
+                    )
+                )
+            ).scalars()
+        }
+    assert states == {"wan": "provisioning", "tts": "provisioning"}
+    await fleet.release(wan, action="terminate")
+    assert provider.instances[instance["external_id"]].state == "terminated"
+
+    with pytest.raises(FleetActionError, match="VRAM"):
+        await fleet.provision_profile("th", _talking_head(vram_gb=24), provider="mock")
+    with pytest.raises(FleetActionError, match="not configured"):
+        await fleet.provision_profile("th", _talking_head(), provider="vast")
+
+
+def test_family_provisions_are_sized_from_their_manifests() -> None:
+    fleet = FleetManager(db=None, pools=[], providers={}, manifests=MANIFESTS, budget_daily_usd=0)  # type: ignore[arg-type]
+    assert fleet.variant_disk_gb("wan", "infinitetalk", ["infinitetalk"]) == 160.0  # 86.92 × 1.15 + 60 → 160
+    assert fleet.variant_disk_gb("cpu_model", None, ["mock_voice"]) is None  # nothing to fetch: the provider's own
+
+
+async def test_prepare_requests_reach_the_worker_and_cancel_follows(db: Database) -> None:
+    from ce_scheduler.service import worker_commands
+    from ce_worker.protocol import StatusBody
+
+    assert worker_commands({}, None) == []
+    request = {"id": "r1", "models": ["m"], "warm": False}
+    (command,) = worker_commands(request, None)
+    assert (command.kind, command.id, command.models, command.warm) == ("prepare", "r1", ["m"], False)
+    assert worker_commands(request, "r1") == []  # taken up
+    assert worker_commands({**request, "cancel": True}, None) == []  # cancelled before it started
+    assert worker_commands({**request, "cancel": True}, "r1")[0].kind == "cancel_prepare"
+
+    clock = Clock()
+    provider = _mock()
+    fleet = _fleet(db, {"mock": provider}, clock=clock)
+    sched = _scheduler(db)
+    await _task(db)
+    external = (await fleet.tick())[0].provisioned[0]
+    registered = await _register(sched, provider.specs[external].env)
+    worker_id = uuid.UUID(registered.worker_id)
+    worker = await sched.authenticate(registered.token)
+    async with db.transaction() as session:  # an empty queue: the lease answers with the command only
+        await session.execute(sa.update(GpuTask).values(state="cancelled"))
+        await session.execute(sa.update(GpuWorker).where(GpuWorker.id == worker_id).values(prepare_request=request))
+    reply = await sched.lease(worker, LeaseBody(adapters=["mock_voice"], wait_s=5))
+    assert [c.kind for c in reply.commands] == ["prepare"] and not reply.tasks
+    progress = {"m": {"state": "downloading", "bytes_done": 10, "bytes_total": 100}}
+    status = await sched.status(worker, StatusBody(model_states=progress, prepare_seen="r1"))
+    assert status.commands == []
+    assert (await _worker(db, worker_id)).model_states == progress
+    async with db.transaction() as session:
+        await session.execute(
+            sa.update(GpuWorker).where(GpuWorker.id == worker_id).values(prepare_request={**request, "cancel": True})
+        )
+    status = await sched.status(worker, StatusBody(prepare_seen="r1"))
+    assert [c.kind for c in status.commands] == ["cancel_prepare"]

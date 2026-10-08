@@ -18,6 +18,7 @@ from pydantic import Field
 
 from ce_api.common import Page, page
 from ce_api.deps import DbSession, Reader, ServicesDep, Writer
+from ce_api.job_stages import STAGE_LABELS, job_stage, node_stages
 from ce_api.jobs import create_job, job_in_flight, start_job
 from ce_api.schemas import Body, Out, examples
 from ce_api.versioning import get_scoped, lock_scoped
@@ -73,10 +74,21 @@ class NodeOut(Out):
     artifact_ids: list[UUID]
     attempts: int = Field(description="number of attempts so far")
     attempt_history: list[AttemptOut] = Field(default_factory=list)
+    gpu: dict[str, Any] | None = Field(
+        default=None,
+        description="where its GPU work is (ce_api.job_stages): stage, label, task state, progress, the "
+        "model download's bytes and ETA, the hold reason",
+    )
 
 
 class JobDetail(JobOut):
     nodes: list[NodeOut]
+    stage: str | None = Field(
+        default=None,
+        description="queued, held, waiting_for_gpu, provisioning, booting, downloading_model, verifying, "
+        "loading_model, generating, uploading, running, completed, failed, cancelled (None: no GPU work active)",
+    )
+    stage_label: str | None = None
 
 
 class CancelAccepted(Out):
@@ -174,8 +186,20 @@ async def get_job(job_id: UUID, principal: Reader, session: DbSession) -> JobDet
         ).scalars()
         for row in rows:
             attempts.setdefault(row.node_id, []).append(AttemptOut.model_validate(row))
-    out = [NodeOut.model_validate(n).model_copy(update={"attempt_history": attempts.get(n.id, [])}) for n in nodes]
-    return JobDetail(**JobOut.model_validate(job).model_dump(), nodes=out)
+    stages = await node_stages(session, principal.org_id, nodes)
+    out = [
+        NodeOut.model_validate(n).model_copy(
+            update={"attempt_history": attempts.get(n.id, []), "gpu": stages.get(n.id)}
+        )
+        for n in nodes
+    ]
+    stage = job_stage(job.status, stages.values())
+    return JobDetail(
+        **JobOut.model_validate(job).model_dump(),
+        nodes=out,
+        stage=stage,
+        stage_label=STAGE_LABELS.get(stage) if stage else None,
+    )
 
 
 @router.post("/v1/jobs/{job_id}:cancel", response_model=CancelAccepted, status_code=202)

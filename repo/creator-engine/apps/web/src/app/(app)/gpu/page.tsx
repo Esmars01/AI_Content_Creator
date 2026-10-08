@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { PageHeader } from "@/components/app-shell";
+import { Profiles } from "@/components/gpu/profiles";
 import { Providers } from "@/components/gpu/providers";
 import { Provision } from "@/components/gpu/provision";
 import { errorText, POLL_MS, Workers } from "@/components/gpu/workers";
@@ -243,6 +244,7 @@ export default function GpuPage() {
         <Pools />
         <Workers admin={admin} />
         <Offers />
+        {admin ? <Profiles /> : null}
         {admin ? <Provision /> : null}
         {admin ? <Providers /> : null}
       </div>

@@ -13,8 +13,9 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import re
 import secrets
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 from uuid import UUID
@@ -101,6 +102,7 @@ class WorkerOut(Out):
     provider_status: dict[str, Any] = Field(default_factory=dict, description="the provider's last view")
     provider_checked_at: datetime | None = None
     model_states: dict[str, Any] = Field(default_factory=dict, description="per model key: preparation state")
+    prepare_request: dict[str, Any] = Field(default_factory=dict, description="the operator's last prepare request")
     last_error: str | None = None
     current_task_id: UUID | None = None
     actions: list[str] = Field(
@@ -283,6 +285,71 @@ class StopBody(Body):
     )
 
 
+class PrepareBody(Body):
+    model_config = examples([{"models": ["infinitetalk-single", "chatterbox-turbo"], "warm": True}])
+    models: list[str] | None = Field(default=None, description="model keys; omitted: every model of its adapters")
+    warm: bool = Field(default=True, description="also load them into GPU memory (else stop once installed)")
+
+
+class PrepareOut(Out):
+    worker_id: UUID
+    request_id: str
+    models: list[str] | None
+    warm: bool
+    cancel: bool = False
+
+
+class ProfileProvisionBody(Body):
+    model_config = examples([{"provider_id": "0192f0a0-0000-7000-8000-0000000000a1", "region": "eu"}])
+    provider_id: UUID | None = None
+    provider: str | None = Field(default=None, description="a plugin key, for providers without a row")
+    region: str | None = None
+
+
+class ModelSizeOut(Out):
+    key: str
+    adapter: str
+    declared_gb: float
+    repo: str | None = None
+    revision: str | None = None
+    license: str | None = None
+
+
+class ProfileSizingOut(Out):
+    models: list[ModelSizeOut]
+    models_gb: float
+    staging_gb: float
+    scratch_gb: float
+    image_gb: float
+    disk_gb: int = Field(description="the container disk provisioned for the profile (computed, rounded up)")
+    vram_gb: float
+    vram_min_gb: float
+    vram_recommended_gb: float
+    fits: bool
+    notes: list[str] = Field(default_factory=list)
+    missing: list[str] = Field(default_factory=list)
+
+
+class ProfileOut(Out):
+    id: str
+    label: str
+    gpu_class: str
+    vram_gb: float
+    colocate: bool
+    image: str | None = None
+    components: list[dict[str, Any]]
+    regions: list[str] = Field(default_factory=list)
+    enabled: bool
+    sizing: ProfileSizingOut
+
+
+class ProfileProvisionOut(Out):
+    profile: str
+    provisioned: list[dict[str, Any]]
+    attempts: list[str]
+    sizing: ProfileSizingOut
+
+
 class TerminateOrphanBody(Body):
     provider: str
     external_id: str
@@ -317,6 +384,12 @@ def _check_config(config: dict[str, Any]) -> None:
         raise InvalidInputError(
             "provider config must not carry secrets: put them behind credentials_ref (env:NAME or file:/path)",
             issues=[Issue("config", path, path=f"config.{path}") for path in secret],
+        )
+    refs = [k for k, v in config.items() if k.endswith("_ref") and v and not re.match(CREDENTIALS_REF, str(v))]
+    if refs:  # e.g. image_login_ref: a reference to the value, never the value
+        raise InvalidInputError(
+            "a *_ref setting is a reference (env:NAME or file:/path), never the secret itself",
+            issues=[Issue("config", k, path=f"config.{k}") for k in refs],
         )
 
 
@@ -688,6 +761,91 @@ async def test_provider(
     """The provider's health call and a live offer search, read-only: nothing is rented or spent."""
     row = await _provider(session, provider_id)
     return ProviderTestOut.model_validate(await _client(services).test_provider(row.kind))
+
+
+@router.post("/v1/admin/gpu/workers/{worker_id}:prepare", response_model=PrepareOut, status_code=202)
+async def prepare_worker(
+    worker_id: UUID, body: PrepareBody, principal: PlatformAdmin, request: Request, session: DbSession
+) -> PrepareOut:
+    """Asks a live worker to fetch and verify models into its cache (once per cache, never per job) and,
+    with `warm`, load them into GPU memory. The scheduler hands the request over at the worker's next
+    lease poll; progress (bytes, speed, ETA, state) shows in the worker's `model_states`."""
+    row = await session.get(GpuWorker, worker_id, with_for_update=True)
+    if row is None:
+        raise NotFoundError("worker not found", table="gpu_workers")
+    if row.state not in ("idle", "busy", "provisioning"):
+        raise ConflictError(f"the worker is {row.state}: start it first", issues=[Issue("state", row.state)])
+    request_id = secrets.token_hex(8)
+    row.prepare_request = {
+        "id": request_id,
+        "models": body.models,
+        "warm": body.warm,
+        "requested_by": str(principal.user_id),
+        "requested_at": datetime.now(tz=UTC).isoformat(),
+    }
+    await audit(
+        session, principal, "gpu_worker.prepare", "gpu_worker", worker_id, request=request,
+        after={"models": body.models, "warm": body.warm, "request_id": request_id},
+    )  # fmt: skip
+    return PrepareOut(worker_id=worker_id, request_id=request_id, models=body.models, warm=body.warm)
+
+
+@router.post("/v1/admin/gpu/workers/{worker_id}:cancel-prepare", response_model=PrepareOut)
+async def cancel_prepare(worker_id: UUID, principal: PlatformAdmin, request: Request, session: DbSession) -> PrepareOut:
+    """Stops the worker's running prepare: its download is aborted and its staging removed; what was
+    already installed stays. Retry with a new prepare."""
+    row = await session.get(GpuWorker, worker_id, with_for_update=True)
+    if row is None:
+        raise NotFoundError("worker not found", table="gpu_workers")
+    current = dict(row.prepare_request or {})
+    if not current.get("id"):
+        raise ConflictError("no prepare was requested for this worker", issues=[Issue("prepare_request", "none")])
+    current["cancel"] = True
+    row.prepare_request = current
+    await audit(session, principal, "gpu_worker.cancel_prepare", "gpu_worker", worker_id, request=request)
+    return PrepareOut(
+        worker_id=worker_id, request_id=str(current["id"]), models=current.get("models"),
+        warm=bool(current.get("warm", True)), cancel=True,
+    )  # fmt: skip
+
+
+@router.get("/v1/admin/gpu/profiles", response_model=list[ProfileOut])
+async def list_profiles(principal: PlatformAdmin, services: ServicesDep) -> list[ProfileOut]:
+    """Model profiles with the disk and VRAM computed from their manifests."""
+    return [ProfileOut.model_validate(p) for p in await _client(services).profiles()]
+
+
+@router.post("/v1/admin/gpu/profiles/{profile_id}:provision", response_model=ProfileProvisionOut)
+async def provision_profile(
+    profile_id: str,
+    body: ProfileProvisionBody,
+    principal: PlatformAdmin,
+    request: Request,
+    session: DbSession,
+    services: ServicesDep,
+) -> ProfileProvisionOut:
+    """Rents what the profile needs now (a colocated profile: one instance, one worker per family), with
+    the computed disk; each worker prepares its models right after boot. Paid providers still refuse
+    without the owner's approval."""
+    if (body.provider_id is None) == (body.provider is None):
+        raise InvalidInputError(
+            "name the provider by provider_id (a configured row) or provider (a plugin key without a row)",
+            issues=[Issue("provider_id", "exactly one of provider_id, provider", path="provider_id")],
+        )
+    if body.provider_id is not None:
+        row = await _provider(session, body.provider_id)
+        if not row.enabled:
+            raise ConflictError("the provider is disabled", issues=[Issue("provider_id", "disabled")])
+        key = row.kind
+    else:
+        key = str(body.provider)
+    result = await _client(services).provision_profile(profile_id, key, body.region)
+    await audit(
+        session, principal, "gpu_profile.provision", "gpu_profile", profile_id, request=request,
+        after={"provider": key, "region": body.region, "disk_gb": result.get("sizing", {}).get("disk_gb"),
+               "provisioned": [p.get("external_id") for p in result.get("provisioned", [])]},
+    )  # fmt: skip
+    return ProfileProvisionOut.model_validate(result)
 
 
 @router.get("/v1/admin/gpu/orphans", response_model=list[OrphanOut])

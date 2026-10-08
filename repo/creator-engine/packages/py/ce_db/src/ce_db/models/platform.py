@@ -138,6 +138,8 @@ class GpuWorker(Base):
     provider_status: Mapped[dict[str, Any]] = jsonb(default={})
     provider_checked_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     model_states: Mapped[dict[str, Any]] = jsonb(default={})
+    # an operator's prepare request (migration 0008): {id, models, warm, requested_by, requested_at, cancel}
+    prepare_request: Mapped[dict[str, Any]] = jsonb(default={})
     last_error: Mapped[str | None]
     current_task_id: Mapped[UUID | None]
     terminated_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))

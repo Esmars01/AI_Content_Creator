@@ -231,6 +231,12 @@ class FleetConfig(Strict):
         default_factory=dict,
         description="extra environment for provisioned workers (no secrets: those come from the provider)",
     )
+    worker_secret_refs: dict[str, str] = Field(
+        default_factory=dict,
+        description="environment variables for provisioned workers that are secrets, as references resolved "
+        "by the scheduler when renting (e.g. HF_TOKEN: env:HF_TOKEN for gated models); the provider receives "
+        "the value in the instance's environment",
+    )
     reconcile_interval_s: PositiveFloat = Field(
         default=120.0,
         description="how often the leader compares every provisioned worker with its provider's view (gone, "
@@ -1105,6 +1111,46 @@ class GpuClass(Strict):
 class GpuPools(Strict):
     classes: dict[str, GpuClass] = Field(default_factory=dict)
     pools: list[GpuPool]
+
+
+class GpuProfileComponent(Strict):
+    family: RuntimeFamily
+    variant: str = Field(min_length=1, description="the family image variant (infra/docker/families.yaml)")
+    adapters: list[str] = Field(default_factory=list, description="default: every adapter of the variant")
+    prepare: list[str] = Field(
+        default_factory=list,
+        description="model keys fetched, verified and loaded right after boot (default: all of its adapters')",
+    )
+
+
+class GpuProfile(Strict):
+    """A model profile (cutover §13–§14): which adapters one provisioned instance serves, on which GPU
+    class, and what disk it needs — computed from the plugin manifests (`ce_scheduler.profiles`)."""
+
+    label: str
+    gpu_class: str = Field(description="the provider's GPU class (e.g. a Vast `classes` entry)")
+    vram_gb: PositiveFloat = Field(description="VRAM of that class (the colocated components must fit)")
+    colocate: bool = Field(
+        default=True,
+        description="one instance runs every component (the profile image, `ce_worker.multi`); false: one "
+        "instance per component (its family image)",
+    )
+    image: str | None = Field(
+        default=None, description="profile image variant when colocated (infra/docker/families.yaml `profiles`)"
+    )
+    components: list[GpuProfileComponent] = Field(min_length=1)
+    scratch_gb: NonNegativeFloat = Field(default=30.0, description="room for inputs, intermediates and outputs")
+    image_gb: NonNegativeFloat = Field(default=30.0, description="estimated image size on the instance's disk")
+    staging_headroom: Annotated[float, Field(ge=0, le=2)] = Field(
+        default=0.15, description="extra share of the model bytes (a re-download beside the old copy, upgrades)"
+    )
+    min_disk_gb: NonNegativeFloat = 0.0
+    regions: list[str] = Field(default_factory=list)
+    enabled: bool = True
+
+
+class GpuProfiles(Strict):
+    profiles: dict[str, GpuProfile] = Field(default_factory=dict)
 
 
 class GpuVariant(Strict):

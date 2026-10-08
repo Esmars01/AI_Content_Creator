@@ -110,3 +110,23 @@ describe("operations console", () => {
     expect(provisionChoices(undefined)).toEqual([]);
   });
 });
+
+describe("job stages", () => {
+  it("says where the GPU work is, with download progress", async () => {
+    const { stageText } = await import("./gpu");
+    expect(stageText(null)).toBeNull();
+    expect(
+      stageText({
+        stage: "downloading_model",
+        label: "Downloading the model",
+        bytes_done: 25e9,
+        bytes_total: 100e9,
+        eta_s: 30,
+      }),
+    ).toBe("Downloading the model — 25 % of 100.0 GB, ETA 30 s");
+    expect(stageText({ stage: "held", label: "Held by a budget", held_reason: "budget_daily" })).toBe(
+      "Held by a budget — low priority, daily budget",
+    );
+    expect(stageText({ stage: "waiting_for_gpu", label: "Waiting for a GPU" })).toBe("Waiting for a GPU");
+  });
+});
