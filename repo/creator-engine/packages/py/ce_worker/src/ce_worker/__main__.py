@@ -31,6 +31,7 @@ import shutil
 import subprocess
 import sys
 from collections.abc import Mapping
+from pathlib import Path
 
 from ce_contracts.plugins import PluginRegistry, discover
 
@@ -80,7 +81,21 @@ def config_from_env(env: Mapping[str, str]) -> WorkerConfig:
         app_env=env.get("APP_ENV", "prod"),
         model_cache_dir=env.get("MODEL_CACHE_DIR", "/models"),
         adapter_defaults=json.loads(env.get("CE_ADAPTER_DEFAULTS", "{}") or "{}"),
+        credential_file=credential_file_from_env(env),
     )
+
+
+def credential_file_from_env(env: Mapping[str, str]) -> str | None:
+    """`WORKER_CREDENTIAL_FILE`, else, for a fleet-provisioned worker (`WORKER_ID`, one per instance and
+    family), `<MODEL_CACHE_DIR>/.ce-worker/<WORKER_ID>.json`; self-managed and compose workers store none
+    (replicas sharing a volume must not share one worker identity)."""
+    explicit = (env.get("WORKER_CREDENTIAL_FILE") or "").strip()
+    if explicit:
+        return explicit
+    worker_id = (env.get("WORKER_ID") or "").strip()
+    if not worker_id or not all(c.isalnum() or c == "-" for c in worker_id):
+        return None
+    return str(Path(env.get("MODEL_CACHE_DIR", "/models")) / ".ce-worker" / f"{worker_id}.json")
 
 
 def prepare_from_env(env: Mapping[str, str]) -> tuple[list[str] | None, bool] | None:

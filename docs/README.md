@@ -114,6 +114,7 @@ Start here: [`docs/SETUP.md`](docs/SETUP.md) (install and run), [`docs/ARCHITECT
 - Running it: [`DEPLOYMENT`](docs/DEPLOYMENT.md), [`OPERATIONS`](docs/OPERATIONS.md) (runbooks, backup and restore), [`OBSERVABILITY`](docs/OBSERVABILITY.md), [`SECURITY`](docs/SECURITY.md), [`POLICY_AND_COMPLIANCE`](docs/POLICY_AND_COMPLIANCE.md), [`LOAD_TEST`](docs/LOAD_TEST.md), [`TROUBLESHOOTING`](docs/TROUBLESHOOTING.md), [`ENVIRONMENT_VARIABLES`](docs/ENVIRONMENT_VARIABLES.md).
 - Working on it: [`DEVELOPMENT`](docs/DEVELOPMENT.md), [`TESTING`](docs/TESTING.md), [`INVARIANTS`](docs/INVARIANTS.md) (the 14 architecture invariants), [`ENVIRONMENT`](docs/ENVIRONMENT.md) (the machines this was built on).
 - Audit (2026-10): `FINAL_AUDIT_AND_FIX_REPORT.md` and `GPU_READINESS_REPORT.md` in the workspace's `docs/` (and in `docs/` of the Phase 14 bundle).
+- Production cutover (2026-10): `PRODUCTION_MODEL_AND_GPU_OPERATIONS.md` in the workspace's `docs/` covers the model registry, cache and Vast volume strategy, GPU and job lifecycles, web operations, recovery, costs and the remaining live-validation steps.
 - Decisions: [`docs/adr/`](docs/adr/) (ADRs 0001–0060), [`DECISIONS`](docs/DECISIONS.md), [`SPEC_ERRATA`](docs/SPEC_ERRATA.md); plans: [`ROADMAP.md`](ROADMAP.md), [`TODO.md`](TODO.md), [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Contributing

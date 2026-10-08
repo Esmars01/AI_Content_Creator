@@ -17,6 +17,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import os
 import platform
 import signal
 import tempfile
@@ -96,6 +97,10 @@ class WorkerConfig:
     # small GPUs, smoke settings — reach the adapter as `LoadContext.config["defaults"]`
     adapter_defaults: dict[str, dict[str, Any]] = field(default_factory=dict)
     fetch_models: bool = True  # fetch real engines' weights into the model cache before loading
+    # Where a fleet-provisioned worker keeps its worker token (`WORKER_CREDENTIAL_FILE`, default
+    # `<MODEL_CACHE_DIR>/.ce-worker/<WORKER_ID>.json`): a process restarted inside the instance resumes
+    # with it, since its one-time enrollment token is spent (cutover §17, case 1). None: never stored.
+    credential_file: str | None = None
 
 
 class SchedulerClient:
@@ -267,6 +272,11 @@ class WorkerRuntime:
         )
 
     async def register(self) -> RegisterReply:
+        resumed = await self._resume()
+        if resumed is not None:
+            self.registered = resumed
+            _log.info("resumed as %s with the stored worker token", resumed.worker_id)
+            return resumed
         body = RegisterBody(
             name=self.config.name,
             runtime_family=self.config.runtime_family,
@@ -280,7 +290,45 @@ class WorkerRuntime:
         )
         self.registered = await self.client.register(body, self.config.registration_token)
         _log.info("registered as %s with %d adapters", self.registered.worker_id, len(self.registered.adapters))
+        self._store_credential(self.registered)
         return self.registered
+
+    def _store_credential(self, reply: RegisterReply) -> None:
+        if not self.config.credential_file:
+            return
+        path = Path(self.config.credential_file)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_name(f"{path.name}.tmp")
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as out:
+                out.write(reply.model_dump_json())
+            os.replace(tmp, path)
+        except OSError as exc:
+            _log.warning("worker token not stored (a process restart will need a platform restart): %s", exc)
+
+    async def _resume(self) -> RegisterReply | None:
+        """The stored worker token, when the scheduler still accepts it (the worker row is live: the
+        process restarted within `worker_stale_s` and no platform action re-armed the instance). A token
+        it refuses is deleted; an unreachable scheduler raises, so the caller retries."""
+        if not self.config.credential_file:
+            return None
+        path = Path(self.config.credential_file)
+        try:
+            reply = RegisterReply.model_validate_json(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        self.client.token = reply.token
+        try:
+            await self.client.status(StatusBody())
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code not in (401, 403):
+                raise
+            self.client.token = None
+            with contextlib.suppress(OSError):
+                path.unlink()
+            return None
+        return reply
 
     def resident_models(self) -> list[str]:
         """What is loaded, as the scheduler places by it: the loaded adapters' model keys (a task's

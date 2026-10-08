@@ -28,12 +28,17 @@ same `GPUProvider` interface as the other providers.
 | `list_offers(class, region)` | live on-demand offers, one `GPUOffer` per Vast offer |
 | `price(instance)` | the price captured at rental: the offer's `dph_total`, or the interruptible bid |
 | `health()` | `GET /api/v0/users/current` (the answer, which contains the account key, is discarded) |
+| `restart(id)` | `PUT /api/v0/instances/reboot/{id}/` (the disk and model cache survive) |
+| `list_instances()` | `GET /api/v1/instances/` paged by `next_token`; only instances labeled `ce-worker-…` are returned, for reconciliation and orphan detection |
 
 **The rental body**:
 - `image`: from `spec.image`, else `images["family:variant"]`, else `image_template`;
 - `env`: the provider's `env`, then `spec.env` (the worker's `SCHEDULER_URL`, `WORKER_TOKEN`, family,
   class, region…), plus `MODEL_CACHE_DIR`;
-- `disk`;
+- `disk`: the larger of `storage.disk_gb` and the size computed for the spec (`ProvisionSpec.disk_gb`, from the
+  manifests' declared model sizes; see `docs/PRODUCTION_MODEL_AND_GPU_OPERATIONS.md`);
+- `label`: `ce-worker-<worker_id>`, so the scheduler can find an instance whose rental it never recorded;
+- `image_login`: resolved from `image_login_ref`, when it is set;
 - `runtype: args`, so the image's own entrypoint runs (no SSH or Jupyter injected);
 - `cancel_unavail: true`, so a failed placement does not leave a stopped instance behind;
 - `price`: `null` for on-demand, or the bid;
@@ -44,7 +49,9 @@ same `GPUProvider` interface as the other providers.
 - An offer rented by someone else since the search: the next cheapest offer, up to `rent_attempts`,
   then `NoCapacityError`.
 - Anything else: `ProviderError`.
-- A rental is **never retried** after a 5xx or a timeout, because it may have gone through.
+- A rental is **never retried** after a 5xx or a timeout, because it may have gone through. It raises
+  `ProvisionOutcomeUnknown`: the fleet keeps the worker row, and reconciliation adopts the instance by its
+  label, or finds that none exists. So a timeout cannot double-rent.
 
 ## Safe by default
 
@@ -148,7 +155,9 @@ has no capacity. The RunPod pools in the repository are not changed.
    by hand.
 
 **Known limits:**
-- Private registry login (`image_login`) is not wired: use a public image or a Vast template.
+- A private registry login is set as `image_login_ref` (`env:NAME` or `file:/path`, holding Vast's
+  `image_login` string, e.g. `-u USER -p TOKEN ghcr.io`). It is resolved when the instance is rented and is
+  never stored or returned.
 - `ProvisionSpec.volumes` is ignored, as for RunPod.
 - Vast publishes no error schema for an offer taken between search and rental. The provider treats a
   4xx saying the offer is unavailable as "taken" and anything else as an error. This must be confirmed

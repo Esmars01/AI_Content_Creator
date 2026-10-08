@@ -218,3 +218,57 @@ async def test_an_operator_prepare_fetches_reports_and_can_be_cancelled(tmp_path
     assert final["state"] == "not_installed" and final["note"] == "download cancelled"
     assert not list((tmp_path / "cache").rglob("*.partial-*"))
     await runtime.aclose()
+
+
+async def test_a_restarted_process_resumes_with_its_stored_worker_token(tmp_path: Path) -> None:
+    """Cutover §17, case 1: the enrollment token is spent at the first registration, so a process
+    restarted inside the instance resumes with the worker token it stored (0600, keyed by WORKER_ID);
+    a token the scheduler refuses is deleted and the worker registers again."""
+    from ce_contracts.plugins import PluginRegistry
+
+    from ce_worker.__main__ import credential_file_from_env
+    from ce_worker.runtime import SchedulerClient, WorkerConfig, WorkerRuntime
+
+    live = {"worker-token-1"}
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path.rsplit("/", 1)[-1]
+        bearer = request.headers.get("authorization", "").removeprefix("Bearer ")
+        calls.append(f"{path}:{bearer}")
+        if path == "register":
+            if bearer != "enroll-once" or "spent" in calls:
+                return httpx.Response(401, json={"detail": "invalid registration token"})
+            calls.append("spent")
+            return httpx.Response(200, json={"worker_id": "w1", "token": "worker-token-1", "heartbeat_s": 5,
+                                             "lease_s": 30, "long_poll_s": 20, "adapters": []})  # fmt: skip
+        if path == "status":
+            return httpx.Response(200 if bearer in live else 401, json={"commands": []})
+        return httpx.Response(404)
+
+    worker_id = "0192f0a0-0000-7000-8000-00000000abcd"
+    env = {"WORKER_ID": worker_id, "MODEL_CACHE_DIR": str(tmp_path / "cache")}
+    credential = credential_file_from_env(env)
+    assert credential == str(tmp_path / "cache" / ".ce-worker" / f"{worker_id}.json")
+    assert credential_file_from_env({"MODEL_CACHE_DIR": "/models"}) is None  # compose/self-managed: none
+    assert credential_file_from_env({**env, "WORKER_ID": "../x"}) is None
+
+    def runtime() -> WorkerRuntime:
+        client = SchedulerClient("http://sched", http=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+        config = WorkerConfig(scheduler_url="http://sched", registration_token="enroll-once", runtime_family="tts",
+                              model_cache_dir=str(tmp_path / "cache"), credential_file=credential)  # fmt: skip
+        return WorkerRuntime(config, PluginRegistry(), client=client, cache=ModelCache(tmp_path / "cache"))
+
+    first = await runtime().register()
+    assert first.worker_id == "w1" and Path(credential).exists()
+    assert os.stat(credential).st_mode & 0o777 == 0o600
+
+    restarted = runtime()  # the same instance, a new process: the enrollment token is spent
+    assert (await restarted.register()).worker_id == "w1"
+    assert restarted.client.token == "worker-token-1"
+    assert calls.count("register:enroll-once") == 1
+
+    live.clear()  # the scheduler no longer accepts it (the row was failed or terminated)
+    with pytest.raises(httpx.HTTPStatusError):
+        await runtime().register()  # the stale token is dropped; the spent enrollment token is refused
+    assert not Path(credential).exists()
