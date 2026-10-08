@@ -12,6 +12,7 @@ from uuid import UUID
 import sqlalchemy as sa
 from ce_core.errors import InvalidInputError, Issue, NotFoundError, PolicyDeniedError
 from ce_core.identity.creator import AppearanceDNA, CreatorDNA, WardrobeSpec, validate_creator_dna
+from ce_db.models.assets import Asset
 from ce_db.models.creators import (
     Appearance,
     AppearanceVersion,
@@ -30,6 +31,7 @@ from ce_api.common import Page, audit, page
 from ce_api.deps import Approver, DbSession, Reader, ServicesDep, Writer
 from ce_api.errors import ApprovalBlockedError
 from ce_api.events import EventType
+from ce_api.onboarding import FaceAttestation, attestation_missing, check_uploaded_reference
 from ce_api.references import asset_issues, version_issues
 from ce_api.schemas import Body, Out, examples
 from ce_api.versioning import get_scoped, lock_scoped, next_number, require_draft
@@ -478,6 +480,11 @@ class AppearanceCreate(Body):
     name: Name
     dna: AppearanceDNA
     canonical_face_asset_id: UUID | None = None
+    face_attestation: FaceAttestation | None = Field(
+        default=None,
+        description="required with an uploaded face: it is not a photo of a real, identifiable person "
+        "(real people need the digital-twin consent path, V1)",
+    )
 
     model_config = examples([{"name": "Default look", "dna": {"age_appearance": 31, "hair": "short brown"}}])
 
@@ -492,6 +499,9 @@ class AppearanceVersionCreate(Body):
 class AppearanceVersionPatch(Body):
     dna: AppearanceDNA | None = None
     canonical_face_asset_id: UUID | None = None
+    face_attestation: FaceAttestation | None = Field(
+        default=None, description="required with an uploaded face (see AppearanceCreate)"
+    )
 
     model_config = examples([{"canonical_face_asset_id": "0192f0a0-0000-7000-8000-0000000000c1"}])
 
@@ -537,15 +547,12 @@ async def _appearance_detail(session: DbSession, appearance: Appearance) -> Appe
 
 @router.post("/v1/creators/{creator_id}/appearances", response_model=AppearanceDetail, status_code=201)
 async def create_appearance(
-    creator_id: UUID, body: AppearanceCreate, principal: Writer, session: DbSession
+    creator_id: UUID, body: AppearanceCreate, principal: Writer, session: DbSession, services: ServicesDep
 ) -> AppearanceDetail:
     await get_scoped(session, Creator, principal.ctx, creator_id, "creator")
-    if body.canonical_face_asset_id is not None and (
-        issues := await asset_issues(
-            session, principal.org_id, [body.canonical_face_asset_id], path="/canonical_face_asset_id", family="image"
-        )
-    ):
-        raise InvalidInputError("invalid canonical face", issues=issues)
+    pack: dict[str, Any] = {}
+    if body.canonical_face_asset_id is not None:
+        pack = await _face_source(session, services, principal, body.canonical_face_asset_id, body.face_attestation)
     appearance = Appearance(org_id=principal.org_id, creator_id=creator_id, name=body.name)
     session.add(appearance)
     await session.flush()
@@ -556,6 +563,7 @@ async def create_appearance(
             number=1,
             dna=body.dna.model_dump(mode="json"),
             canonical_face_asset_id=body.canonical_face_asset_id,
+            identity_pack=pack,
         )
     )
     await session.flush()
@@ -609,24 +617,46 @@ async def get_appearance_version(
 
 @router.patch("/v1/appearance-versions/{appearance_version_id}", response_model=AppearanceVersionOut)
 async def patch_appearance_version(
-    appearance_version_id: UUID, body: AppearanceVersionPatch, principal: Writer, session: DbSession
+    appearance_version_id: UUID,
+    body: AppearanceVersionPatch,
+    principal: Writer,
+    session: DbSession,
+    services: ServicesDep,
 ) -> AppearanceVersionOut:
     row = await lock_scoped(session, AppearanceVersion, principal.ctx, appearance_version_id, "appearance version")
     require_draft(row, "appearance version")
     if body.dna is not None:
         row.dna = body.dna.model_dump(mode="json")
     if body.canonical_face_asset_id is not None:
-        if issues := await asset_issues(
-            session, principal.org_id, [body.canonical_face_asset_id], path="/canonical_face_asset_id", family="image"
-        ):
-            raise InvalidInputError("invalid canonical face", issues=issues)
+        pack = await _face_source(session, services, principal, body.canonical_face_asset_id, body.face_attestation)
         if body.canonical_face_asset_id != row.canonical_face_asset_id:
             row.canonical_face_asset_id = body.canonical_face_asset_id
-            row.identity_pack = {}  # expansions and scores are relative to the canonical face
+            row.identity_pack = pack  # expansions and scores are relative to the canonical face
             row.age_checks = {}
     await session.flush()
     await session.refresh(row)
     return AppearanceVersionOut.model_validate(row)
+
+
+async def _face_source(
+    session: DbSession,
+    services: ServicesDep,
+    principal: Writer,
+    asset_id: UUID,
+    attestation: str | None,
+) -> dict[str, Any]:
+    """Checks a canonical face; an uploaded one needs the attestation and a usable size. Returns the
+    identity pack's `face_source` record ({} for a generated or placeholder face)."""
+    if issues := await asset_issues(
+        session, principal.org_id, [asset_id], path="/canonical_face_asset_id", family="image"
+    ):
+        raise InvalidInputError("invalid canonical face", issues=issues)
+    record = await check_uploaded_reference(
+        session, principal.org_id, asset_id, use="face", attestation=attestation,
+        limits=services.config.uploads.references, user_id=principal.user_id, at=services.clock(),
+        path="/canonical_face_asset_id",
+    )  # fmt: skip
+    return {"face_source": record} if record else {}
 
 
 async def appearance_approval_issues(session: DbSession, org_id: UUID, row: AppearanceVersion) -> list[Issue]:
@@ -638,6 +668,14 @@ async def appearance_approval_issues(session: DbSession, org_id: UUID, row: Appe
         issues += await asset_issues(
             session, org_id, [row.canonical_face_asset_id], path="/canonical_face_asset_id", family="image"
         )
+        if attestation_missing(await session.get(Asset, row.canonical_face_asset_id), "face"):
+            issues.append(
+                Issue(
+                    "upload_attestation",
+                    "the uploaded canonical face has no recorded attestation that it is not a real person",
+                    path="/canonical_face_asset_id",
+                )
+            )
     checks = row.age_checks or {}
     estimate = checks.get("vlm_estimate")
     reviewed = isinstance(checks.get("review"), dict) and checks["review"].get("decision") == "approved"

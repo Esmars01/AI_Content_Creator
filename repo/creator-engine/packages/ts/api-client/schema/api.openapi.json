@@ -311,6 +311,19 @@
           "dna": {
             "$ref": "#/components/schemas/AppearanceDNA"
           },
+          "face_attestation": {
+            "anyOf": [
+              {
+                "const": "not_a_real_person",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "required with an uploaded face: it is not a photo of a real, identifiable person (real people need the digital-twin consent path, V1)",
+            "title": "Face Attestation"
+          },
           "name": {
             "maxLength": 200,
             "minLength": 1,
@@ -618,6 +631,19 @@
                 "type": "null"
               }
             ]
+          },
+          "face_attestation": {
+            "anyOf": [
+              {
+                "const": "not_a_real_person",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "required with an uploaded face (see AppearanceCreate)",
+            "title": "Face Attestation"
           }
         },
         "title": "AppearanceVersionPatch",
@@ -7050,6 +7076,19 @@
             "format": "uuid",
             "title": "Asset Id",
             "type": "string"
+          },
+          "attestation": {
+            "anyOf": [
+              {
+                "const": "not_a_real_person",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "required for an uploaded face: it is not a photo of a real, identifiable person (a synthetic or licensed character design). Real people need the digital-twin consent path (V1).",
+            "title": "Attestation"
           }
         },
         "required": [
@@ -10289,6 +10328,19 @@
             "format": "uuid",
             "title": "Asset Id",
             "type": "string"
+          },
+          "attestation": {
+            "anyOf": [
+              {
+                "const": "no_identifiable_people_rights_held",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "required for an uploaded plate: it shows no identifiable people and you hold its rights",
+            "title": "Attestation"
           },
           "camera_position_key": {
             "title": "Camera Position Key",
@@ -16343,6 +16395,86 @@
           "versions"
         ],
         "title": "VoiceDetail",
+        "type": "object"
+      },
+      "VoiceFromUpload": {
+        "additionalProperties": false,
+        "description": "A designed voice whose reference is an uploaded synthetic recording (cutover §4).",
+        "examples": [
+          {
+            "asset_id": "0192f0a0-0000-7000-8000-0000000000d1",
+            "attestation": "synthetic_voice_not_a_person",
+            "description": "calm adult narrator, mid pitch",
+            "language": "en-US",
+            "name": "Narrator (imported)",
+            "transcript": "Here is the thing: it actually works."
+          }
+        ],
+        "properties": {
+          "asset_id": {
+            "format": "uuid",
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "attestation": {
+            "anyOf": [
+              {
+                "const": "synthetic_voice_not_a_person",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "required: the recording is synthetic (made with a voice-design or TTS tool), not a recording of a real person. A real person's voice is a cloned voice: it needs a verified consent (V1).",
+            "title": "Attestation"
+          },
+          "creator_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Creator Id"
+          },
+          "description": {
+            "default": "uploaded voice reference",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "language": {
+            "maxLength": 35,
+            "minLength": 2,
+            "title": "Language",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "transcript": {
+            "description": "exactly what the recording says",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Transcript",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "asset_id",
+          "language",
+          "transcript"
+        ],
+        "title": "VoiceFromUpload",
         "type": "object"
       },
       "VoiceOut": {
@@ -34388,6 +34520,88 @@
           }
         },
         "summary": "Select Voice Candidate",
+        "tags": [
+          "studio"
+        ]
+      }
+    },
+    "/v1/voices:from-upload": {
+      "post": {
+        "description": "A designed voice with a draft version whose reference is the uploaded recording (audio, ready,\n`uploads.references` duration and sample rate). Test it with `:test`, then approve it as usual.",
+        "operationId": "voice_from_upload_v1_voices_from_upload_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceFromUpload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceVersionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not signed in, or the session or API key is invalid"
+          },
+          "403": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Forbidden by role, API-key scope, CSRF or policy"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not found (another organization's resources are indistinguishable from missing ones)"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict: immutable record, failed approval requirements, duplicate"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Invalid input; `issues` lists each finding with its path"
+          }
+        },
+        "summary": "Voice From Upload",
         "tags": [
           "studio"
         ]

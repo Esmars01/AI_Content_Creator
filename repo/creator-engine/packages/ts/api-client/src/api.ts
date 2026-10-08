@@ -2943,6 +2943,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/voices:from-upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Voice From Upload
+         * @description A designed voice with a draft version whose reference is the uploaded recording (audio, ready,
+         *     `uploads.references` duration and sample rate). Test it with `:test`, then approve it as usual.
+         */
+        post: operations["voice_from_upload_v1_voices_from_upload_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/wardrobe-versions/{wardrobe_version_id}": {
         parameters: {
             query?: never;
@@ -3310,6 +3331,11 @@ export interface components {
             /** Canonical Face Asset Id */
             canonical_face_asset_id?: string | null;
             dna: components["schemas"]["AppearanceDNA"];
+            /**
+             * Face Attestation
+             * @description required with an uploaded face: it is not a photo of a real, identifiable person (real people need the digital-twin consent path, V1)
+             */
+            face_attestation?: "not_a_real_person" | null;
             /** Name */
             name: string;
         };
@@ -3455,6 +3481,11 @@ export interface components {
             /** Canonical Face Asset Id */
             canonical_face_asset_id?: string | null;
             dna?: components["schemas"]["AppearanceDNA"] | null;
+            /**
+             * Face Attestation
+             * @description required with an uploaded face (see AppearanceCreate)
+             */
+            face_attestation?: "not_a_real_person" | null;
         };
         /** ApplyAccepted */
         ApplyAccepted: {
@@ -6133,6 +6164,11 @@ export interface components {
              * Format: uuid
              */
             asset_id: string;
+            /**
+             * Attestation
+             * @description required for an uploaded face: it is not a photo of a real, identifiable person (a synthetic or licensed character design). Real people need the digital-twin consent path (V1).
+             */
+            attestation?: "not_a_real_person" | null;
         };
         /**
          * IdentityGenerateBody
@@ -7465,6 +7501,11 @@ export interface components {
              * Format: uuid
              */
             asset_id: string;
+            /**
+             * Attestation
+             * @description required for an uploaded plate: it shows no identifiable people and you hold its rights
+             */
+            attestation?: "no_identifiable_people_rights_held" | null;
             /** Camera Position Key */
             camera_position_key: string;
             /** Time Of Day */
@@ -9926,6 +9967,46 @@ export interface components {
             name: string;
             /** Versions */
             versions: components["schemas"]["VersionRef"][];
+        };
+        /**
+         * VoiceFromUpload
+         * @description A designed voice whose reference is an uploaded synthetic recording (cutover §4).
+         * @example {
+         *       "asset_id": "0192f0a0-0000-7000-8000-0000000000d1",
+         *       "attestation": "synthetic_voice_not_a_person",
+         *       "description": "calm adult narrator, mid pitch",
+         *       "language": "en-US",
+         *       "name": "Narrator (imported)",
+         *       "transcript": "Here is the thing: it actually works."
+         *     }
+         */
+        VoiceFromUpload: {
+            /**
+             * Asset Id
+             * Format: uuid
+             */
+            asset_id: string;
+            /**
+             * Attestation
+             * @description required: the recording is synthetic (made with a voice-design or TTS tool), not a recording of a real person. A real person's voice is a cloned voice: it needs a verified consent (V1).
+             */
+            attestation?: "synthetic_voice_not_a_person" | null;
+            /** Creator Id */
+            creator_id?: string | null;
+            /**
+             * Description
+             * @default uploaded voice reference
+             */
+            description: string;
+            /** Language */
+            language: string;
+            /** Name */
+            name: string;
+            /**
+             * Transcript
+             * @description exactly what the recording says
+             */
+            transcript: string;
         };
         /** VoiceOut */
         VoiceOut: {
@@ -23031,6 +23112,75 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceVersionDetail"];
+                };
+            };
+            /** @description Not signed in, or the session or API key is invalid */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Forbidden by role, API-key scope, CSRF or policy */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (another organization's resources are indistinguishable from missing ones) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Conflict: immutable record, failed approval requirements, duplicate */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Invalid input; `issues` lists each finding with its path */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    voice_from_upload_v1_voices_from_upload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceFromUpload"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             201: {

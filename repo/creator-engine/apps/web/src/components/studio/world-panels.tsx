@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { AssetImage, ErrorNote, JobLine, useStudioJob } from "@/components/studio/common";
+import { PLATE_ATTESTATION, UploadReference } from "@/components/studio/upload-references";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -214,7 +215,7 @@ export function PlatesPanel({ world }: { world: World }) {
     onSuccess: (data) => job.setJobId(data.job_id),
   });
   const choose = useMutation({
-    mutationFn: (choice: { position: string; time: string; weather: string; asset: string }) =>
+    mutationFn: (choice: { position: string; time: string; weather: string; asset: string; uploaded?: boolean }) =>
       unwrap(
         api.POST("/v1/world-versions/{world_version_id}/plates:choose", {
           params: { path: { world_version_id: versionId ?? "" } },
@@ -223,6 +224,7 @@ export function PlatesPanel({ world }: { world: World }) {
             time_of_day: choice.time,
             weather: choice.weather,
             asset_id: choice.asset,
+            ...(choice.uploaded ? { attestation: PLATE_ATTESTATION } : {}),
           },
         }),
       ),
@@ -275,6 +277,12 @@ export function PlatesPanel({ world }: { world: World }) {
         <JobLine status={job.status} job={job.job} />
         <ErrorNote error={generate.error ?? choose.error ?? approve.error} />
         <p className="text-sm">Fingerprints: {version.data.fingerprints_artifact_id ? "computed" : "not computed"}</p>
+        {draft ? (
+          <PlateUpload
+            dna={version.data.dna as Json | undefined}
+            onUploaded={(slot, asset) => choose.mutateAsync({ ...slot, asset, uploaded: true })}
+          />
+        ) : null}
         {cells.length ? (
           cells.map((cell) => (
             <section key={`${cell.position}-${cell.time}-${cell.weather}`}>
@@ -304,6 +312,61 @@ export function PlatesPanel({ world }: { world: World }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+type PlateSlot = { position: string; time: string; weather: string };
+
+/** Upload a plate for one permitted position × time × weather (defaults: the world's default time and weather). */
+function PlateUpload({
+  dna: maybeDna,
+  onUploaded,
+}: {
+  dna: Json | undefined;
+  onUploaded: (slot: PlateSlot, asset: string) => Promise<unknown>;
+}) {
+  const dna: Json = maybeDna ?? {};
+  const positions = ((dna.camera_positions as Json[] | undefined) ?? [])
+    .filter((c) => (c.status ?? "permitted") === "permitted")
+    .map((c) => String(c.key));
+  const tw = (dna.time_and_weather as Json | undefined) ?? {};
+  const times = ((tw.allowed_times as string[] | undefined) ?? []).map(String);
+  const weathers = ((tw.allowed_weather as string[] | undefined) ?? []).map(String);
+  const [slot, setSlot] = useState<PlateSlot>({
+    position: positions[0] ?? "",
+    time: String(tw.default_time_of_day ?? times[0] ?? ""),
+    weather: String(tw.default_weather ?? weathers[0] ?? ""),
+  });
+  if (!positions.length) return null;
+  const select = (id: string, label: string, value: string, options: string[], key: keyof PlateSlot) => (
+    <div className="flex flex-col gap-1">
+      <Label htmlFor={id}>{label}</Label>
+      <Select id={id} value={value} onChange={(e) => setSlot({ ...slot, [key]: e.target.value })}>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {humanize(o)}
+          </option>
+        ))}
+      </Select>
+    </div>
+  );
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-2">
+        {select("plate-position", "Camera position", slot.position, positions, "position")}
+        {select("plate-time", "Time of day", slot.time, times, "time")}
+        {select("plate-weather", "Weather", slot.weather, weathers, "weather")}
+      </div>
+      <UploadReference
+        label="Or upload a plate for this slot"
+        hint="An empty set seen from this camera position: PNG, JPEG or WebP, at least 640×360 px, no people."
+        accept="image/png,image/jpeg,image/webp"
+        kind="reference"
+        attestation="plate"
+        submitLabel="Upload and choose"
+        onUploaded={(asset) => onUploaded(slot, asset)}
+      />
+    </div>
   );
 }
 

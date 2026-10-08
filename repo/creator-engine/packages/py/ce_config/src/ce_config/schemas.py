@@ -98,11 +98,24 @@ class SpecConfig(Strict):
     require_memory_snapshots: bool = True
 
 
+class ReferenceUploadLimits(Strict):
+    """What an uploaded file needs before it can become an identity, voice or world reference
+    (checked against the validation probe; generated candidates are not affected)."""
+
+    face_min_px: PositiveInt = 256  # shorter side of a canonical face upload
+    plate_min_width_px: PositiveInt = 640
+    plate_min_height_px: PositiveInt = 360
+    voice_min_s: PositiveFloat = 5.0  # zero-shot TTS references: about 10 s works best
+    voice_max_s: PositiveFloat = 60.0
+    voice_min_sample_rate: PositiveInt = 16_000
+
+
 class UploadConfig(Strict):
     max_bytes: PositiveInt = 2 * 1024**3
     allowed_media_types: list[str] = Field(default_factory=list)
     ffprobe_timeout_s: PositiveInt = 30
     max_filename_length: PositiveInt = 255
+    references: ReferenceUploadLimits = Field(default_factory=ReferenceUploadLimits)
 
 
 class StorageConfig(Strict):

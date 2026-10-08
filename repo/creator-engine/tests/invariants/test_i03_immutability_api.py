@@ -34,7 +34,7 @@ async def harness(migrated_db: TestDatabase, tmp_path: Path) -> AsyncIterator[Ap
 
 async def approved_everything(h: ApiHarness, t: ApiTenant) -> dict[str, Any]:
     c = t.client
-    image = await upload_asset(h, t, placeholder_png("i3"), mime="image/png", kind="image")
+    image = await upload_asset(h, t, placeholder_png("i3", 640, 360), mime="image/png", kind="image")
     creator = (
         await c.post("/v1/creators", json={"name": "I3", "dna": alex_creator_dna().model_dump(mode="json")})
     ).json()
@@ -45,6 +45,7 @@ async def approved_everything(h: ApiHarness, t: ApiTenant) -> dict[str, Any]:
                 "name": "I3",
                 "dna": alex_appearance_dna().model_dump(mode="json"),
                 "canonical_face_asset_id": image["id"],
+                "face_attestation": "not_a_real_person",
             },
         )
     ).json()
@@ -63,6 +64,7 @@ async def approved_everything(h: ApiHarness, t: ApiTenant) -> dict[str, Any]:
                     "time_of_day": dna.time_and_weather.default_time_of_day,
                     "weather": dna.time_and_weather.default_weather,
                     "asset_id": image["id"],
+                    "attestation": "no_identifiable_people_rights_held",
                 },
             )
     async with h.services.db.transaction() as session:  # recorded results (identity pack, age check, fingerprints)

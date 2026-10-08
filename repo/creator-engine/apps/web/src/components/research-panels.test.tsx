@@ -22,7 +22,9 @@ describe("SourcesPanel", () => {
   it("clears the file input after a document is added (D12)", async () => {
     // Regression: the input kept showing the uploaded file while the form had forgotten it, so the
     // next Add failed with "choose a file".
-    get.mockImplementation(() => ok({ items: [] }));
+    get.mockImplementation((path: string) =>
+      path === "/v1/assets/{asset_id}" ? ok({ id: "a1", status: "ready", probe: {} }) : ok({ items: [] }),
+    );
     post.mockImplementation((path: string) => {
       if (path === "/v1/assets:initiate-upload")
         return ok({

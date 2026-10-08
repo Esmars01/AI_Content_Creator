@@ -15,7 +15,7 @@ import sqlalchemy as sa
 from ce_core.enums import CameraPositionStatus, JobKind
 from ce_core.errors import InvalidInputError, Issue, NotFoundError
 from ce_core.identity.world import WorldDNA, validate_world_dna
-from ce_db.models.assets import Artifact
+from ce_db.models.assets import Artifact, Asset
 from ce_db.models.creators import Creator
 from ce_db.models.worlds import World, WorldVersion
 from fastapi import APIRouter, BackgroundTasks, Query, Request
@@ -25,6 +25,7 @@ from ce_api.common import Page, audit, page
 from ce_api.deps import Approver, DbSession, Reader, ServicesDep, Writer
 from ce_api.errors import ApprovalBlockedError
 from ce_api.jobs import start_studio_job
+from ce_api.onboarding import PlateAttestation, attestation_missing, check_uploaded_reference
 from ce_api.references import asset_issues
 from ce_api.schemas import Body, Out, examples
 from ce_api.versioning import get_scoped, lock_scoped, next_number, require_draft
@@ -121,6 +122,10 @@ class PlateChoice(Body):
     time_of_day: str
     weather: str
     asset_id: UUID
+    attestation: PlateAttestation | None = Field(
+        default=None,
+        description="required for an uploaded plate: it shows no identifiable people and you hold its rights",
+    )
 
     model_config = examples(
         [
@@ -342,6 +347,10 @@ async def choose_plate(
     issues += await asset_issues(session, principal.org_id, [body.asset_id], path="/asset_id", family="image")
     if issues:
         raise InvalidInputError("invalid plate choice", issues=issues)
+    await check_uploaded_reference(
+        session, principal.org_id, body.asset_id, use="plate", attestation=body.attestation,
+        limits=services.config.uploads.references, user_id=principal.user_id, at=services.clock(),
+    )  # fmt: skip
     plates = {cam: {tod: dict(w) for tod, w in by_tod.items()} for cam, by_tod in (row.plates or {}).items()}
     plates.setdefault(body.camera_position_key, {}).setdefault(body.time_of_day, {})[body.weather] = str(body.asset_id)
     row.plates = plates
@@ -377,6 +386,16 @@ async def world_approval_issues(
         else:
             plate_ids.append(UUID(str(chosen)))
     issues += await asset_issues(session, org_id, plate_ids, path="/plates", family="image")
+    for plate_id in plate_ids:
+        if attestation_missing(await session.get(Asset, plate_id), "plate"):
+            issues.append(
+                Issue(
+                    "upload_attestation",
+                    "an uploaded plate has no recorded attestation (no identifiable people, rights held)",
+                    path="/plates",
+                    detail={"asset_id": str(plate_id)},
+                )
+            )
     if row.fingerprints_artifact_id is None:
         issues.append(
             Issue(

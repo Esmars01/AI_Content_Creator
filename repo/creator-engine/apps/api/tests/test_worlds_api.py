@@ -54,11 +54,17 @@ async def choose_default_plates(harness: ApiHarness, tenant: ApiTenant, version_
         if position.status != "permitted":
             continue
         plate = await upload_asset(
-            harness, tenant, placeholder_png(position.key, 64, 36), mime="image/png", kind="image"
+            harness, tenant, placeholder_png(position.key, 640, 360), mime="image/png", kind="image"
         )
         chosen = await tenant.client.post(
             f"/v1/world-versions/{version_id}/plates:choose",
-            json={"camera_position_key": position.key, "time_of_day": tod, "weather": weather, "asset_id": plate["id"]},
+            json={
+                "camera_position_key": position.key,
+                "time_of_day": tod,
+                "weather": weather,
+                "asset_id": plate["id"],
+                "attestation": "no_identifiable_people_rights_held",
+            },
         )
         assert chosen.status_code == 200, chosen.text
 
