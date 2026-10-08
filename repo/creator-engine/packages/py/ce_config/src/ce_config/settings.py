@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     s3_bucket_artifacts: str = "ce-artifacts"
     # Not in §35 (D21, ADR 0030): the presign endpoint browsers reach, and the native-fallback storage.
     s3_public_endpoint_url: str | None = None
+    # Not in §35 (production cutover §16): the endpoint GPU workers' presigned URLs use. Remote workers
+    # (a Vast instance) cannot reach a compose-internal store; unset = S3_ENDPOINT_URL.
+    s3_worker_endpoint_url: str | None = None
     storage_provider: Literal["s3", "local_fs"] = "s3"
     local_storage_root: str = "./.data/storage"
     public_base_url: str = "http://localhost:3000"
@@ -108,6 +111,7 @@ class Settings(BaseSettings):
         "otel_exporter_otlp_endpoint",
         "sentry_dsn",
         "s3_public_endpoint_url",
+        "s3_worker_endpoint_url",
         mode="before",
     )
     @classmethod
@@ -143,6 +147,21 @@ def load_effective(config_root: Path | str = "config", environ: Mapping[str, str
     return EffectiveConfig(settings, bundle, provenance, cookie_secure)
 
 
+def _private_host(url: str) -> bool:
+    """A URL a GPU host outside this network cannot reach: localhost, a compose service name, a private IP."""
+    import ipaddress
+    from urllib.parse import urlsplit
+
+    host = (urlsplit(url).hostname or "").lower()
+    if not host or host == "localhost" or "." not in host:
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        return host.endswith((".local", ".internal", ".svc", ".cluster.local"))
+    return ip.is_private or ip.is_loopback or ip.is_link_local
+
+
 def startup_issues(effective: EffectiveConfig) -> list[Issue]:
     """Refusals at service start (§35 production checks, I11). Errors must stop the service."""
     s = effective.settings
@@ -170,6 +189,19 @@ def startup_issues(effective: EffectiveConfig) -> list[Issue]:
         token = s.worker_token.get_secret_value() if s.worker_token else ""
         if len(token) < 32:
             error("worker_token", "production requires a WORKER_TOKEN of at least 32 characters (worker registration)")
+        for name, url in (
+            ("scheduler_public_url", s.scheduler_public_url),
+            ("s3_worker_endpoint_url", s.s3_worker_endpoint_url or s.s3_endpoint_url),
+        ):
+            if _private_host(url):
+                issues.append(
+                    Issue(
+                        name,
+                        f"{name.upper()} ({url}) is not reachable from a rented GPU host: remote workers dial out to "
+                        "the scheduler and to the object store's presigned URLs (set a public HTTPS URL)",
+                        severity="warning",
+                    )
+                )
     else:
         if not s.secret_key.get_secret_value():
             issues.append(Issue("secret_key", "SECRET_KEY is empty; sessions will not be signed", severity="warning"))

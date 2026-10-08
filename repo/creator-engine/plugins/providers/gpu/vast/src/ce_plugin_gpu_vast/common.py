@@ -16,7 +16,9 @@ rented from one offer. Units follow Vast's client:
 
 from __future__ import annotations
 
+import os
 import re
+from pathlib import Path
 from typing import Any
 
 from ce_contracts.common import HealthStatus
@@ -109,6 +111,27 @@ class VastConfig:
             raise ProviderError(f"Vast: no image for {key} (set `images` or `image_template`)")
         return self.image_template.format(family=spec.runtime_family, variant=variant)
 
+    def image_login(self) -> str | None:
+        """Docker login arguments for a private registry (Vast `image_login`, e.g. `-u <user> -p <token>
+        ghcr.io`), from `image_login_ref`: `env:NAME` or `file:/path` — a reference, never the value, so
+        the secret stays out of the database. Never logged or echoed."""
+        ref = str(self.raw.get("image_login_ref") or "").strip()
+        if not ref:
+            return None
+        scheme, _, target = ref.partition(":")
+        if scheme == "env" and target:
+            value = os.environ.get(target, "").strip()
+        elif scheme == "file" and target:
+            try:
+                value = Path(target).read_text(encoding="utf-8").strip()
+            except OSError as exc:
+                raise ProviderError(f"Vast: image_login_ref {ref}: {type(exc).__name__}") from None
+        else:
+            raise ProviderError("Vast: image_login_ref must be env:NAME or file:/path")
+        if not value:
+            raise ProviderError(f"Vast: image_login_ref {ref} is empty")
+        return value
+
     def interruptible_for(self, spec: ProvisionSpec) -> bool:
         """Spot (Vast "bid") only when the pool allows it, the class allows it and bidding is enabled."""
         cls = self.classes.get(spec.gpu_class, {})
@@ -135,10 +158,22 @@ class VastConfig:
         return round(min(floor * (1.0 + margin), self.max_price) if self.max_price else floor * (1.0 + margin), 4)
 
     # ------------------------------------------------------------------ search
-    def disk_gb(self) -> float:
-        return _float(self.storage.get("disk_gb"), 80.0) or 80.0
+    def disk_gb(self, spec: ProvisionSpec | None = None) -> float:
+        """The container disk: a profile's computed size (`spec.disk_gb`) when it is larger than the
+        configured one — a profile's models must fit — else `storage.disk_gb`."""
+        configured = _float(self.storage.get("disk_gb"), 80.0) or 80.0
+        wanted = _float(spec.disk_gb) if spec is not None and spec.disk_gb else 0.0
+        return max(configured, wanted)
 
-    def query(self, gpu_class: str, region: str, *, interruptible: bool, limit: int | None = None) -> dict[str, Any]:
+    def query(
+        self,
+        gpu_class: str,
+        region: str,
+        *,
+        interruptible: bool,
+        limit: int | None = None,
+        disk_gb: float | None = None,
+    ) -> dict[str, Any]:
         """The `POST /bundles/` body: Vast's default filters (verified, rentable, not rented, not
         external), the class's GPU model, count and VRAM, the region's countries, reliability, CUDA,
         the price ceiling and, with a linked volume, its machine."""
@@ -173,7 +208,7 @@ class VastConfig:
         query["order"] = [["min_bid" if interruptible else "dph_total", "asc"]]
         query["type"] = "bid" if interruptible else "on-demand"
         query["limit"] = int(limit or self.search.get("limit", 20))
-        query["allocated_storage"] = self.disk_gb()
+        query["allocated_storage"] = max(self.disk_gb(), disk_gb or 0.0)  # offers with room for this disk
         return query
 
     def acceptable(self, offer: dict[str, Any], gpu_class: str, *, interruptible: bool) -> bool:

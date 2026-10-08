@@ -16,6 +16,7 @@ Notes on Vast semantics:
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -25,7 +26,7 @@ from ce_gpu.provider import GPUOffer, GPUProvider, NoCapacityError, ProviderErro
 from ce_plugin_gpu_vast.client import OfferUnavailableError
 from ce_plugin_gpu_vast.common import VastConfig, country_code, offer_price, offer_vram_gb
 
-__all__ = ["VastProvider", "create", "instance_body", "state_of"]
+__all__ = ["LABEL_PREFIX", "VastProvider", "create", "instance_body", "instance_label", "labeled_worker_id", "state_of"]
 
 _STARTING = {"created", "loading", "scheduling", "pending"}
 
@@ -53,6 +54,22 @@ def state_of(row: dict[str, Any] | None) -> str:
     return "failed"
 
 
+LABEL_PREFIX = "ce-worker-"
+_WORKER_ID = re.compile(r"^ce-worker-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$")
+
+
+def instance_label(spec: ProvisionSpec) -> str:
+    worker_id = spec.env.get("WORKER_ID", "")
+    if worker_id:
+        return f"{LABEL_PREFIX}{worker_id}"[:64]
+    return f"{LABEL_PREFIX}{spec.runtime_family}-{spec.variant or spec.runtime_family}"[:64]
+
+
+def labeled_worker_id(label: Any) -> str | None:
+    match = _WORKER_ID.match(str(label or ""))
+    return match.group(1) if match else None
+
+
 def instance_body(cfg: VastConfig, spec: ProvisionSpec, *, bid: float | None) -> dict[str, Any]:
     """The `PUT /asks/{offer_id}/` body (Vast's `build_create_instance_payload` fields)."""
     storage = cfg.storage
@@ -64,11 +81,16 @@ def instance_body(cfg: VastConfig, spec: ProvisionSpec, *, bid: float | None) ->
         "image": cfg.image(spec),
         "env": env,
         "price": bid,  # None = on-demand; a number = interruptible bid in USD/hour (Vast "bid")
-        "disk": cfg.disk_gb(),
-        "label": f"ce-worker-{spec.runtime_family}-{spec.variant or spec.runtime_family}"[:64],
+        "disk": cfg.disk_gb(spec),
+        # The fleet's worker id in the label lets the scheduler find an instance whose id it never
+        # recorded (a crash between rental and bookkeeping) and tell its own instances from others.
+        "label": instance_label(spec),
         "runtype": "args",  # the image's own entrypoint, no ssh/jupyter injected
         "cancel_unavail": True,  # fail instead of creating a stopped instance when placement fails
     }
+    login = cfg.image_login()
+    if login:
+        body["image_login"] = login  # a private registry (resolved from image_login_ref, never stored)
     volume = dict(storage.get("volume") or {})
     if volume.get("volume_id"):
         body["volume_info"] = {
@@ -110,6 +132,11 @@ class VastProvider(GPUProvider):
                 "machine_id": row.get("machine_id"),
                 "gpu_name": row.get("gpu_name"),
                 "country": country_code(row.get("geolocation")),
+                "label": row.get("label"),
+                "worker_id": labeled_worker_id(row.get("label")),
+                "gpu_util": row.get("gpu_util"),
+                "disk_space_gb": row.get("disk_space"),
+                "disk_usage_gb": row.get("disk_usage"),
             },
         )
 
@@ -117,7 +144,7 @@ class VastProvider(GPUProvider):
         self.cfg.guard_paid(spec.gpu_class)
         interruptible = self.cfg.interruptible_for(spec)
         self.cfg.image(spec)  # fail before searching when no image is configured
-        query = self.cfg.query(spec.gpu_class, spec.region, interruptible=interruptible)
+        query = self.cfg.query(spec.gpu_class, spec.region, interruptible=interruptible, disk_gb=self.cfg.disk_gb(spec))
         offers = [
             o
             for o in await self.cfg.client.search_offers(query)
@@ -169,6 +196,20 @@ class VastProvider(GPUProvider):
 
     async def status(self, external_id: str) -> ProviderInstance:
         return self._instance(external_id, await self.cfg.client.get_instance(external_id))
+
+    async def restart(self, external_id: str) -> ProviderInstance:
+        """A reboot keeps the machine's GPU; a stop and start could lose it to another renter."""
+        await self.cfg.client.reboot_instance(external_id)
+        return await self.status(external_id)
+
+    async def list_instances(self) -> list[ProviderInstance]:
+        """The account's instances the fleet labeled (`ce-worker-…`); others are never touched."""
+        out = []
+        for row in await self.cfg.client.list_instances():
+            if not str(row.get("label") or "").startswith(LABEL_PREFIX) or row.get("id") is None:
+                continue
+            out.append(self._instance(str(row["id"]), row))
+        return out
 
     async def list_offers(self, gpu_class: str | None = None, region: str | None = None) -> list[GPUOffer]:
         """Live marketplace offers (on-demand) for the configured classes and regions."""

@@ -5,6 +5,7 @@
  * from the API; the frontend holds no business rules beyond display.
  */
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
@@ -76,7 +77,9 @@ function CreateWizard() {
   }, [projects.data]);
 
   const mode = options.data?.modes.find((m) => m.id === form.mode);
+  // Approving a creator version needs an approved appearance and voice, so `current_version_id` means complete.
   const approvedCreators = (creators.data?.items ?? []).filter((c) => c.status === "active" && c.current_version_id);
+  const incompleteCreators = (creators.data?.items ?? []).filter((c) => c.status === "active" && !c.current_version_id);
   const language = options.data?.languages.find((l) => l.id === form.language);
 
   const plan = useMutation({
@@ -195,16 +198,33 @@ function CreateWizard() {
           ) : null}
 
           {step === 1 ? (
-            <Field id="creator" label="Creator" hint="Only approved creators can be cast.">
-              <Select id="creator" value={form.creatorId} onChange={(e) => set("creatorId", e.target.value)}>
-                <option value="">Let the Director choose</option>
-                {approvedCreators.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
+            <>
+              <Field id="creator" label="Creator" hint="Only approved creators can be cast.">
+                <Select id="creator" value={form.creatorId} onChange={(e) => set("creatorId", e.target.value)}>
+                  <option value="">Let the Director choose</option>
+                  {approvedCreators.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                  {incompleteCreators.map((c) => (
+                    <option key={c.id} value={c.id} disabled>
+                      {c.name} (not approved yet)
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              {creators.isSuccess && approvedCreators.length === 0 ? (
+                <p className="rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900" role="status">
+                  No approved creator yet, so nothing can be cast.{" "}
+                  <Link className="underline" href="/creators">
+                    Create a creator
+                  </Link>
+                  : approve its appearance (identity pack and age check) and its voice, then approve the creator
+                  version.
+                </p>
+              ) : null}
+            </>
           ) : null}
 
           {step === 2 ? (

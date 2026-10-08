@@ -19,12 +19,13 @@ body of `GET /users/current`, which contains it.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 from typing import Any
 
 import httpx
-from ce_gpu.provider import NoCapacityError, ProviderError
+from ce_gpu.provider import NoCapacityError, ProviderError, ProvisionOutcomeUnknown
 
 __all__ = ["DEFAULT_BASE_URL", "OfferUnavailableError", "VastClient", "api_key_from"]
 
@@ -92,8 +93,12 @@ class VastClient:
             try:
                 response = await http.request(method, path, json=json, params=params)
             except httpx.TimeoutException:
-                hint = " (the rental may have gone through: check the account before retrying)" if rental else ""
-                raise ProviderError(f"Vast {method} {path}: timeout{hint}") from None
+                if rental:
+                    raise ProvisionOutcomeUnknown(
+                        f"Vast {method} {path}: timeout (the rental may have gone through: check the account "
+                        "before retrying)"
+                    ) from None
+                raise ProviderError(f"Vast {method} {path}: timeout") from None
             except httpx.HTTPError as exc:
                 raise ProviderError(f"Vast {method} {path}: {type(exc).__name__}") from None
         status = response.status_code
@@ -103,6 +108,8 @@ class VastClient:
             message = _api_message(response)
             if status < 500 and _UNAVAILABLE.search(message):
                 raise OfferUnavailableError(f"Vast {method} {path}: offer not available ({status}): {message}")
+            if rental and status >= 500:
+                raise ProvisionOutcomeUnknown(f"Vast {method} {path}: HTTP {status} (the rental may have gone through)")
             raise ProviderError(f"Vast {method} {path}: HTTP {status}: {message}")
         if not response.content:
             return None
@@ -157,6 +164,28 @@ class VastClient:
         if not isinstance(row, dict):
             raise ProviderError(f"Vast GET /api/v0/instances/{instance_id}/: `instances` is not an object")
         return row
+
+    async def list_instances(self, *, page_limit: int = 25, max_pages: int = 40) -> list[dict[str, Any]]:
+        """Every instance of the account: `GET /api/v1/instances/`, paged by `next_token` (vastai 1.8.3
+        `show instances`; the v0 list is deprecated). Query values are JSON, as the official client sends."""
+        params: dict[str, Any] = {"select_filters": {}, "order_by": [{"col": "id", "dir": "asc"}], "limit": page_limit}
+        rows: list[dict[str, Any]] = []
+        for _ in range(max_pages):
+            query = {k: v if isinstance(v, str) else json.dumps(v, separators=(",", ":")) for k, v in params.items()}
+            answer = await self.request("GET", "/api/v1/instances/", params=query)
+            if not isinstance(answer, dict) or not isinstance(answer.get("instances", []), list):
+                raise ProviderError("Vast GET /api/v1/instances/: the answer has no `instances` list")
+            rows += [r for r in answer.get("instances") or [] if isinstance(r, dict)]
+            token = answer.get("next_token")
+            if not token:
+                return rows
+            params["after_token"] = token
+        raise ProviderError(f"Vast GET /api/v1/instances/: more than {max_pages} pages")
+
+    async def reboot_instance(self, instance_id: str) -> None:
+        """Restarts the container on the same machine, keeping its GPU (`PUT /instances/reboot/{id}/`)."""
+        path = f"/api/v0/instances/reboot/{instance_id}/"
+        self._checked(path, await self.request("PUT", path, json={}))
 
     async def set_state(self, instance_id: str, state: str) -> None:
         path = f"/api/v0/instances/{instance_id}/"

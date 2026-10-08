@@ -20,6 +20,9 @@ class Organization(Base):
     name: Mapped[str]
     plan: Mapped[str] = mapped_column(server_default="dev")
     settings: Mapped[dict[str, Any]] = jsonb(default={})
+    # Provenance of the whole tenant: true only for the dev seed's org (`ce seed dev`). Production
+    # refuses to sign into a demo org, and `ce data purge-demo` removes it with everything in it.
+    is_demo: Mapped[bool] = mapped_column(server_default=sa.false())
 
 
 class User(Base):

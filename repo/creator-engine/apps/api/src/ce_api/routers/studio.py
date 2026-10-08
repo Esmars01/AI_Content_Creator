@@ -38,6 +38,7 @@ from pydantic import Field, ValidationError
 from ce_api.common import audit
 from ce_api.deps import Approver, DbSession, Reader, ServicesDep, Writer
 from ce_api.jobs import start_studio_job
+from ce_api.onboarding import FaceAttestation, VoiceAttestation, attestation_missing, check_uploaded_reference
 from ce_api.references import asset_issues
 from ce_api.schemas import Body, Out, examples
 from ce_api.security.rbac import Permission
@@ -62,6 +63,11 @@ class IdentityGenerateBody(Body):
 class IdentityChooseBody(Body):
     model_config = examples([{"asset_id": "0192f0a0-0000-7000-8000-000000000001"}])
     asset_id: UUID
+    attestation: FaceAttestation | None = Field(
+        default=None,
+        description="required for an uploaded face: it is not a photo of a real, identifiable person "
+        "(a synthetic or licensed character design). Real people need the digital-twin consent path (V1).",
+    )
 
 
 class IdentityReviewBody(Body):
@@ -142,16 +148,23 @@ async def choose_canonical_face(
     require_draft(row, "appearance version")
     if issues := await asset_issues(session, principal.org_id, [body.asset_id], path="/asset_id", family="image"):
         raise InvalidInputError("invalid canonical face", issues=issues)
+    uploaded = await check_uploaded_reference(
+        session, principal.org_id, body.asset_id, use="face", attestation=body.attestation,
+        limits=services.config.uploads.references, user_id=principal.user_id, at=services.clock(),
+    )  # fmt: skip
     pack = dict(row.identity_pack or {})
     pack.pop("images", None)
+    pack.pop("face_source", None)
     pack["canonical_asset_id"] = str(body.asset_id)
+    if uploaded is not None:
+        pack["face_source"] = uploaded
     row.identity_pack = pack
     row.canonical_face_asset_id = body.asset_id
     row.age_checks = {}
     await session.flush()
     await audit(
         session, principal, "appearance_version.choose_face", "appearance_version", row.id, request=request,
-        after={"canonical_face_asset_id": str(body.asset_id)},
+        after={"canonical_face_asset_id": str(body.asset_id), "face_source": pack.get("face_source")},
     )  # fmt: skip
     job = await start_studio_job(
         session, services, background, org_id=principal.org_id, user_id=principal.user_id,
@@ -329,6 +342,69 @@ async def design_voice(
     return VoiceAccepted(voice_id=voice.id, job_id=job.id)
 
 
+class VoiceFromUpload(Body):
+    """A designed voice whose reference is an uploaded synthetic recording (cutover §4)."""
+
+    model_config = examples(
+        [
+            {
+                "name": "Narrator (imported)",
+                "asset_id": "0192f0a0-0000-7000-8000-0000000000d1",
+                "language": "en-US",
+                "transcript": "Here is the thing: it actually works.",
+                "description": "calm adult narrator, mid pitch",
+                "attestation": "synthetic_voice_not_a_person",
+            }
+        ]
+    )
+    name: Annotated[str, Field(min_length=1, max_length=200)]
+    asset_id: UUID
+    language: str = Field(min_length=2, max_length=35)
+    transcript: str = Field(min_length=1, max_length=2000, description="exactly what the recording says")
+    description: str = Field(default="uploaded voice reference", min_length=1, max_length=2000)
+    creator_id: UUID | None = None
+    attestation: VoiceAttestation | None = Field(
+        default=None,
+        description="required: the recording is synthetic (made with a voice-design or TTS tool), not a "
+        "recording of a real person. A real person's voice is a cloned voice: it needs a verified consent (V1).",
+    )
+
+
+@router.post("/v1/voices:from-upload", response_model=VoiceVersionDetail, status_code=201)
+async def voice_from_upload(
+    body: VoiceFromUpload, principal: Writer, request: Request, session: DbSession, services: ServicesDep
+) -> VoiceVersionDetail:
+    """A designed voice with a draft version whose reference is the uploaded recording (audio, ready,
+    `uploads.references` duration and sample rate). Test it with `:test`, then approve it as usual."""
+    if body.creator_id is not None:
+        await get_scoped(session, Creator, principal.ctx, body.creator_id, "creator")
+    if issues := await asset_issues(session, principal.org_id, [body.asset_id], path="/asset_id", family="audio"):
+        raise InvalidInputError("invalid voice reference", issues=issues)
+    record = await check_uploaded_reference(
+        session, principal.org_id, body.asset_id, use="voice", attestation=body.attestation,
+        limits=services.config.uploads.references, user_id=principal.user_id, at=services.clock(),
+    )  # fmt: skip
+    voice = Voice(org_id=principal.org_id, creator_id=body.creator_id, name=body.name, kind="designed")
+    session.add(voice)
+    await session.flush()
+    row = VoiceVersion(
+        org_id=principal.org_id,
+        voice_id=voice.id,
+        number=1,
+        description=body.description,
+        references=[{"asset_id": str(body.asset_id), "language": body.language, "transcript": body.transcript}],
+        status="draft",
+    )
+    session.add(row)
+    await session.flush()
+    await audit(
+        session, principal, "voice.from_upload", "voice", voice.id, request=request,
+        after={"voice_version_id": str(row.id), "asset_id": str(body.asset_id), "attestation": record},
+    )  # fmt: skip
+    await session.refresh(row)
+    return VoiceVersionDetail.model_validate(row)
+
+
 async def _candidate_assets(session: DbSession, org_id: UUID, rows: list[VoiceCandidate]) -> dict[UUID, UUID]:
     """Candidate → its asset (the design job stores candidates as audio assets)."""
     ids = [r.artifact_id for r in rows if r.artifact_id]
@@ -480,6 +556,13 @@ async def approve_voice_version(
     require_draft(row, "voice version")
     if voice.kind == "cloned" and voice.consent_id is None:
         raise ConflictError("a cloned voice needs a valid consent (§21, §32)", issues=[Issue("consent_id", "missing")])
+    for reference in row.references or []:
+        asset = await session.get(Asset, UUID(str(reference.get("asset_id"))))
+        if attestation_missing(asset, "voice"):
+            raise ConflictError(
+                "an uploaded voice reference needs the attestation that it is not a real person's recording",
+                issues=[Issue("upload_attestation", "missing", path="/references")],
+            )
     try:  # what planning reads must validate, or every video with this voice fails to plan
         voice_dna(row)
     except ValidationError as exc:

@@ -83,7 +83,7 @@ export function Tabs<T extends string>({
   label: string;
 }) {
   return (
-    <div role="tablist" aria-label={label} className="flex gap-1 border-b border-[var(--color-border)]">
+    <div role="tablist" aria-label={label} className="flex flex-wrap gap-1 border-b border-[var(--color-border)]">
       {tabs.map((tab) => (
         <button
           key={tab.id}

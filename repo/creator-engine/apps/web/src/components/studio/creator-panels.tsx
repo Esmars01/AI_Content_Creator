@@ -16,6 +16,12 @@ import {
   MockBadge,
   useStudioJob,
 } from "@/components/studio/common";
+import {
+  FACE_ATTESTATION,
+  UploadReference,
+  VOICE_ATTESTATION,
+  VoiceImport,
+} from "@/components/studio/upload-references";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -837,15 +843,26 @@ function IdentityPack({ appearanceId, versionId, name }: { appearanceId: string;
       ),
     onSuccess: (data) => job.setJobId(data.job_id),
   });
+  const canApprove = useCan("approve_identity");
   const choose = useMutation({
-    mutationFn: (assetId: string) =>
+    mutationFn: ({ assetId, uploaded }: { assetId: string; uploaded?: boolean }) =>
       unwrap(
         api.POST("/v1/appearance-versions/{appearance_version_id}/identity-pack:choose", {
           params: { path: { appearance_version_id: versionId } },
-          body: { asset_id: assetId },
+          body: { asset_id: assetId, ...(uploaded ? { attestation: FACE_ATTESTATION } : {}) },
         }),
       ),
     onSuccess: (data) => job.setJobId(data.job_id),
+  });
+  const ageReview = useMutation({
+    mutationFn: (decision: "approved" | "rejected") =>
+      unwrap(
+        api.POST("/v1/appearance-versions/{appearance_version_id}/identity-pack:review", {
+          params: { path: { appearance_version_id: versionId } },
+          body: { approve: [], reject: [], age_review: decision },
+        }),
+      ),
+    onSuccess: () => client.invalidateQueries({ queryKey: packKey }),
   });
   const review = useMutation({
     mutationFn: () =>
@@ -887,7 +904,11 @@ function IdentityPack({ appearanceId, versionId, name }: { appearanceId: string;
     onSuccess: () => client.invalidateQueries({ queryKey: ["appearances"] }),
   });
   if (!pack.data) return <Skeleton className="h-48" />;
-  const data = pack.data.identity_pack as { candidates?: { asset_id: string; mock?: boolean }[]; images?: PackImage[] };
+  const data = pack.data.identity_pack as {
+    candidates?: { asset_id: string; mock?: boolean }[];
+    images?: PackImage[];
+    face_source?: { source: string; attested_at?: string };
+  };
   const checks = pack.data.age_checks as Json;
   const draft = pack.data.status === "draft";
   const { angles, expressions } = groupPack(data.images ?? []);
@@ -936,12 +957,25 @@ function IdentityPack({ appearanceId, versionId, name }: { appearanceId: string;
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <JobLine status={job.status} job={job.job} />
-        <ErrorNote error={generate.error ?? choose.error ?? review.error ?? approve.error ?? newDraft.error} />
+        <ErrorNote
+          error={generate.error ?? choose.error ?? review.error ?? ageReview.error ?? approve.error ?? newDraft.error}
+        />
         {draft ? (
-          <div className="flex gap-2">
-            <Button onClick={() => generate.mutate()} disabled={generate.isPending}>
-              Generate face candidates
-            </Button>
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-2">
+              <Button onClick={() => generate.mutate()} disabled={generate.isPending}>
+                Generate face candidates
+              </Button>
+            </div>
+            <UploadReference
+              label="Or upload a canonical face"
+              hint="PNG, JPEG or WebP, at least 256 px on the shorter side, one face, front-facing. The angles and expressions are generated from it and scored against it."
+              accept="image/png,image/jpeg,image/webp"
+              kind="reference"
+              attestation="face"
+              submitLabel="Upload and use as canonical face"
+              onUploaded={(assetId) => choose.mutateAsync({ assetId, uploaded: true })}
+            />
           </div>
         ) : (
           <div>
@@ -960,7 +994,7 @@ function IdentityPack({ appearanceId, versionId, name }: { appearanceId: string;
                   type="button"
                   disabled={!draft}
                   className={`rounded border-2 ${pack.data.canonical_face_asset_id === c.asset_id ? "border-blue-700" : "border-transparent"}`}
-                  onClick={() => choose.mutate(c.asset_id)}
+                  onClick={() => choose.mutate({ assetId: c.asset_id })}
                   aria-label="Choose as canonical face"
                 >
                   <AssetImage assetId={c.asset_id} alt="face candidate" />
@@ -991,6 +1025,36 @@ function IdentityPack({ appearanceId, versionId, name }: { appearanceId: string;
           >
             {ageCheckText(checks)}
           </Alert>
+        ) : null}
+        {data.face_source?.source === "upload" ? (
+          <p className="text-xs text-slate-600">The canonical face is an upload, attested as not a real person.</p>
+        ) : null}
+        {draft &&
+        canApprove &&
+        checks.vlm_estimate !== undefined &&
+        (checks.vlm_estimate === null || Number(checks.vlm_estimate) < Number(checks.threshold ?? 25)) ? (
+          <div className="flex flex-wrap items-center gap-2 rounded border border-amber-300 bg-amber-50 p-3 text-sm">
+            <span>
+              Approver age review{checks.review ? ` (recorded: ${String((checks.review as Json).decision)})` : ""}: I
+              reviewed the identity pack and the character clearly presents as an adult.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => ageReview.mutate("approved")}
+              disabled={ageReview.isPending}
+            >
+              Confirm adult presentation
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => ageReview.mutate("rejected")}
+              disabled={ageReview.isPending}
+            >
+              Reject
+            </Button>
+          </div>
         ) : null}
         {draft ? (
           <div className="flex gap-2">
@@ -1027,7 +1091,8 @@ export function VoicePanel({ creatorId }: { creatorId: string }) {
         <CardHeader>
           <CardTitle>Design a voice</CardTitle>
           <CardDescription>
-            Candidates from a description. Cloning a real voice needs consent and stays off until V1.
+            Candidates from a description. Cloning a real person&apos;s voice needs a verified consent, which is not
+            available yet (V1).
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-end gap-2">
@@ -1062,6 +1127,38 @@ export function VoicePanel({ creatorId }: { creatorId: string }) {
           <JobLine status={design.status} job={design.job} />
         </CardContent>
       </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Import a synthetic voice</CardTitle>
+          <CardDescription>
+            Use a recording made with another voice-design or text-to-speech tool as this voice&apos;s reference. It
+            becomes a draft version: test it, then approve it.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <VoiceImport
+            onImport={async ({ assetId, name, language, transcript }) => {
+              await unwrap(
+                api.POST("/v1/voices:from-upload", {
+                  body: {
+                    name,
+                    language,
+                    transcript,
+                    asset_id: assetId,
+                    creator_id: creatorId,
+                    attestation: VOICE_ATTESTATION,
+                    description: "imported synthetic voice",
+                  },
+                }),
+              );
+              await client.invalidateQueries({ queryKey: keys.voices(creatorId) });
+            }}
+          />
+        </CardContent>
+      </Card>
+      {voices.data && voices.data.length === 0 ? (
+        <Empty>No voices yet — design one above, or import a synthetic voice reference.</Empty>
+      ) : null}
       {(voices.data ?? []).map((voice) => (
         <VoiceCard key={voice.id} voiceId={voice.id} name={voice.name} />
       ))}

@@ -12,7 +12,13 @@ from typing import Any
 
 import httpx
 import pytest
-from ce_gpu.provider import NoCapacityError, ProviderError, ProvisionSpec, create_gpu_provider
+from ce_gpu.provider import (
+    NoCapacityError,
+    ProviderError,
+    ProvisionOutcomeUnknown,
+    ProvisionSpec,
+    create_gpu_provider,
+)
 from ce_plugin_gpu_vast.client import OfferUnavailableError, VastClient, api_key_from
 from ce_plugin_gpu_vast.common import VastConfig, country_code, driver_version, offer_price, offer_vram_gb
 from ce_plugin_gpu_vast.provider import VastProvider, instance_body, state_of
@@ -66,12 +72,26 @@ class FakeVast:
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         assert request.headers["Authorization"] == f"Bearer {KEY}"
-        assert str(request.url).startswith(BASE + "/api/v0/")
+        assert str(request.url).startswith((BASE + "/api/v0/", BASE + "/api/v1/instances/"))
         path, method = request.url.path, request.method
         self.calls.append((method, path))
         if (method, path) in self.fail:
             return self.fail[(method, path)]
         body: dict[str, Any] = json.loads(request.content) if request.content else {}
+        if (method, path) == ("GET", "/api/v1/instances/"):  # paged, two per page, JSON query values
+            params = {k: json.loads(v) for k, v in request.url.params.items()}
+            assert params["order_by"] == [{"col": "id", "dir": "asc"}] and params["select_filters"] == {}
+            rows = sorted(self.instances.values(), key=lambda r: r["id"])
+            start = int(params.get("after_token", 0))
+            page = rows[start : start + 2]
+            more = start + 2 < len(rows)
+            return httpx.Response(200, json={"instances": page, **({"next_token": str(start + 2)} if more else {})})
+        if method == "PUT" and path.startswith("/api/v0/instances/reboot/"):
+            row = self.instances.get(path.split("/")[5])
+            if row is None:
+                return httpx.Response(404, json={"success": False, "msg": "no such instance"})
+            row["actual_status"], row["intended_status"] = "running", "running"
+            return httpx.Response(200, json={"success": True})
         if (method, path) == ("POST", "/api/v0/bundles/"):
             _check_query(body)
             self.queries.append(body)
@@ -96,6 +116,7 @@ class FakeVast:
                 "geolocation": offer["geolocation"],
                 "dph_total": body["price"] if body["price"] is not None else offer["dph_total"],
                 "start_date": 1791300000.0,
+                "label": body["label"],
                 "extra_env": [[k, v] for k, v in body["env"].items()],
             }
             return httpx.Response(
@@ -387,7 +408,7 @@ async def test_a_timeout_on_a_rental_says_it_may_have_gone_through() -> None:
         "image_template": "img:{variant}",
     }
     provider = VastProvider(config)
-    with pytest.raises(ProviderError, match="may have gone through"):
+    with pytest.raises(ProvisionOutcomeUnknown, match="may have gone through"):  # the fleet watches for it
         await provider.provision(SPEC)
 
 
@@ -457,3 +478,32 @@ def test_no_secret_is_committed_with_the_plugin() -> None:
     if key:  # a real key in the environment must not appear in any plugin file
         assert key not in text
     assert "api_key:" not in (root / "src/ce_plugin_gpu_vast/plugin.yaml").read_text(encoding="utf-8")
+
+
+# ------------------------------------------------------------------ recovery (production cutover)
+async def test_instances_are_labeled_with_the_worker_and_listed_for_recovery() -> None:
+    fake = FakeVast()
+    provider = VastProvider(_config(fake, allow_paid=True))
+    worker_id = "01a11c3a-c666-7063-8902-5dfa6e48163d"
+    spec = SPEC.model_copy(update={"env": {**SPEC.env, "WORKER_ID": worker_id}})
+    first = await provider.provision(spec)
+    assert fake.bodies[-1]["label"] == f"ce-worker-{worker_id}"
+    second = await provider.provision(SPEC)  # no worker id: the old family label, never a worker match
+    fake.instances["999"] = {"id": 999, "actual_status": "running", "intended_status": "running", "label": "my-own-box"}
+    fake.instances["1000"] = {"id": 1000, "actual_status": "running", "intended_status": "running", "label": None}
+    listed = await provider.list_instances()  # four rows over two pages
+    assert {i.external_id for i in listed} == {first.external_id, second.external_id}  # never someone else's
+    by_id = {i.external_id: i for i in listed}
+    assert by_id[first.external_id].detail["worker_id"] == worker_id
+    assert by_id[second.external_id].detail["worker_id"] is None
+    assert [c for c in fake.calls if c[1] == "/api/v1/instances/"] == [("GET", "/api/v1/instances/")] * 2
+
+
+async def test_restart_reboots_in_place() -> None:
+    fake = FakeVast()
+    provider = VastProvider(_config(fake, allow_paid=True))
+    instance = await provider.provision(SPEC)
+    restarted = await provider.restart(instance.external_id)
+    assert ("PUT", f"/api/v0/instances/reboot/{instance.external_id}/") in fake.calls
+    assert not [c for c in fake.calls if c == ("PUT", f"/api/v0/instances/{instance.external_id}/")]  # no stop/start
+    assert restarted.state == "running"

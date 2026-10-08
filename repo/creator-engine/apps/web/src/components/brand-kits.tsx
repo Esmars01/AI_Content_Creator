@@ -15,35 +15,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Alert, Empty, Skeleton, Table, Td, Th } from "@/components/ui/misc";
-import { api, idempotencyKey, type Schemas, unwrap } from "@/lib/api";
+import { api, type Schemas, unwrap } from "@/lib/api";
 import { keys, useBrandKits, useCreateOptions } from "@/lib/queries";
+import { uploadAsset } from "@/lib/upload";
 import { useCan } from "@/lib/roles";
 
 type Kit = Schemas["BrandKitOut"];
 
 async function uploadLogo(file: File): Promise<string> {
-  const initiated = await unwrap(
-    api.POST("/v1/assets:initiate-upload", {
-      body: { filename: file.name, mime: file.type || "image/png", bytes: file.size, kind: "logo" },
-    }),
-  );
-  const plan = initiated.upload as {
-    part_size: number;
-    parts: { part_number: number; url: string; headers: Record<string, string> }[];
-  };
-  for (const part of plan.parts) {
-    const chunk = file.slice((part.part_number - 1) * plan.part_size, part.part_number * plan.part_size);
-    const put = await fetch(part.url, { method: "PUT", body: chunk, headers: part.headers });
-    if (!put.ok) throw new Error(`upload failed (${put.status})`);
-  }
-  await unwrap(
-    api.POST("/v1/assets/{asset_id}:complete", {
-      params: { path: { asset_id: initiated.asset_id } },
-      body: {},
-      headers: idempotencyKey(),
-    }),
-  );
-  return initiated.asset_id;
+  return (await uploadAsset(file, { kind: "logo" })).id;
 }
 
 const DEFAULT_PRIMARY = "#1a73e8";

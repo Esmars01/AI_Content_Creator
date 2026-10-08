@@ -42,7 +42,7 @@ async def _appearance(tenant: ApiTenant) -> tuple[str, str]:
 
 
 async def test_identity_pack_jobs_and_review(harness: ApiHarness, owner: ApiTenant) -> None:
-    face = await upload_asset(harness, owner, placeholder_png("face"), mime="image/png", kind="image")
+    face = await upload_asset(harness, owner, placeholder_png("face", 256, 256), mime="image/png", kind="image")
     started = _record_starts(harness)  # after the upload: its validation job must run
     _, look = await _appearance(owner)
     accepted = await owner.client.post(f"/v1/appearance-versions/{look}/identity-pack:generate", json={"candidates": 9})
@@ -59,8 +59,13 @@ async def test_identity_pack_jobs_and_review(harness: ApiHarness, owner: ApiTena
         f"/v1/appearance-versions/{look}/identity-pack:choose", json={"asset_id": str(uuid.uuid4())}
     )
     assert audio_like.status_code == 422
-    chosen = await owner.client.post(
+    unattested = await owner.client.post(  # an upload: the uploader must attest it is not a real person
         f"/v1/appearance-versions/{look}/identity-pack:choose", json={"asset_id": face["id"]}
+    )
+    assert unattested.status_code == 422 and unattested.json()["issues"][0]["code"] == "upload_attestation"
+    chosen = await owner.client.post(
+        f"/v1/appearance-versions/{look}/identity-pack:choose",
+        json={"asset_id": face["id"], "attestation": "not_a_real_person"},
     )
     assert chosen.status_code == 202 and started[-1][1]["args"] == {"mode": "expand"}
     async with harness.services.db.transaction() as session:  # what the expansion stage records

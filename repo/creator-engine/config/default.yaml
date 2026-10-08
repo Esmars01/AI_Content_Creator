@@ -31,6 +31,13 @@ uploads:
   allowed_media_types: [video/mp4, video/quicktime, video/webm, audio/wav, audio/x-wav, audio/mpeg, audio/flac, image/png, image/jpeg, image/webp, application/pdf, text/plain, text/markdown, application/vnd.openxmlformats-officedocument.wordprocessingml.document, text/html, text/vtt, application/x-subrip]
   ffprobe_timeout_s: 30            # §33: ffprobe runs in a subprocess with a timeout
   max_filename_length: 255
+  references:                      # an uploaded file used as a face, plate or voice reference
+    face_min_px: 256               # shorter side
+    plate_min_width_px: 640
+    plate_min_height_px: 360
+    voice_min_s: 5                 # zero-shot voice references: ~10 s of clean speech works best
+    voice_max_s: 60
+    voice_min_sample_rate: 16000
 storage:
   presign_ttl_s: 900
 events:
@@ -82,6 +89,9 @@ scheduler:                         # §25
     low_priority_max: 25           # held while BUDGET_DAILY_USD would be exceeded
     alert_cooldown_s: 3600
     worker_env: {}
+    worker_secret_refs: {}         # e.g. {HF_TOKEN: env:HF_TOKEN}: resolved when renting, passed to the instance's env
+    reconcile_interval_s: 120      # compare provisioned workers with their provider (gone, stopped outside, orphans)
+    reconcile_batch: 50
 build:                             # §12
   max_parallel_nodes: 6
   gpu_task_priority: 50

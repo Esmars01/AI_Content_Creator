@@ -9,6 +9,7 @@ a pin; `HF_TOKEN` is sent for gated repositories when set."""
 
 from __future__ import annotations
 
+import asyncio
 import fnmatch
 import os
 from collections.abc import Callable, Sequence
@@ -17,7 +18,7 @@ from typing import Any
 
 import httpx
 
-from ce_worker.model_cache import ModelCacheError, ModelFetchError, parse_uri
+from ce_worker.model_cache import FetchProgress, ModelCacheError, ModelFetchError, parse_uri
 
 __all__ = ["huggingface_fetcher", "matches", "s3_fetcher", "url_fetcher"]
 
@@ -32,34 +33,61 @@ def _client() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=httpx.Timeout(60.0, read=600.0), follow_redirects=True)
 
 
-async def _download(client: httpx.AsyncClient, url: str, target: Path, headers: dict[str, str]) -> None:
+async def _download(
+    client: httpx.AsyncClient,
+    url: str,
+    target: Path,
+    headers: dict[str, str],
+    progress: FetchProgress | None = None,
+    expected_size: int | None = None,
+) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_name(target.name + ".part")
+    written = 0
     async with client.stream("GET", url, headers=headers) as response:
         if response.status_code != 200:
             raise ModelFetchError(f"GET {url}: HTTP {response.status_code}")
         with tmp.open("wb") as out:
             async for chunk in response.aiter_bytes(1 << 20):
                 out.write(chunk)
+                written += len(chunk)
+                if progress is not None:
+                    progress.add(len(chunk))
+    if expected_size is not None and written != expected_size:
+        tmp.unlink(missing_ok=True)
+        raise ModelFetchError(f"GET {url}: {written} bytes, the listing said {expected_size} (interrupted)")
     os.replace(tmp, target)
+    if progress is not None:
+        progress.files_done += 1
 
 
 def huggingface_fetcher(
-    *, endpoint: str = "https://huggingface.co", token: str | None = None, client: ClientFactory = _client
+    *,
+    endpoint: str = "https://huggingface.co",
+    token: str | None = None,
+    client: ClientFactory = _client,
+    concurrency: int = 4,
 ) -> Any:
-    """`hf://org/repo@<commit>` → the snapshot's files matching the patterns."""
+    """`hf://org/repo@<commit>` → the snapshot's files matching the patterns, `concurrency` files at a
+    time (sharded checkpoints are several multi-GB files; one connection rarely fills the host's link)."""
 
-    async def fetch(uri: str, dest: Path, files: Sequence[str] = ()) -> None:
+    async def fetch(uri: str, dest: Path, files: Sequence[str] = (), *, progress: FetchProgress | None = None) -> None:
         scheme, rest, revision = parse_uri(uri)
         if scheme != "hf" or not revision:
             raise ModelCacheError(f"not a pinned Hugging Face URI: {uri}")
         repo = "/".join(rest.split("/")[:2])
         headers = {"Authorization": f"Bearer {token}"} if token else {}
         async with client() as http:
-            listing = await http.get(f"{endpoint}/api/models/{repo}/revision/{revision}", headers=headers)
+            # `blobs=true` adds each file's size and, for LFS objects, its sha256: the progress total,
+            # the free-disk check before anything is written, and a content check of every weight file
+            listing = await http.get(
+                f"{endpoint}/api/models/{repo}/revision/{revision}", params={"blobs": "true"}, headers=headers
+            )
             if listing.status_code != 200:
                 raise ModelFetchError(f"{repo}@{revision}: listing failed (HTTP {listing.status_code})")
-            names = [s["rfilename"] for s in listing.json().get("siblings", [])]
+            siblings = [s for s in listing.json().get("siblings", []) if isinstance(s, dict) and s.get("rfilename")]
+            names = [str(s["rfilename"]) for s in siblings]
+            by_name = {str(s["rfilename"]): s for s in siblings}
             wanted = [n for n in names if matches(n, files)]
             missing = [p for p in files if not any(fnmatch.fnmatch(n, p) for n in names)]
             if missing:
@@ -67,16 +95,39 @@ def huggingface_fetcher(
             for name in wanted:
                 if ".." in Path(name).parts:
                     raise ModelCacheError(f"{repo}: unsafe file name {name!r}")
-                await _download(http, f"{endpoint}/{repo}/resolve/{revision}/{name}", dest / name, headers)
+            sizes = {n: _size(by_name[n]) for n in wanted}
+            if progress is not None:
+                for name in wanted:
+                    lfs = by_name[name].get("lfs")
+                    if isinstance(lfs, dict) and isinstance(lfs.get("sha256"), str):
+                        progress.remote_sha256[name] = str(lfs["sha256"])
+                known = [v for v in sizes.values() if v is not None]
+                progress.expect(sum(known) if len(known) == len(wanted) else None, len(wanted))
+            # distinct files of one snapshot download side by side (each to its own `.part`, renamed when
+            # complete); hashing waits for all of them, off the event loop, in the cache
+            gate = asyncio.Semaphore(max(1, concurrency))
+
+            async def one(name: str) -> None:
+                async with gate:
+                    url = f"{endpoint}/{repo}/resolve/{revision}/{name}"
+                    await _download(http, url, dest / name, headers, progress, sizes[name])
+
+            await asyncio.gather(*(one(name) for name in wanted))
 
     return fetch
+
+
+def _size(sibling: dict[str, Any]) -> int | None:
+    lfs = sibling.get("lfs")
+    value = lfs.get("size") if isinstance(lfs, dict) else sibling.get("size")
+    return int(value) if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
 
 
 def url_fetcher(*, client: ClientFactory = _client) -> Any:
     """`url://host/path@<revision>` → `https://host/path` saved as the manifest's single file name
     (the cache insists on sha256 pins for this scheme)."""
 
-    async def fetch(uri: str, dest: Path, files: Sequence[str] = ()) -> None:
+    async def fetch(uri: str, dest: Path, files: Sequence[str] = (), *, progress: FetchProgress | None = None) -> None:
         scheme, rest, _ = parse_uri(uri)
         if scheme != "url":
             raise ModelCacheError(f"not a url:// URI: {uri}")
@@ -84,7 +135,7 @@ def url_fetcher(*, client: ClientFactory = _client) -> Any:
             raise ModelCacheError("a url:// source is a single file")
         name = files[0] if files else Path(rest).name
         async with client() as http:
-            await _download(http, f"https://{rest}", dest / name, {})
+            await _download(http, f"https://{rest}", dest / name, {}, progress)
 
     return fetch
 

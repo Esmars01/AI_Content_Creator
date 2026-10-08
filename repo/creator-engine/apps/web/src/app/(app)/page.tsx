@@ -10,7 +10,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Empty, LoadError, Progress, Skeleton, Table, Td, Th } from "@/components/ui/misc";
 import { api, unwrap } from "@/lib/api";
 import { humanize, when } from "@/lib/format";
-import { keys, useCreators, useJobs, useProjects } from "@/lib/queries";
+import { keys, useCreators, useJobs, useMe, useProjects } from "@/lib/queries";
+
+/** Mock wording only where mock GPU workers are actually registered (never in production). */
+function SpendNote() {
+  const environment = useMe().data?.environment;
+  if (!environment) return null;
+  if (environment.mock_gpu) return <>Mock mode: simulated GPU workers, no GPU is used and nothing is spent.</>;
+  return <>GPU work runs on the providers an administrator has enabled, within their budgets.</>;
+}
 
 function RecentVideos() {
   const projects = useProjects();
@@ -177,7 +185,7 @@ export default function DashboardPage() {
             <CardTitle>Spend and fleet</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-slate-700">
-            In mock mode no GPU is used and nothing is spent. Budgets, spend and the worker fleet are on the{" "}
+            <SpendNote /> Budgets, spend and the worker fleet are on the{" "}
             <Link className="text-blue-800 underline" href="/gpu">
               GPU
             </Link>{" "}

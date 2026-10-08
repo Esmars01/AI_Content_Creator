@@ -51,7 +51,7 @@ export default function CreatorsPage() {
               </tbody>
             </Table>
           ) : (
-            <Empty>No creators.</Empty>
+            <Empty>No creators yet — create your first creator below.</Empty>
           )}
         </CardContent>
       </Card>

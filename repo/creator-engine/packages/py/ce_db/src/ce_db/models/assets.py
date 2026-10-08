@@ -224,6 +224,13 @@ class GpuTask(TenantMixin, Base):
     # Phase 9 (migration 0002): a queued task the fleet holds back (daily budget, project or video
     # budget cap); leasing skips it until the hold is released (§25).
     held_reason: Mapped[str | None]
+    # Production cutover (migration 0007): the worker's last heartbeat report (phase: fetching_model,
+    # verifying_model, loading_model, generating, uploading; progress 0–1; bytes, speed, ETA in detail).
+    phase: Mapped[str | None]
+    progress: Mapped[float | None]
+    progress_message: Mapped[str | None]
+    progress_detail: Mapped[dict[str, Any]] = jsonb(default={})
+    progress_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     __table_args__ = (
         sa.UniqueConstraint("org_id", "id"),
         tenant_fk("node_id", "execution_nodes", ondelete="CASCADE"),

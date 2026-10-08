@@ -32,13 +32,14 @@ async def make_creator(tenant: ApiTenant) -> dict[str, Any]:
 async def approved_appearance(harness: ApiHarness, tenant: ApiTenant, creator_id: str) -> str:
     """An appearance version approved through the API, with recorded results written as the
     identity-pack workflow will write them (Phase 2 mock, Phase 7 real)."""
-    face = await upload_asset(harness, tenant, placeholder_png("face"), mime="image/png", kind="image")
+    face = await upload_asset(harness, tenant, placeholder_png("face", 256, 256), mime="image/png", kind="image")
     created = await tenant.client.post(
         f"/v1/creators/{creator_id}/appearances",
         json={
             "name": "Default",
             "dna": alex_appearance_dna().model_dump(mode="json"),
             "canonical_face_asset_id": face["id"],
+            "face_attestation": "not_a_real_person",
         },
     )
     assert created.status_code == 201, created.text
@@ -157,7 +158,7 @@ async def test_references_must_belong_to_the_creator(harness: ApiHarness, owner:
 
 async def test_low_age_estimates_block_appearance_approval(harness: ApiHarness, owner: ApiTenant) -> None:
     creator = await make_creator(owner)
-    face = await upload_asset(harness, owner, placeholder_png("young"), mime="image/png", kind="image")
+    face = await upload_asset(harness, owner, placeholder_png("young", 256, 256), mime="image/png", kind="image")
     created = (
         await owner.client.post(
             f"/v1/creators/{creator['id']}/appearances",
@@ -165,6 +166,7 @@ async def test_low_age_estimates_block_appearance_approval(harness: ApiHarness, 
                 "name": "Look",
                 "dna": alex_appearance_dna().model_dump(mode="json"),
                 "canonical_face_asset_id": face["id"],
+                "face_attestation": "not_a_real_person",
             },
         )
     ).json()

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, Skeleton } from "@/components/ui/misc";
 import { api, ApiError, unwrap } from "@/lib/api";
 import { humanize } from "@/lib/format";
+import { stageText } from "@/lib/gpu";
 
 export function errorText(error: unknown): string {
   if (error instanceof ApiError) {
@@ -99,10 +100,17 @@ export function JobLine({ status, job }: { status: string | null; job?: Record<s
   if (!status) return null;
   const error = job?.error as { message?: string } | undefined;
   const tone = status === "succeeded" ? "success" : status === "failed" ? "danger" : "info";
+  const active = status === "running" || status === "queued";
+  // where its GPU work is (waiting for a GPU, downloading the model, generating…), when it has some
+  const nodes = (job?.nodes as { gpu?: Record<string, unknown> | null }[] | undefined) ?? [];
+  const stage = typeof job?.stage === "string" ? job.stage : null;
+  const node = stage ? nodes.find((n) => n.gpu?.stage === stage) : undefined;
+  const detail = active ? (stageText(node?.gpu) ?? (job?.stage_label as string | undefined)) : undefined;
   return (
     <Alert tone={tone}>
       Job {humanize(status)}
-      {status === "running" || status === "queued" ? "…" : ""}
+      {detail ? `: ${detail}` : ""}
+      {active ? "…" : ""}
       {error?.message ? ` — ${error.message}` : ""}
     </Alert>
   );

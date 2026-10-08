@@ -11,7 +11,10 @@ entrypoint therefore reads plain environment variables:
   to one build variant's adapters;
 - `WORKER_NAME`, `WORKER_PROVIDER`, `WORKER_EXTERNAL_ID`, `WORKER_REGION`, `WORKER_GPU_TYPE`,
   `WORKER_VRAM_GB`, `WORKER_PRICE_PER_HOUR_USD`: what the worker reports when it registers;
-- `APP_ENV`, `MODEL_CACHE_DIR`, `HF_TOKEN`, `CE_ADAPTER_DEFAULTS`: as in the control plane (§35).
+- `APP_ENV`, `MODEL_CACHE_DIR`, `HF_TOKEN`, `CE_ADAPTER_DEFAULTS`: as in the control plane (§35);
+- `WORKER_PREPARE`: `all` or comma-separated model keys to fetch, verify and (unless
+  `WORKER_PREPARE_WARM=0`) load right after registering, so the first task finds them ready
+  (boot → register → check the cache → prepare the models → ready).
 
 It refuses to start in production with mock adapters (`MOCK_GPU=true`) and when no plugin of the
 family is installed, so a misbuilt image fails loudly instead of registering with nothing to run.
@@ -28,12 +31,13 @@ import shutil
 import subprocess
 import sys
 from collections.abc import Mapping
+from pathlib import Path
 
 from ce_contracts.plugins import PluginRegistry, discover
 
 from ce_worker.runtime import WorkerConfig, WorkerRuntime
 
-__all__ = ["config_from_env", "main", "startup_errors"]
+__all__ = ["config_from_env", "main", "prepare_from_env", "startup_errors"]
 
 _log = logging.getLogger("ce.worker")
 
@@ -77,7 +81,31 @@ def config_from_env(env: Mapping[str, str]) -> WorkerConfig:
         app_env=env.get("APP_ENV", "prod"),
         model_cache_dir=env.get("MODEL_CACHE_DIR", "/models"),
         adapter_defaults=json.loads(env.get("CE_ADAPTER_DEFAULTS", "{}") or "{}"),
+        credential_file=credential_file_from_env(env),
     )
+
+
+def credential_file_from_env(env: Mapping[str, str]) -> str | None:
+    """`WORKER_CREDENTIAL_FILE`, else, for a fleet-provisioned worker (`WORKER_ID`, one per instance and
+    family), `<MODEL_CACHE_DIR>/.ce-worker/<WORKER_ID>.json`; self-managed and compose workers store none
+    (replicas sharing a volume must not share one worker identity)."""
+    explicit = (env.get("WORKER_CREDENTIAL_FILE") or "").strip()
+    if explicit:
+        return explicit
+    worker_id = (env.get("WORKER_ID") or "").strip()
+    if not worker_id or not all(c.isalnum() or c == "-" for c in worker_id):
+        return None
+    return str(Path(env.get("MODEL_CACHE_DIR", "/models")) / ".ce-worker" / f"{worker_id}.json")
+
+
+def prepare_from_env(env: Mapping[str, str]) -> tuple[list[str] | None, bool] | None:
+    """`WORKER_PREPARE` → (model keys or None for all, warm); None when unset."""
+    value = (env.get("WORKER_PREPARE") or "").strip()
+    if not value:
+        return None
+    models = None if value.lower() == "all" else [k.strip() for k in value.split(",") if k.strip()]
+    warm = (env.get("WORKER_PREPARE_WARM") or "1").strip().lower() not in ("0", "false", "no", "off")
+    return models, warm
 
 
 def registry_from_env(env: Mapping[str, str]) -> PluginRegistry:
@@ -127,6 +155,16 @@ async def _run(env: Mapping[str, str]) -> int:
             await asyncio.sleep(2.0)
             if runtime.stopping.is_set():
                 return 0
+    removed = await asyncio.to_thread(runtime.cache.clean_staging)
+    if removed:
+        _log.info("removed %d abandoned staging directories", len(removed))
+    states = runtime.check_cache()
+    _log.info("model cache: %s", {k: v["state"] for k, v in states.items()} or "no fetchable models")
+    prepare = prepare_from_env(env)
+    if prepare is not None:
+        models, warm = prepare
+        runtime.prepare_seen = "boot"
+        runtime._prepare_task = asyncio.ensure_future(runtime._run_prepare(models, warm))
     _log.info("worker ready: family %s, adapters %s", env.get("WORKER_RUNTIME_FAMILY"), runtime.adapters)
     try:
         await runtime.run_forever()

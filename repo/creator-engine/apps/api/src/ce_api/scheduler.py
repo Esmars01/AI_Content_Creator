@@ -61,6 +61,8 @@ class SchedulerClient:
             raise ConflictError(detail or "conflict", issues=[Issue("fleet", detail)])
         if response.status_code == 422:
             raise InvalidInputError(detail or "invalid", issues=[Issue("fleet", detail)])
+        if response.status_code == 502:
+            raise UpstreamUnavailableError(detail or "the GPU provider failed")
         if response.status_code >= 400:
             raise UpstreamUnavailableError(f"the scheduler answered {response.status_code}: {detail}")
         return response.json() if response.content else None
@@ -84,4 +86,29 @@ class SchedulerClient:
 
     async def stop(self, worker_id: str, action: str) -> dict[str, Any]:
         result: dict[str, Any] = await self._call("POST", f"/workers/{worker_id}/stop", json={"action": action})
+        return result
+
+    async def worker_action(self, worker_id: str, action: str) -> dict[str, Any]:
+        """`start`, `restart` or `refresh` one worker."""
+        result: dict[str, Any] = await self._call("POST", f"/workers/{worker_id}/{action}")
+        return result
+
+    async def test_provider(self, key: str) -> dict[str, Any]:
+        result: dict[str, Any] = await self._call("POST", f"/providers/{key}/test")
+        return result
+
+    async def profiles(self) -> list[dict[str, Any]]:
+        return list(await self._call("GET", "/profiles"))
+
+    async def provision_profile(self, profile_id: str, provider: str, region: str | None) -> dict[str, Any]:
+        result: dict[str, Any] = await self._call(
+            "POST", f"/profiles/{profile_id}/provision", json={"provider": provider, "region": region}
+        )
+        return result
+
+    async def orphans(self) -> list[dict[str, Any]]:
+        return list(await self._call("GET", "/orphans"))
+
+    async def terminate_orphan(self, provider: str, external_id: str) -> dict[str, Any]:
+        result: dict[str, Any] = await self._call("POST", f"/orphans/{provider}/{external_id}/terminate")
         return result

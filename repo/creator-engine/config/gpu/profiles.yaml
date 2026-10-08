@@ -1,0 +1,41 @@
+# Model profiles (production cutover §13–§14): what one provisioned GPU instance serves, on which class,
+# and the disk it needs. The disk is computed from the plugin manifests' declared model sizes
+# (`ce_scheduler.profiles.size_profile`: models + staging headroom + scratch + image), never a fixed
+# 80 GB, and passed to the provider at provisioning (Vast `disk`).
+#
+# A colocated profile runs every component on one instance: the profile image
+# (`infra/docker/worker-profile-<image>.Dockerfile`) holds each variant's environment side by side and
+# `python -m ce_worker.multi` starts one worker per family. Right after boot each worker fetches,
+# verifies and loads its `prepare` models (WORKER_PREPARE), so the first job does not wait for them.
+#
+# Nothing here enables spending: provisioning a profile still needs an enabled provider whose paid
+# spending the owner approved, within its price ceiling and daily budget.
+profiles:
+  talking_head_a100_80gb:
+    label: Talking head — Chatterbox voice + InfiniteTalk avatar on one A100 80 GB
+    gpu_class: a100_80gb          # Vast `classes.a100_80gb` (A100 SXM4/PCIe, >= 79 GB per GPU)
+    vram_gb: 80
+    colocate: true
+    image: talking_head           # creator-engine/worker-profile:talking_head
+    components:
+      - family: wan
+        variant: infinitetalk
+        adapters: [infinitetalk]
+        prepare: [infinitetalk-single]
+      - family: tts
+        variant: chatterbox
+        adapters: [chatterbox_turbo, chatterbox_multilingual, chatterbox]
+        prepare: [chatterbox-turbo, chatterbox-multilingual-v3]
+        optional: [chatterbox-en]   # English base model: fetched on first use only
+    scratch_gb: 40                # avatar renders: frames, intermediates and the encoded outputs
+    image_gb: 35                  # estimate: two CUDA environments on the devel base (not measured: never built here)
+    staging_headroom: 0.15
+    regions: []
+    enabled: true
+    concurrency: 1                # one task per worker: InfiniteTalk alone recommends 48 GB of the 80
+    persistent_cache: recommended # a volume keeps ~94 GB of weights across terminate/re-provision (see the ops doc)
+    resident_together: true       # minimum VRAM 40 GB together; recommended 80 GB fills the class
+    prewarm: boot                 # fetch, verify and load at boot, before the first job
+    cold_start: >-
+      First boot on an empty disk downloads ~94 GB (declared sizes) and loads InfiniteTalk (manifest estimate
+      load_seconds 180) and Chatterbox (30 s each); with the cache on a kept disk or volume only the load remains.

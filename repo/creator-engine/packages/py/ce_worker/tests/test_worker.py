@@ -252,7 +252,7 @@ async def test_huggingface_fetcher_lists_the_pinned_revision_and_filters(tmp_pat
         "a.json",
         "w/x.bin",
     ]
-    assert seen[0].endswith("/api/models/org/repo/revision/c0ffee") and seen[1].endswith(
+    assert seen[0].endswith("/api/models/org/repo/revision/c0ffee?blobs=true") and seen[1].endswith(
         "/org/repo/resolve/c0ffee/a.json"
     )
     with pytest.raises(ModelCacheError, match="no files match"):
@@ -309,7 +309,7 @@ async def test_a_worker_shutdown_is_an_infrastructure_retry(tmp_path: Path) -> N
         async def heartbeat(self, body: Any) -> Any:
             await asyncio.sleep(3600)
 
-    async def load(adapter_id: str, metrics: Any = None) -> Any:
+    async def load(adapter_id: str, metrics: Any = None, on_phase: Any = None) -> Any:
         return Adapter()
 
     runtime._load = load  # type: ignore[method-assign]
@@ -360,9 +360,10 @@ async def test_a_worker_with_concurrency_runs_tasks_side_by_side_and_loads_once(
 
             if not queue:
                 runtime.stopping.set()
-                return SimpleNamespace(tasks=[])
+                return SimpleNamespace(tasks=[], commands=[])
             task_id = queue.pop(0)
             return SimpleNamespace(
+                commands=[],
                 tasks=[
                     LeasedTask(
                         task_id=task_id,
@@ -374,7 +375,7 @@ async def test_a_worker_with_concurrency_runs_tasks_side_by_side_and_loads_once(
                         request={},
                         lease_expires_at="now",
                     )
-                ]
+                ],
             )
 
         async def complete(self, body: Any) -> None:
@@ -386,7 +387,7 @@ async def test_a_worker_with_concurrency_runs_tasks_side_by_side_and_loads_once(
         async def heartbeat(self, body: Any) -> Any:
             await asyncio.sleep(3600)
 
-    async def load_locked(plugin: Any, adapter_: Any, adapter_id: str, metrics: Any) -> Any:
+    async def load_locked(plugin: Any, adapter_: Any, adapter_id: str, metrics: Any, on_phase: Any = None) -> Any:
         nonlocal loads
         if adapter_id not in runtime.loaded:
             loads += 1

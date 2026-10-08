@@ -139,13 +139,14 @@ SHA256:  cb1983c00bfe4c4151ba43c49d8e6263dc21d2f9c1ac01f7e97895915773e6df
 
 Documents (docs/):
   docs/DEMO.md  (4628 bytes)
-  docs/DEPLOYMENT.md  (8019 bytes)
+  docs/DEPLOYMENT.md  (8957 bytes)
   docs/FINAL_AUDIT_AND_FIX_REPORT.md  (41240 bytes)
   docs/GPU_READINESS_REPORT.md  (15065 bytes)
   docs/MASTER_BUILD_PROMPT_v2_CHANGELOG_private.md  (30601 bytes)
   docs/MASTER_BUILD_PROMPT_v2_private.md  (308706 bytes)
+  docs/PRODUCTION_MODEL_AND_GPU_OPERATIONS.md  (49088 bytes)
   docs/PRODUCT_LOGIC_AUDIT_REPORT.md  (81236 bytes)
-  docs/README.md  (13385 bytes)
+  docs/README.md  (13641 bytes)
   docs/SETUP.md  (12349 bytes)
   docs/progress/phase-0.md  (7009 bytes)
   docs/progress/phase-1.md  (9577 bytes)

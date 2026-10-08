@@ -20,6 +20,7 @@ pools:
     regions: [local]
     enabled: true
     autoscale: false   # compose starts `worker-cpu` (profile mock-gpu); the mock provider only simulates instances
+    mock: true         # dropped unless MOCK_GPU=true: production shows no simulated pool
   - id: cpu_local
     # Real CPU engines (Phase 7, `CPU_REAL_ENGINES`): Kokoro [dev only] and faster-whisper on the
     # statically started `worker-cpu`, which advertises them only when their assets are present.

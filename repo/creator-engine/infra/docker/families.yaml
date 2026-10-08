@@ -159,3 +159,11 @@ variants:
     adapters: [vlm_qwen36_35b_a3b, vlm_qwen38_27b]
     base: runtime_129
     torch: null # vLLM pins its own torch
+# ------------------------------------------------------------------ profiles (production cutover §14)
+# One GPU instance serving several variants of different families: each keeps its own environment (they
+# pin different torch stacks) and `ce_worker.multi` runs one worker per family. Rendered as
+# `worker-profile-<name>.Dockerfile` (image `creator-engine/worker-profile:<name>`); the fleet provisions it
+# for `config/gpu/profiles.yaml` entries with `colocate: true`.
+profiles:
+  talking_head:
+    components: [infinitetalk, chatterbox] # torch 2.4.1 (cu121) and 2.6.0 (cu124) side by side

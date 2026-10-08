@@ -98,11 +98,24 @@ class SpecConfig(Strict):
     require_memory_snapshots: bool = True
 
 
+class ReferenceUploadLimits(Strict):
+    """What an uploaded file needs before it can become an identity, voice or world reference
+    (checked against the validation probe; generated candidates are not affected)."""
+
+    face_min_px: PositiveInt = 256  # shorter side of a canonical face upload
+    plate_min_width_px: PositiveInt = 640
+    plate_min_height_px: PositiveInt = 360
+    voice_min_s: PositiveFloat = 5.0  # zero-shot TTS references: about 10 s works best
+    voice_max_s: PositiveFloat = 60.0
+    voice_min_sample_rate: PositiveInt = 16_000
+
+
 class UploadConfig(Strict):
     max_bytes: PositiveInt = 2 * 1024**3
     allowed_media_types: list[str] = Field(default_factory=list)
     ffprobe_timeout_s: PositiveInt = 30
     max_filename_length: PositiveInt = 255
+    references: ReferenceUploadLimits = Field(default_factory=ReferenceUploadLimits)
 
 
 class StorageConfig(Strict):
@@ -218,6 +231,18 @@ class FleetConfig(Strict):
         default_factory=dict,
         description="extra environment for provisioned workers (no secrets: those come from the provider)",
     )
+    worker_secret_refs: dict[str, str] = Field(
+        default_factory=dict,
+        description="environment variables for provisioned workers that are secrets, as references resolved "
+        "by the scheduler when renting (e.g. HF_TOKEN: env:HF_TOKEN for gated models); the provider receives "
+        "the value in the instance's environment",
+    )
+    reconcile_interval_s: PositiveFloat = Field(
+        default=120.0,
+        description="how often the leader compares every provisioned worker with its provider's view (gone, "
+        "stopped or failed outside the platform) and looks for instances it lost track of",
+    )
+    reconcile_batch: Annotated[int, Field(ge=1, le=1000)] = 50
 
 
 class SchedulerConfig(Strict):
@@ -1072,6 +1097,11 @@ class GpuPool(Strict):
     min_driver_version: str | None = Field(
         default=None, description="offers with an older NVIDIA driver are skipped (CUDA 12.8 images need >= 570, §36)"
     )
+    mock: bool = Field(
+        default=False,
+        description="a pool of simulated workers (mock provider): listed and used only with MOCK_GPU=true, so "
+        "production never shows simulated capacity",
+    )
 
 
 class GpuClass(Strict):
@@ -1081,6 +1111,64 @@ class GpuClass(Strict):
 class GpuPools(Strict):
     classes: dict[str, GpuClass] = Field(default_factory=dict)
     pools: list[GpuPool]
+
+
+class GpuProfileComponent(Strict):
+    family: RuntimeFamily
+    variant: str = Field(min_length=1, description="the family image variant (infra/docker/families.yaml)")
+    adapters: list[str] = Field(default_factory=list, description="default: every adapter of the variant")
+    prepare: list[str] = Field(
+        default_factory=list,
+        description="model keys fetched, verified and loaded right after boot (default: all of its adapters')",
+    )
+    optional: list[str] = Field(
+        default_factory=list,
+        description="model keys this component can serve but does not prepare at boot (fetched on first use)",
+    )
+
+
+class GpuProfile(Strict):
+    """A model profile (cutover §13–§14): which adapters one provisioned instance serves, on which GPU
+    class, and what disk it needs — computed from the plugin manifests (`ce_scheduler.profiles`)."""
+
+    label: str
+    gpu_class: str = Field(description="the provider's GPU class (e.g. a Vast `classes` entry)")
+    vram_gb: PositiveFloat = Field(description="VRAM of that class (the colocated components must fit)")
+    colocate: bool = Field(
+        default=True,
+        description="one instance runs every component (the profile image, `ce_worker.multi`); false: one "
+        "instance per component (its family image)",
+    )
+    image: str | None = Field(
+        default=None, description="profile image variant when colocated (infra/docker/families.yaml `profiles`)"
+    )
+    components: list[GpuProfileComponent] = Field(min_length=1)
+    scratch_gb: NonNegativeFloat = Field(default=30.0, description="room for inputs, intermediates and outputs")
+    image_gb: NonNegativeFloat = Field(default=30.0, description="estimated image size on the instance's disk")
+    staging_headroom: Annotated[float, Field(ge=0, le=2)] = Field(
+        default=0.15, description="extra share of the model bytes (a re-download beside the old copy, upgrades)"
+    )
+    min_disk_gb: NonNegativeFloat = 0.0
+    regions: list[str] = Field(default_factory=list)
+    enabled: bool = True
+    concurrency: Annotated[int, Field(ge=1, le=16)] = Field(
+        default=1, description="tasks each worker runs at once (one model per GPU memory budget)"
+    )
+    persistent_cache: Literal["required", "recommended", "none"] = Field(
+        default="recommended",
+        description="whether /models should live on persistent storage (a volume) rather than the container disk",
+    )
+    resident_together: bool = Field(
+        default=True, description="the prepared models stay loaded side by side (they fit the class's VRAM)"
+    )
+    prewarm: Literal["boot", "on_demand"] = Field(
+        default="boot", description="boot: prepare (fetch, verify, load) right after registering"
+    )
+    cold_start: str = Field(default="", description="what a cold start costs (download, load), for operators")
+
+
+class GpuProfiles(Strict):
+    profiles: dict[str, GpuProfile] = Field(default_factory=dict)
 
 
 class GpuVariant(Strict):

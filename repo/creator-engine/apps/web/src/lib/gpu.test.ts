@@ -56,3 +56,77 @@ describe("workers", () => {
     expect(holdLabel(null)).toBe("");
   });
 });
+
+describe("operations console", () => {
+  it("never shows a missing measurement as zero", async () => {
+    const { NOT_REPORTED, metric, telemetryFacts } = await import("./gpu");
+    expect(metric(undefined, " %")).toBe(NOT_REPORTED);
+    expect(metric(0, " %", 0)).toBe("0 %"); // a measured zero is a zero
+    const silent = telemetryFacts({ telemetry: {}, telemetry_at: null } as never);
+    expect(silent).toEqual([{ label: "Telemetry", value: NOT_REPORTED }]);
+    const partial = telemetryFacts({ telemetry: { gpu_util_pct: 87 }, telemetry_at: "2026-10-08T10:00:00Z" } as never);
+    expect(partial.find((f) => f.label === "GPU")?.value).toBe("87 %");
+    expect(partial.find((f) => f.label === "VRAM")?.value).toBe(NOT_REPORTED);
+    expect(partial.find((f) => f.label === "Disk")?.value).toBe(NOT_REPORTED);
+  });
+
+  it("ages timestamps and the provider's view", async () => {
+    const { ageText, providerText } = await import("./gpu");
+    const now = Date.parse("2026-10-08T10:10:00Z");
+    expect(ageText("2026-10-08T10:09:30Z", now)).toBe("30 s ago");
+    expect(ageText(null, now)).toBe("never");
+    expect(providerText({ provider_status: {}, provider_checked_at: null } as never)).toBe("not checked yet");
+  });
+
+  it("lists model states with failures first and download progress", async () => {
+    const { modelStates } = await import("./gpu");
+    const states = modelStates({
+      model_states: {
+        b: { state: "ready" },
+        a: { state: "downloading", bytes_done: 5e9, bytes_total: 20e9, speed_mbps: 250, eta_s: 60 },
+        c: { state: "failed", error: "checksum mismatch" },
+      },
+    } as never);
+    expect(states.map((s) => s.key)).toEqual(["c", "a", "b"]);
+    expect(states[1]?.detail).toBe("25 % of 20.0 GB · 250 MB/s · ETA 60 s");
+  });
+
+  it("offers loaded rows and free plugins, never a default", async () => {
+    const { provisionChoices } = await import("./gpu");
+    const choices = provisionChoices({
+      rows: [
+        { id: "r1", name: "Vast EU", kind: "vast", enabled: true, loaded: true, paid: true },
+        { id: "r2", name: "Off", kind: "runpod_pod", enabled: false, loaded: false, paid: true },
+      ],
+      registered: [
+        { key: "vast", name: "Vast", paid: true, mock: false },
+        { key: "local", name: "Local", paid: false, mock: false },
+        { key: "runpod_pod", name: "RunPod", paid: true, mock: false },
+      ],
+      skipped: {},
+    } as never);
+    expect(choices.map((c) => c.value)).toEqual(["row:r1", "key:local"]);
+    expect(choices[0]?.paid).toBe(true);
+    expect(provisionChoices(undefined)).toEqual([]);
+  });
+});
+
+describe("job stages", () => {
+  it("says where the GPU work is, with download progress", async () => {
+    const { stageText } = await import("./gpu");
+    expect(stageText(null)).toBeNull();
+    expect(
+      stageText({
+        stage: "downloading_model",
+        label: "Downloading the model",
+        bytes_done: 25e9,
+        bytes_total: 100e9,
+        eta_s: 30,
+      }),
+    ).toBe("Downloading the model — 25 % of 100.0 GB, ETA 30 s");
+    expect(stageText({ stage: "held", label: "Held by a budget", held_reason: "budget_daily" })).toBe(
+      "Held by a budget — low priority, daily budget",
+    );
+    expect(stageText({ stage: "waiting_for_gpu", label: "Waiting for a GPU" })).toBe("Waiting for a GPU");
+  });
+});

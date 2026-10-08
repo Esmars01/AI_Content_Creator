@@ -96,9 +96,11 @@ async def load_providers(
     overrides: Mapping[str, dict[str, Any]] | None = None,
     environ: Mapping[str, str] | None = None,
     previous: Mapping[str, FleetProvider] | None = None,
+    skipped: dict[str, str] | None = None,
 ) -> dict[str, FleetProvider]:
     """Builds every usable provider. A provider that fails to configure (bad reference, missing
-    setting) is skipped with a warning naming the reason — never the secret. With `previous`, a
+    setting) is skipped with a warning naming the reason — never the secret — also recorded in
+    `skipped` when given. With `previous`, a
     provider whose configuration did not change keeps its instance (and its in-flight state)."""
     registered = discover(app_env=app_env, include_mocks=include_mocks).providers("gpu")
     rows: dict[str, GpuProvider] = {}
@@ -131,6 +133,8 @@ async def load_providers(
             provider = create_gpu_provider(key, app_env=app_env, include_mocks=include_mocks, config=config)
         except Exception as exc:
             _log.warning("GPU provider skipped", provider=key, error=str(exc)[:300])
+            if skipped is not None:  # shown on the GPU console; the message never carries the secret
+                skipped[key] = str(exc)[:300]
             continue
         out[key] = FleetProvider(
             key=key,

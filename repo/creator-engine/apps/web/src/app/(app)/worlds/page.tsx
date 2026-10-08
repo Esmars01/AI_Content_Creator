@@ -51,7 +51,7 @@ export default function WorldsPage() {
               </tbody>
             </Table>
           ) : (
-            <Empty>No worlds.</Empty>
+            <Empty>No worlds yet — create a world, then generate or upload its plates in its studio.</Empty>
           )}
         </CardContent>
       </Card>

@@ -4,7 +4,8 @@ designed voice with default WPM), the wardrobe "grey hoodie", the world "Alex's 
 v1 with placeholder plates for cam_desk_front and cam_side_wide, and a few authored memory items.
 
 Idempotent: running it twice leaves one copy. Placeholder assets are recorded as such; no
-model produced them (rule 5).
+model produced them (rule 5). The org is flagged `is_demo`: production refuses to sign into it, and
+`ce data purge-demo` removes it with everything it holds.
 """
 
 from __future__ import annotations
@@ -101,7 +102,11 @@ def _placeholder_asset(item: PlaceholderObject) -> dict[str, Any]:
 
 async def seed_dev(session: AsyncSession, vocab: Vocabulary, password_hash: str | None = None) -> SeedResult:
     org = ALEX.ORG_ID
-    await _upsert(session, tenancy.Organization.__table__, [{"id": org, "name": "Dev Org", "plan": "dev"}])
+    await _upsert(
+        session, tenancy.Organization.__table__, [{"id": org, "name": "Dev Org", "plan": "dev", "is_demo": True}]
+    )
+    # An org seeded before the provenance flag existed is still the seed's (same fixed id).
+    await session.execute(sa.update(tenancy.Organization).where(tenancy.Organization.id == org).values(is_demo=True))
     await _upsert(
         session,
         tenancy.User.__table__,

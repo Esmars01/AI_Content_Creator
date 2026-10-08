@@ -201,8 +201,14 @@ migrate: .env ## Apply database migrations (alembic upgrade head on DATABASE_URL
 	@set -a; . ./.env; set +a; $(UV) run alembic -c packages/py/ce_db/alembic.ini upgrade head && echo "database migrated to head"
 
 .PHONY: seed
-seed: migrate ## Seed the dev org, admin, creator "Alex", wardrobe, world and memory (idempotent)
-	@set -a; . ./.env; set +a; $(UV) run ce storage init && $(UV) run ce seed dev
+seed: migrate ## Seed the demo dev org, admin, creator "Alex", wardrobe, world and memory (idempotent; dev/test only; SEED=0 skips)
+	@set -a; . ./.env; set +a; $(UV) run ce storage init && \
+	  if [ "$(SEED)" = "0" ]; then echo "SEED=0: demo seed skipped (empty database; ce admin bootstrap creates the first org)"; \
+	  else $(UV) run ce seed dev; fi
+
+.PHONY: purge-demo
+purge-demo: .env ## Report the demo (seed) data `ce data purge-demo` would delete; APPLY=1 deletes it
+	@set -a; . ./.env; set +a; $(UV) run ce data purge-demo $(if $(filter 1,$(APPLY)),--apply,)
 
 .PHONY: gen-schema
 gen-schema: ## Export JSON Schemas from the Pydantic models and generate the TypeScript model types

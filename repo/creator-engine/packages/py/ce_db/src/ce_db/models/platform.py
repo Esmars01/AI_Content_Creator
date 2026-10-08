@@ -101,6 +101,9 @@ class GpuProvider(Base):
     config: Mapped[dict[str, Any]] = jsonb(default={})
 
 
+WORKER_STATES = ("provisioning", "idle", "busy", "draining", "stopped", "failed", "terminated")
+
+
 class GpuWorker(Base):
     __tablename__ = "gpu_workers"
     id: Mapped[UUID] = pk()
@@ -127,9 +130,22 @@ class GpuWorker(Base):
     variant: Mapped[str | None]
     provisioned_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     registered_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    # Production cutover (migration 0007): operations and telemetry. `stopped` keeps the instance and
+    # its disk (startable again); `terminated` means the provider destroyed it. Telemetry values the
+    # worker did not report are absent, never 0.
+    telemetry: Mapped[dict[str, Any]] = jsonb(default={})
+    telemetry_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    provider_status: Mapped[dict[str, Any]] = jsonb(default={})
+    provider_checked_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
+    model_states: Mapped[dict[str, Any]] = jsonb(default={})
+    # an operator's prepare request (migration 0008): {id, models, warm, requested_by, requested_at, cancel}
+    prepare_request: Mapped[dict[str, Any]] = jsonb(default={})
+    last_error: Mapped[str | None]
+    current_task_id: Mapped[UUID | None]
+    terminated_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
     __table_args__ = (
         check_in("runtime_family", [f.value for f in RuntimeFamily]),
-        check_in("state", ("provisioning", "idle", "busy", "draining", "stopped", "failed")),
+        check_in("state", WORKER_STATES),
     )
 
 

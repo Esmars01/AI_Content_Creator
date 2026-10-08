@@ -21,6 +21,7 @@ __all__ = [
     "NoCapacityError",
     "ProviderError",
     "ProviderInstance",
+    "ProvisionOutcomeUnknown",
     "ProvisionSpec",
     "create_gpu_provider",
     "gpu_provider_keys",
@@ -37,6 +38,12 @@ class ProviderError(RuntimeError):
 
 class NoCapacityError(ProviderError):
     """The provider has no capacity for the requested GPU class and region (triggers provider fallback)."""
+
+
+class ProvisionOutcomeUnknown(ProviderError):
+    """A rental request whose outcome is unknown (a timeout or a server error after it was sent): the
+    instance may exist. The fleet keeps the worker row and watches for the instance (it is labeled with
+    the worker id) instead of renting another one."""
 
 
 class GPUOffer(_Model):
@@ -61,6 +68,12 @@ class ProvisionSpec(_Model):
     env: dict[str, str] = Field(default_factory=dict)
     volumes: list[str] = Field(default_factory=list)
     spot_ok: bool = False
+    disk_gb: float | None = Field(
+        default=None,
+        ge=0,
+        description="the container disk the instance needs (a model profile's computed size); providers that "
+        "size disks honor it, the others keep their own setting",
+    )
 
 
 class ProviderInstance(_Model):
@@ -105,6 +118,18 @@ class GPUProvider(abc.ABC):
 
     @abc.abstractmethod
     async def health(self) -> HealthStatus: ...
+
+    async def restart(self, external_id: str) -> ProviderInstance:
+        """Restarts the instance's container. The default stops and starts it; a provider that can
+        reboot in place (keeping the machine and its GPU) overrides this."""
+        await self.stop(external_id)
+        return await self.start(external_id)
+
+    async def list_instances(self) -> list[ProviderInstance]:
+        """The instances the platform created on this provider's account (labeled as the fleet's), for
+        recovery: adopting an instance whose id was never recorded and reporting orphans. Optional;
+        providers that cannot list raise `NotImplementedError` and are skipped."""
+        raise NotImplementedError
 
 
 def gpu_provider_keys(*, app_env: str | None, include_mocks: bool) -> list[str]:

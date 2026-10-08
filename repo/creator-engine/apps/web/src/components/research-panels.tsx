@@ -18,6 +18,7 @@ import { api, idempotencyKey, unwrap } from "@/lib/api";
 import { humanize, when } from "@/lib/format";
 import { claimAction, claimSummary, sourceStatus } from "@/lib/phase12";
 import { keys, useClaims, useSource, useSources } from "@/lib/queries";
+import { mimeOf, uploadAsset } from "@/lib/upload";
 import { useCan } from "@/lib/roles";
 
 const DOCUMENT_TYPES: Record<string, "pdf" | "doc" | "transcript" | "note"> = {
@@ -31,29 +32,9 @@ const DOCUMENT_TYPES: Record<string, "pdf" | "doc" | "transcript" | "note"> = {
 };
 
 async function uploadDocument(file: File): Promise<string> {
-  const mime = file.type || (file.name.endsWith(".srt") ? "application/x-subrip" : "text/plain");
-  const initiated = await unwrap(
-    api.POST("/v1/assets:initiate-upload", {
-      body: { filename: file.name, mime, bytes: file.size, kind: "document" },
-    }),
-  );
-  const plan = initiated.upload as {
-    part_size: number;
-    parts: { part_number: number; url: string; headers: Record<string, string> }[];
-  };
-  for (const part of plan.parts) {
-    const chunk = file.slice((part.part_number - 1) * plan.part_size, part.part_number * plan.part_size);
-    const put = await fetch(part.url, { method: "PUT", body: chunk, headers: part.headers });
-    if (!put.ok) throw new Error(`upload failed (${put.status})`);
-  }
-  await unwrap(
-    api.POST("/v1/assets/{asset_id}:complete", {
-      params: { path: { asset_id: initiated.asset_id } },
-      body: {},
-      headers: idempotencyKey(),
-    }),
-  );
-  return initiated.asset_id;
+  const mime = mimeOf(file, file.name.endsWith(".srt") ? "application/x-subrip" : "text/plain");
+  const typed = mime === file.type ? file : new File([file], file.name, { type: mime });
+  return (await uploadAsset(typed, { kind: "document" })).id;
 }
 
 function SourceFacts({ sourceId }: { sourceId: string }) {
