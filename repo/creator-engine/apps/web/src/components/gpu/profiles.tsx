@@ -65,6 +65,7 @@ function ProfileCard({ profile, providers }: { profile: Profile; providers: Sche
             <Th>Model</Th>
             <Th>Adapter</Th>
             <Th>Declared size</Th>
+            <Th>At boot</Th>
             <Th>Source at revision</Th>
             <Th>License</Th>
           </tr>
@@ -75,6 +76,7 @@ function ProfileCard({ profile, providers }: { profile: Profile; providers: Sche
               <Td className="font-mono text-xs">{m.key}</Td>
               <Td className="text-xs">{m.adapter}</Td>
               <Td>{m.declared_gb} GB (declared)</Td>
+              <Td className="text-xs">{m.required === false ? "optional (on first use)" : "prepared"}</Td>
               <Td className="font-mono text-xs">
                 {m.repo ?? "—"}@{m.revision ? m.revision.slice(0, 12) : "—"}
               </Td>
@@ -83,6 +85,12 @@ function ProfileCard({ profile, providers }: { profile: Profile; providers: Sche
           ))}
         </tbody>
       </Table>
+      <p className="text-xs text-slate-700">
+        {profile.concurrency ?? 1} task(s) per worker · cache on persistent storage: {profile.persistent_cache} ·{" "}
+        {profile.resident_together ? "models stay loaded together" : "models load on demand"} · prewarm:{" "}
+        {profile.prewarm === "boot" ? "at boot" : "on demand"}
+        {profile.cold_start ? ` · ${profile.cold_start}` : ""}
+      </p>
       {sizing.notes?.map((note) => (
         <p key={note} className="text-xs text-slate-600">
           {note}

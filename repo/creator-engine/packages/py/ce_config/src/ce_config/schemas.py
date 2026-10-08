@@ -1121,6 +1121,10 @@ class GpuProfileComponent(Strict):
         default_factory=list,
         description="model keys fetched, verified and loaded right after boot (default: all of its adapters')",
     )
+    optional: list[str] = Field(
+        default_factory=list,
+        description="model keys this component can serve but does not prepare at boot (fetched on first use)",
+    )
 
 
 class GpuProfile(Strict):
@@ -1147,6 +1151,20 @@ class GpuProfile(Strict):
     min_disk_gb: NonNegativeFloat = 0.0
     regions: list[str] = Field(default_factory=list)
     enabled: bool = True
+    concurrency: Annotated[int, Field(ge=1, le=16)] = Field(
+        default=1, description="tasks each worker runs at once (one model per GPU memory budget)"
+    )
+    persistent_cache: Literal["required", "recommended", "none"] = Field(
+        default="recommended",
+        description="whether /models should live on persistent storage (a volume) rather than the container disk",
+    )
+    resident_together: bool = Field(
+        default=True, description="the prepared models stay loaded side by side (they fit the class's VRAM)"
+    )
+    prewarm: Literal["boot", "on_demand"] = Field(
+        default="boot", description="boot: prepare (fetch, verify, load) right after registering"
+    )
+    cold_start: str = Field(default="", description="what a cold start costs (download, load), for operators")
 
 
 class GpuProfiles(Strict):

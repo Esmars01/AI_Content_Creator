@@ -309,10 +309,11 @@ class ProfileProvisionBody(Body):
 class ModelSizeOut(Out):
     key: str
     adapter: str
-    declared_gb: float
+    declared_gb: float = Field(description="the manifest's declared size (weights at the pin + dependencies)")
     repo: str | None = None
     revision: str | None = None
     license: str | None = None
+    required: bool = Field(default=True, description="prepared at boot; false: optional, fetched on first use")
 
 
 class ProfileSizingOut(Out):
@@ -340,6 +341,11 @@ class ProfileOut(Out):
     components: list[dict[str, Any]]
     regions: list[str] = Field(default_factory=list)
     enabled: bool
+    concurrency: int = 1
+    persistent_cache: str = "recommended"
+    resident_together: bool = True
+    prewarm: str = "boot"
+    cold_start: str = ""
     sizing: ProfileSizingOut
 
 

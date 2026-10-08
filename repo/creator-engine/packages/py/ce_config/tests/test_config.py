@@ -28,6 +28,8 @@ GOOD_PROD_ENV = {
     "LLM_PROVIDER": "anthropic",
     "PROVENANCE_MODE": "",
     "COOKIE_SECURE": "",
+    "SCHEDULER_PUBLIC_URL": "https://scheduler.example.com",
+    "S3_ENDPOINT_URL": "https://storage.example.com",
 }
 
 
@@ -295,3 +297,20 @@ def test_simulated_pools_are_flagged_mock() -> None:
         simulated = set(pool.providers) <= {"mock", "example_cloud"}
         assert pool.mock is simulated, pool.id
     assert [p.id for p in pools.pools if p.mock] == ["mock"]
+
+
+def test_production_warns_about_endpoints_a_rented_gpu_cannot_reach() -> None:
+    """Remote GPU workers dial out to the scheduler and the store's presigned URLs (cutover §16)."""
+    internal = load_effective(
+        CONFIG,
+        GOOD_PROD_ENV | {"SCHEDULER_PUBLIC_URL": "http://scheduler:8100", "S3_ENDPOINT_URL": "http://10.0.0.5:8333"},
+    )
+    warnings = {i.code for i in startup_issues(internal) if i.severity == "warning"}
+    assert warnings == {"scheduler_public_url", "s3_worker_endpoint_url"}
+    assert not [i for i in startup_issues(internal) if i.severity == "error"]  # a local GPU host is legitimate
+    public_worker_store = load_effective(
+        CONFIG,
+        GOOD_PROD_ENV
+        | {"S3_ENDPOINT_URL": "http://seaweedfs:8333", "S3_WORKER_ENDPOINT_URL": "https://s3.example.com"},
+    )
+    assert not [i for i in startup_issues(public_worker_store) if i.severity == "warning"]

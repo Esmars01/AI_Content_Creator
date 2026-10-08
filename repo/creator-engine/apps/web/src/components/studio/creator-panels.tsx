@@ -1156,6 +1156,9 @@ export function VoicePanel({ creatorId }: { creatorId: string }) {
           />
         </CardContent>
       </Card>
+      {voices.data && voices.data.length === 0 ? (
+        <Empty>No voices yet — design one above, or import a synthetic voice reference.</Empty>
+      ) : null}
       {(voices.data ?? []).map((voice) => (
         <VoiceCard key={voice.id} voiceId={voice.id} name={voice.name} />
       ))}

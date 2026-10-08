@@ -43,7 +43,14 @@ from ce_db import fleet as fleet_db
 from ce_db.models.assets import GpuTask, JobAttempt, Notification
 from ce_db.models.platform import GpuWorker, WorkerEnrollmentToken
 from ce_db.session import Database
-from ce_gpu.provider import GPUProvider, NoCapacityError, ProviderError, ProviderInstance, ProvisionSpec
+from ce_gpu.provider import (
+    GPUProvider,
+    NoCapacityError,
+    ProviderError,
+    ProviderInstance,
+    ProvisionOutcomeUnknown,
+    ProvisionSpec,
+)
 from ce_obs import get_logger
 from ce_obs.events import EventType
 from ce_obs.metrics import FLEET_DESIRED, FLEET_PROVISIONS, FLEET_SPEND
@@ -510,6 +517,11 @@ class FleetManager:
         )
         try:
             instance = await fp.provider.provision(spec)
+        except ProvisionOutcomeUnknown as exc:
+            await self._outcome_unknown([worker_id], str(exc))
+            self._note(log, f"{label}: outcome unknown, watching for the instance")
+            FLEET_PROVISIONS.labels(fp.key, "unknown").inc()
+            return None
         except NoCapacityError as exc:
             await self._discard(worker_id)
             self._note(log, f"{label}: no capacity")
@@ -586,6 +598,19 @@ class FleetManager:
             except (CredentialsError, KeyError) as exc:
                 _log.warning("worker secret not resolved", variable=name, error=str(exc)[:200])
         return out
+
+    async def _outcome_unknown(self, worker_ids: list[UUID], message: str) -> None:
+        """The rental may exist: keep the rows (provisioning, no instance id). The next sweep adopts the
+        instance by its label (`orphans`), or the provisioning timeout fails the rows when none appears;
+        meanwhile they count as provisioning, so the autoscaler does not rent a second one (§17)."""
+        async with self.db.transaction() as session:
+            await session.execute(
+                sa.update(GpuWorker)
+                .where(GpuWorker.id.in_(worker_ids))
+                .values(last_error=f"rental outcome unknown: {message[:240]}")
+            )
+        self._reconciled_at = None  # look for it on the next tick
+        _log.warning("rental outcome unknown; watching for the instance", workers=[str(w) for w in worker_ids])
 
     async def _discard(self, worker_id: UUID) -> None:
         """A provision the provider refused: nothing ran, nothing was charged."""
@@ -909,7 +934,8 @@ class FleetManager:
             "WORKER_VRAM_GB": str(profile.vram_gb),
             "WORKER_ID": str(rows[primary]),  # the instance's label (recovery)
             "WORKER_PROFILE": profile_id,
-            "WORKER_PREPARE_WARM": "1",
+            "WORKER_PREPARE_WARM": "1" if profile.prewarm == "boot" else "0",
+            "WORKER_CONCURRENCY": str(profile.concurrency),
             **self.worker_secrets(),
         }
         colocated = len(components) > 1 or (profile.colocate and profile.image)
@@ -922,7 +948,7 @@ class FleetManager:
                 "ID": str(rows[family]),
                 "NAME": f"{fp.key}-{str(rows[family])[:8]}-{family}",
                 "ADAPTERS": ",".join(adapters),
-                "PREPARE": ",".join(models) or "all",
+                "PREPARE": (",".join(models) or "all") if profile.prewarm == "boot" else "",
             }
             if colocated:
                 env["WORKER_COMPONENTS"] = ",".join(str(c.family) for c in components)
@@ -942,6 +968,11 @@ class FleetManager:
         label = f"{fp.key}/{profile.gpu_class}/{region}"
         try:
             instance = await fp.provider.provision(spec)
+        except ProvisionOutcomeUnknown as exc:
+            await self._outcome_unknown(list(rows.values()), str(exc))
+            attempts.append(f"{label}: outcome unknown, watching for the instance")
+            FLEET_PROVISIONS.labels(fp.key, "unknown").inc()
+            return None
         except (NoCapacityError, ProviderError) as exc:
             for worker_id in rows.values():
                 await self._discard(worker_id)

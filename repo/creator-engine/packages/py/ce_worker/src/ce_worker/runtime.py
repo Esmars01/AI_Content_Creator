@@ -189,7 +189,9 @@ def default_cache(root: str) -> ModelCache:
     cache.register_fetcher(
         "hf",
         huggingface_fetcher(
-            endpoint=os.environ.get("HF_ENDPOINT", "https://huggingface.co"), token=os.environ.get("HF_TOKEN") or None
+            endpoint=os.environ.get("HF_ENDPOINT", "https://huggingface.co"),
+            token=os.environ.get("HF_TOKEN") or None,
+            concurrency=int(os.environ.get("MODEL_FETCH_CONCURRENCY", "4") or 4),
         ),
     )
     cache.register_fetcher("url", url_fetcher())
@@ -388,6 +390,9 @@ class WorkerRuntime:
             }.values()
         )
         self._set_model_state(model_keys, "installed", size_bytes=size or None, verified=verified or None)
+        for key in model_keys:  # where it lives: the cache key and local path of the model itself
+            if key in paths:
+                self.model_states[key].update({"cache_key": key, "path": paths[key]})
         return paths
 
     async def prepare(self, models: list[str] | None = None, *, warm: bool = True) -> None:

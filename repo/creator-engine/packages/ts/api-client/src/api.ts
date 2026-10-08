@@ -7265,7 +7265,10 @@ export interface components {
         ModelSizeOut: {
             /** Adapter */
             adapter: string;
-            /** Declared Gb */
+            /**
+             * Declared Gb
+             * @description the manifest's declared size (weights at the pin + dependencies)
+             */
             declared_gb: number;
             /** Key */
             key: string;
@@ -7273,6 +7276,12 @@ export interface components {
             license?: string | null;
             /** Repo */
             repo?: string | null;
+            /**
+             * Required
+             * @description prepared at boot; false: optional, fetched on first use
+             * @default true
+             */
+            required: boolean;
             /** Revision */
             revision?: string | null;
         };
@@ -8062,12 +8071,22 @@ export interface components {
         };
         /** ProfileOut */
         ProfileOut: {
+            /**
+             * Cold Start
+             * @default
+             */
+            cold_start: string;
             /** Colocate */
             colocate: boolean;
             /** Components */
             components: {
                 [key: string]: unknown;
             }[];
+            /**
+             * Concurrency
+             * @default 1
+             */
+            concurrency: number;
             /** Enabled */
             enabled: boolean;
             /** Gpu Class */
@@ -8078,8 +8097,23 @@ export interface components {
             image?: string | null;
             /** Label */
             label: string;
+            /**
+             * Persistent Cache
+             * @default recommended
+             */
+            persistent_cache: string;
+            /**
+             * Prewarm
+             * @default boot
+             */
+            prewarm: string;
             /** Regions */
             regions?: string[];
+            /**
+             * Resident Together
+             * @default true
+             */
+            resident_together: boolean;
             sizing: components["schemas"]["ProfileSizingOut"];
             /** Vram Gb */
             vram_gb: number;

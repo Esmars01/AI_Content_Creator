@@ -79,6 +79,7 @@ export function metric(value: unknown, unit: string, digits = 1): string {
 }
 
 type Telemetry = {
+  uptime_s?: number;
   gpu_util_pct?: number;
   vram_used_gb?: number;
   vram_total_gb?: number;
@@ -104,12 +105,19 @@ export function telemetryFacts(worker: Pick<Worker, "telemetry" | "telemetry_at"
     typeof t.cache?.size_gb === "number"
       ? `${t.cache.size_gb.toFixed(1)} GB, ${t.cache.entries ?? 0} entries`
       : NOT_REPORTED;
+  const uptime =
+    typeof t.uptime_s === "number"
+      ? t.uptime_s < 3600
+        ? `${Math.round(t.uptime_s / 60)} min`
+        : `${(t.uptime_s / 3600).toFixed(1)} h`
+      : NOT_REPORTED;
   return [
     { label: "GPU", value: metric(t.gpu_util_pct, " %", 0) },
     { label: "VRAM", value: vram },
     { label: "Temp", value: metric(t.gpu_temp_c, " °C", 0) },
     { label: "Disk", value: disk },
     { label: "Model cache", value: cache },
+    { label: "Worker uptime", value: uptime },
   ];
 }
 
@@ -161,6 +169,8 @@ export function modelStates(worker: Pick<Worker, "model_states">): ModelState[] 
       if (typeof s.speed_mbps === "number") parts.push(`${s.speed_mbps.toFixed(0)} MB/s`);
       if (typeof s.eta_s === "number") parts.push(`ETA ${Math.round(s.eta_s)} s`);
       if (typeof s.error === "string") parts.push(s.error);
+      if (typeof s.note === "string") parts.push(s.note);
+      if (typeof s.path === "string" && (s.state === "installed" || s.state === "ready")) parts.push(`at ${s.path}`);
       return { key, state: String(s.state ?? "unknown"), detail: parts.join(" · ") };
     })
     .sort(
@@ -195,4 +205,17 @@ export function stageText(gpu: Record<string, unknown> | null | undefined): stri
   if (typeof gpu.eta_s === "number") parts.push(`ETA ${Math.round(gpu.eta_s)} s`);
   if (typeof gpu.held_reason === "string") parts.push(holdLabel(gpu.held_reason));
   return parts.length ? `${label} — ${parts.join(", ")}` : label;
+}
+
+/** What a live worker has cost since it was provisioned, at the price captured from its provider —
+ * an estimate (the provider's own bill is the truth); null when it is not running or has no price. */
+export function accruedText(
+  worker: Pick<Worker, "state" | "price_per_hour_usd" | "provisioned_at">,
+  now: number = Date.now(),
+): string | null {
+  const price = Number(worker.price_per_hour_usd);
+  if (!["provisioning", "idle", "busy", "draining"].includes(worker.state) || !price || !worker.provisioned_at)
+    return null;
+  const hours = Math.max(0, now - Date.parse(worker.provisioned_at)) / 3_600_000;
+  return `≈ ${(price * hours).toFixed(2)} USD since provisioned (estimate at the captured price)`;
 }

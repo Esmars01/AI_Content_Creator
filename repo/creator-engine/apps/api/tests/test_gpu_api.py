@@ -344,9 +344,10 @@ async def test_operators_prepare_models_and_see_profiles(
     assert profiles.status_code == 200, profiles.text
     th = next(p for p in profiles.json() if p["id"] == "talking_head_a100_80gb")
     assert th["sizing"]["disk_gb"] == 190 and th["sizing"]["disk_gb"] > 80
-    assert {m["key"] for m in th["sizing"]["models"]} == {
-        "infinitetalk-single", "chatterbox-turbo", "chatterbox-multilingual-v3",
-    }  # fmt: skip
+    required = {m["key"] for m in th["sizing"]["models"] if m["required"]}
+    assert required == {"infinitetalk-single", "chatterbox-turbo", "chatterbox-multilingual-v3"}
+    assert [m["key"] for m in th["sizing"]["models"] if not m["required"]] == ["chatterbox-en"]
+    assert th["prewarm"] == "boot" and th["persistent_cache"] == "recommended"
     assert all(m["revision"] for m in th["sizing"]["models"])
     assert (await owner.client.get("/v1/admin/gpu/profiles")).status_code == 403
     # the simulated provider has no A100: nothing is rented, and the attempt says why

@@ -60,7 +60,7 @@ export default function ProjectsPage() {
                 </tbody>
               </Table>
             ) : (
-              <Empty>No projects yet.</Empty>
+              <Empty>No projects yet — create one to start making videos.</Empty>
             )}
           </CardContent>
         </Card>

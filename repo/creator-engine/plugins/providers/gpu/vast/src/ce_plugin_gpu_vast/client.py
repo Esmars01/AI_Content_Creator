@@ -25,7 +25,7 @@ import re
 from typing import Any
 
 import httpx
-from ce_gpu.provider import NoCapacityError, ProviderError
+from ce_gpu.provider import NoCapacityError, ProviderError, ProvisionOutcomeUnknown
 
 __all__ = ["DEFAULT_BASE_URL", "OfferUnavailableError", "VastClient", "api_key_from"]
 
@@ -93,8 +93,12 @@ class VastClient:
             try:
                 response = await http.request(method, path, json=json, params=params)
             except httpx.TimeoutException:
-                hint = " (the rental may have gone through: check the account before retrying)" if rental else ""
-                raise ProviderError(f"Vast {method} {path}: timeout{hint}") from None
+                if rental:
+                    raise ProvisionOutcomeUnknown(
+                        f"Vast {method} {path}: timeout (the rental may have gone through: check the account "
+                        "before retrying)"
+                    ) from None
+                raise ProviderError(f"Vast {method} {path}: timeout") from None
             except httpx.HTTPError as exc:
                 raise ProviderError(f"Vast {method} {path}: {type(exc).__name__}") from None
         status = response.status_code
@@ -104,6 +108,8 @@ class VastClient:
             message = _api_message(response)
             if status < 500 and _UNAVAILABLE.search(message):
                 raise OfferUnavailableError(f"Vast {method} {path}: offer not available ({status}): {message}")
+            if rental and status >= 500:
+                raise ProvisionOutcomeUnknown(f"Vast {method} {path}: HTTP {status} (the rental may have gone through)")
             raise ProviderError(f"Vast {method} {path}: HTTP {status}: {message}")
         if not response.content:
             return None

@@ -24,10 +24,18 @@ profiles:
         prepare: [infinitetalk-single]
       - family: tts
         variant: chatterbox
-        adapters: [chatterbox_turbo, chatterbox_multilingual]
+        adapters: [chatterbox_turbo, chatterbox_multilingual, chatterbox]
         prepare: [chatterbox-turbo, chatterbox-multilingual-v3]
+        optional: [chatterbox-en]   # English base model: fetched on first use only
     scratch_gb: 40                # avatar renders: frames, intermediates and the encoded outputs
     image_gb: 35                  # estimate: two CUDA environments on the devel base (not measured: never built here)
     staging_headroom: 0.15
     regions: []
     enabled: true
+    concurrency: 1                # one task per worker: InfiniteTalk alone recommends 48 GB of the 80
+    persistent_cache: recommended # a volume keeps ~94 GB of weights across terminate/re-provision (see the ops doc)
+    resident_together: true       # minimum VRAM 40 GB together; recommended 80 GB fills the class
+    prewarm: boot                 # fetch, verify and load at boot, before the first job
+    cold_start: >-
+      First boot on an empty disk downloads ~94 GB (declared sizes) and loads InfiniteTalk (manifest estimate
+      load_seconds 180) and Chatterbox (30 s each); with the cache on a kept disk or volume only the load remains.

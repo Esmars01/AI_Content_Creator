@@ -9204,6 +9204,7 @@
             "type": "string"
           },
           "declared_gb": {
+            "description": "the manifest's declared size (weights at the pin + dependencies)",
             "title": "Declared Gb",
             "type": "number"
           },
@@ -9232,6 +9233,12 @@
               }
             ],
             "title": "Repo"
+          },
+          "required": {
+            "default": true,
+            "description": "prepared at boot; false: optional, fetched on first use",
+            "title": "Required",
+            "type": "boolean"
           },
           "revision": {
             "anyOf": [
@@ -11201,6 +11208,11 @@
       },
       "ProfileOut": {
         "properties": {
+          "cold_start": {
+            "default": "",
+            "title": "Cold Start",
+            "type": "string"
+          },
           "colocate": {
             "title": "Colocate",
             "type": "boolean"
@@ -11212,6 +11224,11 @@
             },
             "title": "Components",
             "type": "array"
+          },
+          "concurrency": {
+            "default": 1,
+            "title": "Concurrency",
+            "type": "integer"
           },
           "enabled": {
             "title": "Enabled",
@@ -11240,12 +11257,27 @@
             "title": "Label",
             "type": "string"
           },
+          "persistent_cache": {
+            "default": "recommended",
+            "title": "Persistent Cache",
+            "type": "string"
+          },
+          "prewarm": {
+            "default": "boot",
+            "title": "Prewarm",
+            "type": "string"
+          },
           "regions": {
             "items": {
               "type": "string"
             },
             "title": "Regions",
             "type": "array"
+          },
+          "resident_together": {
+            "default": true,
+            "title": "Resident Together",
+            "type": "boolean"
           },
           "sizing": {
             "$ref": "#/components/schemas/ProfileSizingOut"

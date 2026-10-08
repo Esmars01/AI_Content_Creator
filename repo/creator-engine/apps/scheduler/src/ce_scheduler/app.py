@@ -119,8 +119,10 @@ class LazyTemporalCompleter:
 
 
 def _worker_storage(effective: EffectiveConfig) -> StorageProvider:
-    """Presigned URLs for workers use the internal endpoint (the public one is for browsers)."""
-    settings = effective.settings.model_copy(update={"s3_public_endpoint_url": None})
+    """Presigned URLs for workers: S3_WORKER_ENDPOINT_URL when set (remote GPU hosts cannot reach a
+    compose-internal store), else the internal endpoint (the public one is for browsers)."""
+    worker_url = effective.settings.s3_worker_endpoint_url
+    settings = effective.settings.model_copy(update={"s3_public_endpoint_url": worker_url or None})
     return create_storage(settings)
 
 

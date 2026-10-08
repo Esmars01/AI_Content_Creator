@@ -21,6 +21,7 @@ __all__ = [
     "NoCapacityError",
     "ProviderError",
     "ProviderInstance",
+    "ProvisionOutcomeUnknown",
     "ProvisionSpec",
     "create_gpu_provider",
     "gpu_provider_keys",
@@ -37,6 +38,12 @@ class ProviderError(RuntimeError):
 
 class NoCapacityError(ProviderError):
     """The provider has no capacity for the requested GPU class and region (triggers provider fallback)."""
+
+
+class ProvisionOutcomeUnknown(ProviderError):
+    """A rental request whose outcome is unknown (a timeout or a server error after it was sent): the
+    instance may exist. The fleet keeps the worker row and watches for the instance (it is labeled with
+    the worker id) instead of renting another one."""
 
 
 class GPUOffer(_Model):

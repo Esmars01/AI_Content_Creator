@@ -839,3 +839,32 @@ async def test_prepare_requests_reach_the_worker_and_cancel_follows(db: Database
         )
     status = await sched.status(worker, StatusBody(prepare_seen="r1"))
     assert [c.kind for c in status.commands] == ["cancel_prepare"]
+
+
+async def test_a_rental_with_an_unknown_outcome_is_adopted_not_rented_twice(db: Database) -> None:
+    from ce_gpu.provider import ProvisionOutcomeUnknown
+
+    class TimesOut(ListingMock):
+        async def provision(self, spec: ProvisionSpec) -> Any:
+            await super().provision(spec)  # the rental went through…
+            raise ProvisionOutcomeUnknown("timeout (the rental may have gone through)")  # …but the answer was lost
+
+    clock = Clock()
+    provider = TimesOut({"classes": {"mock_gpu": {"vram_gb": 96, "price_per_hour_usd": 0.5}}, "regions": ["local"]})
+    fleet = _fleet(db, {"mock": provider}, clock=clock, pools=[_pool(max=1)])
+    async with db.transaction() as session:  # mock instance ids restart per provider: retire earlier rows
+        await session.execute(sa.update(GpuWorker).values(state="terminated"))
+    await _task(db)
+    decision = (await fleet.tick())[0]
+    assert decision.provisioned == [] and "outcome unknown" in decision.attempts[-1]
+    async with db.session() as session:
+        (row,) = (
+            await session.execute(
+                sa.select(GpuWorker).where(GpuWorker.state == "provisioning", GpuWorker.pool_id == "sim")
+            )
+        ).scalars()
+    assert row.external_id is None and "outcome unknown" in (row.last_error or "")
+    assert len(provider.instances) == 1
+    await fleet.tick()  # the sweep adopts the labeled instance; the provisioning row keeps the pool full
+    assert len(provider.instances) == 1  # never a second rental
+    assert (await _worker(db, row.id)).external_id == next(iter(provider.instances))

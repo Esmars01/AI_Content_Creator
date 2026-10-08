@@ -13,6 +13,7 @@ import { Alert, Empty, Skeleton, Table, Tabs, Td, Th } from "@/components/ui/mis
 import { api, ApiError, unwrap } from "@/lib/api";
 import { humanize, usd } from "@/lib/format";
 import {
+  accruedText,
   ageText,
   coldStart,
   modelStates,
@@ -151,9 +152,9 @@ export function Workers({ admin }: { admin: boolean }) {
             <thead>
               <tr>
                 <Th>Worker</Th>
-                <Th>State</Th>
+                <Th>Scheduler state</Th>
                 <Th>GPU and price</Th>
-                <Th>Telemetry</Th>
+                <Th>Worker telemetry</Th>
                 <Th>Models</Th>
                 <Th>Heartbeat</Th>
                 {admin ? <Th>Actions</Th> : null}
@@ -168,7 +169,7 @@ export function Workers({ admin }: { admin: boolean }) {
                       {w.provider_kind ?? "self-managed"} · {humanize(w.runtime_family)}
                       {w.variant ? `:${w.variant}` : ""} · {w.pool_id ?? "no pool"}
                     </div>
-                    <div className="text-xs text-slate-600">Provider: {providerText(w)}</div>
+                    <div className="text-xs text-slate-600">Provider view: {providerText(w)}</div>
                   </Td>
                   <Td>
                     <StateBadge state={w.state} />
@@ -181,6 +182,7 @@ export function Workers({ admin }: { admin: boolean }) {
                       {w.region ? ` · ${w.region}` : ""}
                     </div>
                     <div>{usd(w.price_per_hour_usd)}/h</div>
+                    {accruedText(w) ? <div>{accruedText(w)}</div> : null}
                     <div>Cold start: {coldStart(w)}</div>
                   </Td>
                   <Td className="text-xs">

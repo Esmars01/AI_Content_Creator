@@ -39,6 +39,7 @@ class ModelSize:
     repo: str | None
     revision: str | None
     license: str | None
+    required: bool = True  # prepared at boot; False: optional, fetched on first use (counted in the disk)
 
 
 @dataclass
@@ -86,6 +87,7 @@ def size_profile(
     for component in profile.components:
         adapters = component_adapters(component, variants)
         wanted = component_models(component, manifests, adapters)
+        optional = [k for k in component.optional if k not in wanted]
         found = set()
         for adapter in adapters:
             manifest = manifests.get(adapter)
@@ -94,9 +96,9 @@ def size_profile(
                 continue
             loads = False
             for decl in manifest.models:
-                if decl.key in wanted:
+                if decl.key in wanted or decl.key in optional:
                     found.add(decl.key)
-                    loads = True
+                    loads = loads or decl.key in wanted
                     source = decl.source
                     models.append(
                         ModelSize(
@@ -106,12 +108,13 @@ def size_profile(
                             repo=getattr(source, "repo", None),
                             revision=getattr(source, "revision", None),
                             license=decl.license.name if decl.license is not None else None,
+                            required=decl.key in wanted,
                         )
                     )
             if loads:  # warmed at boot: loaded at the same time as the others on this instance
                 vram_min += float(manifest.runtime.min_vram_gb or 0.0)
                 vram_rec += float(manifest.runtime.recommended_vram_gb or manifest.runtime.min_vram_gb or 0.0)
-        missing += [f"model {k}" for k in wanted if k not in found]
+        missing += [f"model {k}" for k in [*wanted, *optional] if k not in found]
     models_gb = round(sum(m.declared_gb for m in models), 2)
     staging_gb = round(models_gb * profile.staging_headroom, 2)
     total = models_gb + staging_gb + profile.scratch_gb + profile.image_gb

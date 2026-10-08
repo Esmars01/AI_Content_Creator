@@ -12,7 +12,13 @@ from typing import Any
 
 import httpx
 import pytest
-from ce_gpu.provider import NoCapacityError, ProviderError, ProvisionSpec, create_gpu_provider
+from ce_gpu.provider import (
+    NoCapacityError,
+    ProviderError,
+    ProvisionOutcomeUnknown,
+    ProvisionSpec,
+    create_gpu_provider,
+)
 from ce_plugin_gpu_vast.client import OfferUnavailableError, VastClient, api_key_from
 from ce_plugin_gpu_vast.common import VastConfig, country_code, driver_version, offer_price, offer_vram_gb
 from ce_plugin_gpu_vast.provider import VastProvider, instance_body, state_of
@@ -402,7 +408,7 @@ async def test_a_timeout_on_a_rental_says_it_may_have_gone_through() -> None:
         "image_template": "img:{variant}",
     }
     provider = VastProvider(config)
-    with pytest.raises(ProviderError, match="may have gone through"):
+    with pytest.raises(ProvisionOutcomeUnknown, match="may have gone through"):  # the fleet watches for it
         await provider.provision(SPEC)
 
 

@@ -9,6 +9,7 @@ a pin; `HF_TOKEN` is sent for gated repositories when set."""
 
 from __future__ import annotations
 
+import asyncio
 import fnmatch
 import os
 from collections.abc import Callable, Sequence
@@ -61,9 +62,14 @@ async def _download(
 
 
 def huggingface_fetcher(
-    *, endpoint: str = "https://huggingface.co", token: str | None = None, client: ClientFactory = _client
+    *,
+    endpoint: str = "https://huggingface.co",
+    token: str | None = None,
+    client: ClientFactory = _client,
+    concurrency: int = 4,
 ) -> Any:
-    """`hf://org/repo@<commit>` → the snapshot's files matching the patterns."""
+    """`hf://org/repo@<commit>` → the snapshot's files matching the patterns, `concurrency` files at a
+    time (sharded checkpoints are several multi-GB files; one connection rarely fills the host's link)."""
 
     async def fetch(uri: str, dest: Path, files: Sequence[str] = (), *, progress: FetchProgress | None = None) -> None:
         scheme, rest, revision = parse_uri(uri)
@@ -97,10 +103,16 @@ def huggingface_fetcher(
                         progress.remote_sha256[name] = str(lfs["sha256"])
                 known = [v for v in sizes.values() if v is not None]
                 progress.expect(sum(known) if len(known) == len(wanted) else None, len(wanted))
-            for name in wanted:
-                await _download(
-                    http, f"{endpoint}/{repo}/resolve/{revision}/{name}", dest / name, headers, progress, sizes[name]
-                )
+            # distinct files of one snapshot download side by side (each to its own `.part`, renamed when
+            # complete); hashing waits for all of them, off the event loop, in the cache
+            gate = asyncio.Semaphore(max(1, concurrency))
+
+            async def one(name: str) -> None:
+                async with gate:
+                    url = f"{endpoint}/{repo}/resolve/{revision}/{name}"
+                    await _download(http, url, dest / name, headers, progress, sizes[name])
+
+            await asyncio.gather(*(one(name) for name in wanted))
 
     return fetch
 
